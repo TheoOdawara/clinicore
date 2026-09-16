@@ -1,0 +1,22 @@
+{
+	"name": "clinicore-api",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bun --watch src/server.ts",
+		"check": "biome check --error-on-warnings .",
+		"typecheck": "tsc --noEmit",
+		"build": "bun build src/server.ts --target bun --outdir dist",
+		"test": "env -u CLAUDECODE bun test"
+	},
+	"dependencies": {
+		"@elysiajs/openapi": "1.4.16",
+		"@sinclair/typebox": "0.34.52",
+		"elysia": "1.4.30"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.13",
+		"@types/bun": "1.4.2",
+		"typescript": "7.0.2"
+	}
+}

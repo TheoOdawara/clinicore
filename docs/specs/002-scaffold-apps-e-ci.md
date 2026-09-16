@@ -74,6 +74,11 @@ Análise estática e formato → tipos → build → testes. Cada um sai com có
 - `apps/api/src/server.ts` monta os plugins, registra os controllers e escuta. Não tem handler inline.
 - O handler do health check vive em `apps/api/src/features/health/controller/health.controller.ts`. Não
   tem service nem repository, porque não tem regra.
+- **A documentação da API é o `@elysiajs/openapi`**, montado no `server.ts` no modo baseado em schema: o
+  documento sai em runtime dos schemas TypeBox declarados nas rotas. O `fromTypes` do plugin nunca é
+  usado — ele depende da API programática do compilador, que o TypeScript 7.0 não tem. O
+  `@elysiajs/swagger` parou na 1.3.1 e não tem versão para o Elysia 1.4: foi renomeado para
+  `@elysiajs/openapi` na 1.3.
 - `apps/web/src/main.tsx` monta o React e o router. Não tem rota inline.
 - **Verificação:** revisão do pull request, não cenário automatizado. É uma regra de organização de
   arquivos, sem resultado observável em runtime — o Cenário 1 prova que o health check responde, não
@@ -81,8 +86,16 @@ Análise estática e formato → tipos → build → testes. Cada um sai com có
 
 ### 4. Toda variável de ambiente é obrigatória e validada no boot
 
-- **A API** lê o ambiente em um único módulo, `apps/api/src/core/config/env.ts`, com schema TypeBox.
-  Nenhum outro arquivo lê `process.env`, `Bun.env` ou equivalente.
+- **A API** lê o ambiente em um único módulo, `apps/api/src/core/config/`, dividido em dois arquivos,
+  com schema TypeBox:
+  - `env-schema.ts` exporta o schema e `parseEnv(source: Record<string, string | undefined>)` — **função
+    pura, testada**;
+  - `env.ts` chama `parseEnv(Bun.env)`, escreve em `stderr` e sai com `1` quando a chamada lança, e
+    exporta `env` — **uma responsabilidade, sem teste próprio**, coberta pelo Cenário 2.
+
+  A divisão é a mesma do web e existe pela mesma razão: `env.ts` valida no import, e um teste de função
+  pura não pode depender do ambiente do runner para carregar. **`env.ts` é o único arquivo do app que lê
+  `Bun.env`**; nenhum outro lê `process.env`, `Bun.env` ou equivalente.
 - **O web** lê em um único módulo, `apps/web/src/shared/env/`, dividido em dois arquivos:
   - `env-schema.ts` exporta o schema Zod e `parseEnv(source: Record<string, unknown>)` — **função pura,
     testada**;
@@ -276,7 +289,7 @@ E o mesmo vale na direção inversa, removendo `apps/api`
 
 | # | Issue | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- | --- |
-| 1 | #57 | Create apps/api with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `biome.json`, `src/server.ts`, `src/core/config/env.ts`, `src/features/health/` com controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
+| 1 | #57 | Create apps/api with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `biome.json`, `src/server.ts`, `src/core/config/` com `env-schema.ts` e `env.ts`, `src/features/health/` com controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
 | 2 | #58 | Add the development Postgres and the Prisma client to apps/api | `apps/api/compose.yaml`, `prisma/schema.prisma`, `src/core/db/prisma.ts` e `src/core/db/__tests__` | Cenário 4 verde; `prisma generate` e `tsc --noEmit` saem com código 0 | #57 |
 | 3 | #59 | Create apps/web with green gates and the root route | `apps/web`: `package.json`, `vite.config.ts`, `tsconfig.json`, `biome.json`, `jest.config.ts`, `src/main.tsx`, `src/routes/`, `src/styles/`, `src/shared/env/` com `__tests__` | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
 | 4 | #60 | Add the CI workflow for pull requests to develop and main | `.github/workflows/ci.yml` | Cenários 6, 7 e 8 verdes, observados em um pull request real | #57, #58, #59 |

@@ -24,23 +24,25 @@ contrato HTTP.
 | Auth | Better Auth 1.7 | cliente do Better Auth |
 | Fila e agendamento | pg-boss 12, no próprio Postgres | — |
 | E-mail | Nodemailer pelo SMTP da Resend, em todos os ambientes | — |
+| Log | Pino 10, JSON em stdout, com `redact` | — |
 | Testes | `bun test` | Jest 30 · `@swc/jest` · jsdom · Testing Library |
 
 **Fora da stack, por decisão:** Redis, RabbitMQ e qualquer camada de cache; Axios; Kysely ou outro
 query builder; tipos gerados a partir do OpenAPI; Eden Treaty (exige importar o tipo do servidor, e
-os apps não compartilham código).
+os apps não compartilham código); `@bogeychan/elysia-logger` e qualquer outro plugin de log de
+terceiro — o Elysia não tem um oficial, e os dois hooks que o plugin usa são escritos aqui.
 
 ## Comandos
 
-**Nenhum gate existe ainda: `apps/api` e `apps/web` não foram criados.** A ferramenta de cada gate já
-está decidida; a invocação exata entra aqui quando o app nascer, depois de rodar.
+**`apps/web` ainda não foi criado.** A ferramenta de cada gate já está decidida; a invocação exata
+entra aqui quando o app nascer, depois de rodar. Cada comando roda de dentro do diretório do seu app.
 
 | Gate | `apps/api` | `apps/web` |
 |---|---|---|
-| Análise estática e formato | Biome | Biome |
-| Tipos | `tsc` sem emitir | `tsc` sem emitir |
-| Build | Bun | Vite |
-| Testes | `bun test` | Jest |
+| Análise estática e formato | `bun run check` | Biome |
+| Tipos | `bun run typecheck` | `tsc` sem emitir |
+| Build | `bun run build` | Vite |
+| Testes | `bun run test` | Jest |
 
 ## Arquitetura
 
@@ -55,7 +57,7 @@ apps/
 │       ├── server.ts        entrada HTTP
 │       ├── worker.ts        entrada da fila
 │       ├── common/          dto, errors, types compartilhados
-│       ├── core/            config, db, mail, queue
+│       ├── core/            config, db, logger, mail, queue
 │       └── features/<feature>/
 │           ├── controller/<feature>.controller.ts
 │           ├── service/<feature>.service.ts
@@ -108,6 +110,13 @@ credenciais, o Better Auth declara a mesma origem em `trustedOrigins`, e o web c
   `{ code, message, fields }`. Erro desconhecido vira 500 sem detalhe.
 - **A `message` da API é inglês e é texto de desenvolvedor**, para log e depuração. O que o usuário lê
   é escrito no web, a partir do `code`.
+- **Log:** `core/logger/` cria a instância do Pino e o plugin de requisição, que se pluga nos hooks
+  `onAfterResponse` e `onError` do Elysia — não existe plugin oficial e não entra um de terceiro. O
+  nível vem de `LOG_LEVEL`, obrigatória como toda variável. **O `/health` não é logado**, porque quem o
+  chama é o orquestrador, a cada poucos segundos. **Nada de segredo sai no log:** header de
+  autorização, cookie, senha e connection string passam pelo `redact` do Pino. O Pino escreve em
+  `stdout`; o erro de ambiente do boot continua indo cru para `stderr`, antes de existir logger.
+  **Nasce na #3**, junto do `onError` global — é o primeiro código com erro de verdade para registrar.
 - **Fila:** `core/queue/` conecta o pg-boss ao Postgres; o service enfileira por ele; o job fica em
   `features/<feature>/job/` e chama o service, como o controller faz. **O worker é um processo
   separado** (`worker.ts`), com o seu próprio container.
@@ -182,3 +191,7 @@ Verificadas em 2026-09-15 contra as versões desta stack, antes de existir códi
   isolamento de testes que compartilham o banco.
 - **A Resend sem domínio verificado só entrega no e-mail da própria conta**, com cota grátis de 100 por
   dia dividida entre dev e homolog.
+- **`Value.Convert` do TypeBox arredonda em silêncio.** `PORT=3333.5` contra um `Type.Integer` vira
+  `3333` e passa na validação. Onde a coerção importa, a conversão é explícita, não pela biblioteca.
+- **O Biome com `vcs.useIgnoreFile` procura o `.gitignore` na pasta onde está o `biome.json`**, não na
+  raiz do repositório, e aborta a execução inteira se não achar. Cada app tem o seu.
