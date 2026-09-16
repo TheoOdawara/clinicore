@@ -32,15 +32,15 @@ os apps não compartilham código).
 
 ## Comandos
 
-**Nenhum gate existe ainda: `apps/api` e `apps/web` não foram criados.** A ferramenta de cada gate já
-está decidida; a invocação exata entra aqui quando o app nascer, depois de rodar.
+**`apps/web` ainda não foi criado.** A ferramenta de cada gate já está decidida; a invocação exata
+entra aqui quando o app nascer, depois de rodar. Cada comando roda de dentro do diretório do seu app.
 
 | Gate | `apps/api` | `apps/web` |
 |---|---|---|
-| Análise estática e formato | Biome | Biome |
-| Tipos | `tsc` sem emitir | `tsc` sem emitir |
-| Build | Bun | Vite |
-| Testes | `bun test` | Jest |
+| Análise estática e formato | `bun run check` | Biome |
+| Tipos | `bun run typecheck` | `tsc` sem emitir |
+| Build | `bun run build` | Vite |
+| Testes | `bun run test` | Jest |
 
 ## Arquitetura
 
@@ -182,3 +182,7 @@ Verificadas em 2026-09-15 contra as versões desta stack, antes de existir códi
   isolamento de testes que compartilham o banco.
 - **A Resend sem domínio verificado só entrega no e-mail da própria conta**, com cota grátis de 100 por
   dia dividida entre dev e homolog.
+- **`Value.Convert` do TypeBox arredonda em silêncio.** `PORT=3333.5` contra um `Type.Integer` vira
+  `3333` e passa na validação. Onde a coerção importa, a conversão é explícita, não pela biblioteca.
+- **O Biome com `vcs.useIgnoreFile` procura o `.gitignore` na pasta onde está o `biome.json`**, não na
+  raiz do repositório, e aborta a execução inteira se não achar. Cada app tem o seu.
