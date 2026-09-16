@@ -1,0 +1,33 @@
+{
+	"name": "clinicore-web",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"check": "biome check --error-on-warnings .",
+		"typecheck": "tsc --noEmit",
+		"build": "vite build",
+		"preview": "vite preview",
+		"test": "jest"
+	},
+	"dependencies": {
+		"@tanstack/react-router": "1.170.36",
+		"react": "19.3.0",
+		"react-dom": "19.3.0",
+		"zod": "4.6.5"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.13",
+		"@swc/jest": "0.2.39",
+		"@tailwindcss/vite": "4.3.3",
+		"@tanstack/router-plugin": "1.168.38",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
+		"@vitejs/plugin-react": "6.1.1",
+		"jest": "30.5.1",
+		"jest-environment-jsdom": "30.5.1",
+		"tailwindcss": "4.3.3",
+		"typescript": "7.0.2",
+		"vite": "8.3.0"
+	}
+}

@@ -34,15 +34,18 @@ terceiro — o Elysia não tem um oficial, e os dois hooks que o plugin usa são
 
 ## Comandos
 
-**`apps/web` ainda não foi criado.** A ferramenta de cada gate já está decidida; a invocação exata
-entra aqui quando o app nascer, depois de rodar. Cada comando roda de dentro do diretório do seu app.
+Cada comando roda de dentro do diretório do seu app.
 
 | Gate | `apps/api` | `apps/web` |
 |---|---|---|
-| Análise estática e formato | `bun run check` | Biome |
-| Tipos | `bun run typecheck` | `tsc` sem emitir |
-| Build | `bun run build` | Vite |
-| Testes | `bun run test` | Jest |
+| Análise estática e formato | `bun run check` | `bun run check` |
+| Tipos | `bun run typecheck` | `bun run typecheck` |
+| Build | `bun run build` | `bun run build` |
+| Testes | `bun run test` | `bun run test` |
+
+O gate de tipos do web exige o `src/routeTree.gen.ts`, gerado pelo plugin do TanStack Router. Ele é
+commitado, então só um `src/routes/` alterado sem `vite build` ou `vite dev` desde a alteração deixa o
+`tsc` olhando para uma árvore velha.
 
 ## Arquitetura
 
@@ -74,6 +77,7 @@ apps/
         │   ├── components/
         │   ├── hooks/
         │   └── __tests__/
+        ├── styles/          globals.css é manifesto; regra por concern em arquivo próprio
         └── shared/          UI base, http, env — sem regra de negócio
 compose.yaml                 stack inteira: web, api, worker e Postgres
 docs/
