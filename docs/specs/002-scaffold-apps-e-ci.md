@@ -216,15 +216,20 @@ E a mensagem contém `VITE_API_URL: expected an absolute URL with no trailing sl
 E o valor recebido não aparece na mensagem
 ```
 
-### Cenário 4 — O client do Prisma conecta no Postgres do compose (caminho feliz)
+### Cenário 4 — O client do Prisma alcança o Postgres do compose (caminho feliz)
 
 ```gherkin
 Dado o Postgres do `apps/api/compose.yaml` de pé
 E a variável `DATABASE_URL` apontando para ele
-Quando o client do Prisma executa `$connect()`
+Quando o client do Prisma abre uma transação vazia
 Então a chamada completa sem lançar
-E `$disconnect()` completa sem lançar
+E com o container parado a mesma chamada falha com `ECONNREFUSED`
 ```
+
+**Não é `$connect()`.** Com driver adapter o `$connect()` não abre conexão: ele resolve igual com o
+Postgres desligado, medido nesta stack. Um cenário que passa com a dependência fora do ar não é
+critério de aceite. A transação vazia é API do Prisma — sem raw SQL e sem `model` — e é o menor
+caminho que faz ida e volta de verdade até o servidor.
 
 ### Cenário 5 — A tela inicial do web renderiza com Tailwind aplicado (caminho feliz)
 
