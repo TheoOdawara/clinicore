@@ -12,4 +12,4 @@ new Elysia()
 		}),
 	)
 	.use(healthController)
-	.listen(env.PORT);
+	.listen({ port: env.PORT });
