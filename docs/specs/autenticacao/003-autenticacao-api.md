@@ -1,11 +1,11 @@
 # 003 — Autenticar e manter sessão (API)
 
-> **Status:** fechada
+> **Status:** publicada
 > **Perfil:** API
 > **Módulo:** `apps/api`
 > **Epic:** #1 — Plataforma
 > **Issue:** #3
-> **Spec irmã:** `docs/specs/003-autenticacao-web.md` (perfil UI)
+> **Spec irmã:** `docs/specs/autenticacao/003-autenticacao-web.md` (perfil UI)
 
 ## Acceptance Criteria
 
@@ -592,7 +592,12 @@ são desta entrega. A `message` é inglês, texto de desenvolvedor. `PASSWORD_TO
 
 Todos os cenários batem na API real com o Postgres real, no padrão da spec `002`: subprocesso do
 `server.ts` e `fetch`, como em `apps/api/src/__tests__/boot.test.ts`. Não se faz mock de Prisma nem do
-Better Auth. O transport de e-mail é o único substituído, para que o teste conte os envios.
+Better Auth. Duas fronteiras externas são substituídas, e nenhuma outra: o transport de e-mail, para
+que o teste conte os envios, e a chamada HTTP ao token endpoint do Google,
+`https://oauth2.googleapis.com/token`, trocada no processo da API por um `--preload` do teste que
+responde com um `id_token` montado pelo próprio teste. No callback, o Better Auth lê esse `id_token`
+com `decodeJwt`, sem verificar assinatura — a confiança é o TLS da troca do `code` —, e a chamada sai
+pelo `globalThis.fetch`. Os dois comportamentos foram verificados no código do Better Auth 1.7.5.
 
 ### Cenário 1 — Cadastro cria o usuário e envia o link (caminho feliz)
 
@@ -700,9 +705,12 @@ E `Clinica#2026` é aceita nas três
 
 ```gherkin
 Dado um usuário verificado com `email = "ana@exemplo.com"` e uma linha em `account` com `providerId = "credential"`
-Quando o mesmo e-mail conclui o fluxo do provedor Google
-Então continua existindo exatamente uma linha em `user` com esse e-mail
-E passa a existir uma segunda linha em `account` com `providerId = "google"` e o mesmo `userId`
+E o token endpoint do Google substituído, respondendo com um `id_token` de `sub = "google-ana"`, `email = "ana@exemplo.com"` e `email_verified = true`
+Quando é enviado `POST /api/auth/sign-in/social` com `provider` igual a `google` e `callbackURL` igual a `http://localhost:3000/app`
+E é feita a requisição `GET /api/auth/callback/google` com o `state` da URL de autorização, um `code` qualquer e o cookie do `state`
+Então o sistema responde `302` para `http://localhost:3000/app`, com o cookie de sessão
+E continua existindo exatamente uma linha em `user` com esse e-mail
+E passa a existir uma segunda linha em `account` com `providerId = "google"`, `accountId = "google-ana"` e o mesmo `userId`
 E entrar com a senha original continua funcionando
 ```
 
@@ -954,14 +962,14 @@ E `redirectTo` igual ao caminho relativo `/reset-password` é aceito
 
 ## Quebra em Tasks
 
-| # | Título | Escopo | Critério de aceite | Depende de |
-| --- | --- | --- | --- | --- |
-| 1 | Add the authentication environment, the logger and the global error handler to apps/api | `core/config/env-schema.ts` e `env.ts` com as 12 variáveis, `core/logger/` com o plugin de Pino, `onError` global em `core/`, `src/__tests__/boot.test.ts` atualizado, `.github/workflows/ci.yml` com as variáveis novas | Cenários 24, 25 e 26 verdes, sem a linha do worker no 26; os quatro gates da API saem com código 0 | — |
-| 2 | Authenticate with email and password through Better Auth | `core/auth/` com `prismaAdapter` em `transaction: true`, `features/auth/password-policy.ts` e o `hooks.before` de senha, CORS em `server.ts`, migration `add_better_auth`, `features/auth/repository/session.repository.ts` e o `databaseHooks` de sessão, step `prisma migrate deploy` no CI | Cenários 6, 7, 8, 9, 20, 21 e 27 verdes | 1 |
-| 3 | Send the verification and the reset emails with a per-address limit | `core/mail/` e os dois templates, `requireEmailVerification`, `sendOnSignIn`, `sendResetPassword`, migration `add_email_dispatch`, `features/auth/repository/email-dispatch.repository.ts` e as duas guardas da regra 15, separadas pelo caminho do request | Cenários 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 30 e 31 verdes | 2 |
-| 4 | Sign in with Google and link it to the existing account | `socialProviders.google`, `account.accountLinking` e `storeStateStrategy: "cookie"` em `core/auth/` | Cenários 10 e 11 verdes | 2 |
-| 5 | Rate-limit the authentication routes by trusted client IP | `rateLimit` com `customRules` e `advanced.ipAddress.trustedProxies` em `core/auth/` | Cenários 22 e 23 verdes | 2 |
-| 6 | Change the password of the signed-in user | `change-password` com `revokeOtherSessions`, coberto pelo hook de política da task 2 | Cenário 19 verde | 2 |
-| 7 | Purge expired authentication records daily in a worker | `core/queue/` com pg-boss, `src/worker.ts`, script `worker`, `features/auth/job/purge-expired-auth-records.job.ts`, service e repositories da limpeza | Cenários 28 e 29 verdes; linha do worker no Cenário 26 verde | 3, 5 |
+| # | Issue | Título | Escopo | Critério de aceite | Depende de |
+| --- | --- | --- | --- | --- | --- |
+| 1 | #65 | Add the authentication environment, the logger and the global error handler to apps/api | `core/config/env-schema.ts` e `env.ts` com as 12 variáveis, `core/logger/` com o plugin de Pino, `onError` global em `core/`, `src/__tests__/boot.test.ts` atualizado, `.github/workflows/ci.yml` com as variáveis novas | Cenários 25 e 26 verdes, sem a linha do worker no 26; os quatro gates da API saem com código 0 | — |
+| 2 | #66 | Authenticate with email and password through Better Auth | `core/auth/` com `prismaAdapter` em `transaction: true`, `features/auth/password-policy.ts` e o `hooks.before` de senha, CORS em `server.ts`, migration `add_better_auth`, `features/auth/repository/session.repository.ts` e o `databaseHooks` de sessão, step `prisma migrate deploy` no CI | Cenários 6, 7, 8, 9, 20, 21, 24 e 27 verdes | #65 |
+| 3 | #67 | Send the verification and the reset emails with a per-address limit | `core/mail/` e os dois templates, `requireEmailVerification`, `sendOnSignIn`, `sendResetPassword`, migration `add_email_dispatch`, `features/auth/repository/email-dispatch.repository.ts` e as duas guardas da regra 15, separadas pelo caminho do request | Cenários 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 30 e 31 verdes | #66 |
+| 4 | #68 | Sign in with Google and link it to the existing account | `socialProviders.google`, `account.accountLinking` e `storeStateStrategy: "cookie"` em `core/auth/`, e o `--preload` de teste que substitui o token endpoint do Google | Cenários 10 e 11 verdes | #66 |
+| 5 | #69 | Rate-limit the authentication routes by trusted client IP | `rateLimit` com `customRules` e `advanced.ipAddress.trustedProxies` em `core/auth/` | Cenários 22 e 23 verdes | #66 |
+| 6 | #70 | Change the password of the signed-in user | `change-password` com `revokeOtherSessions`, coberto pelo hook de política da task 2 | Cenário 19 verde | #66 |
+| 7 | #71 | Purge expired authentication records daily in a worker | `core/queue/` com pg-boss, `src/worker.ts`, script `worker`, `features/auth/job/purge-expired-auth-records.job.ts`, service e repositories da limpeza | Cenários 28 e 29 verdes; linha do worker no Cenário 26 verde | #67, #69 |
 
-As tasks 8, 9 e 10, do `apps/web`, estão na spec irmã `docs/specs/003-autenticacao-web.md`.
+As tasks 8, 9 e 10, do `apps/web`, estão na spec irmã `docs/specs/autenticacao/003-autenticacao-web.md`.

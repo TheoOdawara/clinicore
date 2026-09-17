@@ -5,7 +5,7 @@
 > **Módulo:** `apps/web`
 > **Epic:** #1 — Plataforma
 > **Issue:** #3
-> **Spec irmã:** `docs/specs/003-autenticacao-api.md` (perfil API)
+> **Spec irmã:** `docs/specs/autenticacao/003-autenticacao-api.md` (perfil API)
 
 ## Acceptance Criteria
 
@@ -557,7 +557,7 @@ Sem campo. Exibe `user.name` e `user.email` da sessão.
 
 ## Quebra em Tasks
 
-A numeração continua a da spec irmã, `docs/specs/003-autenticacao-api.md`, que fica com as tasks 1 a 7.
+A numeração continua a da spec irmã, `docs/specs/autenticacao/003-autenticacao-api.md`, que fica com as tasks 1 a 7.
 
 | # | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- |
