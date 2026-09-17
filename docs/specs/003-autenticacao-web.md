@@ -94,6 +94,10 @@ da guarda ao tentar abrir uma tela da aplicação sem sessão.
 
 - O cliente do Better Auth é criado uma vez em `shared/auth/`, com
   `baseURL: env.VITE_API_URL` e `fetchOptions: { credentials: "include" }`.
+- **Toda URL de redirecionamento enviada à API é absoluta**, montada como
+  `${window.location.origin}/<caminho>`. Um caminho relativo é resolvido pelo browser contra o host
+  da API, porque é a API que redireciona, e o usuário cairia fora do web. Isso vale para
+  `callbackURL`, `errorCallbackURL` e `redirectTo`.
 - `shared/http/` centraliza qualquer `fetch` que não passe pelo cliente do Better Auth, também com
   `credentials: "include"`.
 - **O JavaScript nunca lê o cookie de sessão** — ele é `httpOnly`. Quem diz se há sessão é
@@ -129,8 +133,6 @@ genérica, e a resposta original é registrada no console para depuração.
 | `INVALID_EMAIL_OR_PASSWORD` | "E-mail ou senha incorretos." |
 | `EMAIL_NOT_VERIFIED` | "Confirme seu e-mail antes de entrar. Confira sua caixa de entrada ou peça um novo link." |
 | `WEAK_PASSWORD` | "A senha precisa ter no mínimo 8 caracteres, com uma letra maiúscula, um número e um caractere especial." |
-| `PASSWORD_TOO_SHORT` | "A senha precisa ter no mínimo 8 caracteres, com uma letra maiúscula, um número e um caractere especial." |
-| `PASSWORD_TOO_LONG` | "A senha pode ter no máximo 128 caracteres." |
 | `INVALID_TOKEN` | "Este link expirou ou já foi usado. Peça um novo." |
 | `TOKEN_EXPIRED` | "Este link expirou ou já foi usado. Peça um novo." |
 | `INVALID_PASSWORD` | "Senha atual incorreta." |
@@ -244,6 +246,7 @@ Dado um visitante em `/login`
 E que a API responde o login com sucesso
 Quando ele preenche e-mail e senha e aciona `Entrar`
 Então o formulário é submetido uma única vez
+E o cliente é chamado com `callbackURL` igual a `${window.location.origin}/verify-email`
 E o usuário é levado para `/app`
 E `/app` exibe o nome e o e-mail devolvidos pela sessão
 ```
@@ -276,7 +279,7 @@ E o usuário é levado para `/verify-email` com o e-mail digitado no estado da n
 Dado um visitante em `/signup`
 E que a API responde `200` com `token` nulo
 Quando ele aciona `Criar conta`
-Então o cliente é chamado com `callbackURL` igual a `/verify-email`
+Então o cliente é chamado com `callbackURL` igual a `${window.location.origin}/verify-email`
 E a tela exibe "Enviamos um link de confirmação para {e-mail}." com o e-mail digitado
 E o usuário é levado para `/verify-email`
 E o componente não recebe nenhuma informação que distinga um e-mail novo de um já cadastrado
@@ -368,7 +371,7 @@ E o botão em submissão mantém a mesma largura ao trocar o rótulo pelo texto 
 ```gherkin
 Dado um visitante em `/login`
 Quando ele aciona `Entrar com Google`
-Então o cliente do Better Auth é chamado com o provedor `google`, `callbackURL` igual a `/app` e `errorCallbackURL` igual a `/login`
+Então o cliente do Better Auth é chamado com o provedor `google`, `callbackURL` igual a `${window.location.origin}/app` e `errorCallbackURL` igual a `${window.location.origin}/login`
 E nenhuma credencial é enviada pelo formulário
 E o mesmo botão em `/signup` faz exatamente a mesma chamada
 Quando o Google devolve o visitante para `/login` com `error` na query
@@ -438,7 +441,7 @@ Quando não há sessão e a query traz `error=TOKEN_EXPIRED`
 Então a tela exibe "Este link expirou ou já foi usado. Peça um novo."
 E exibe o campo E-mail e o botão `Reenviar link`
 Quando ele aciona `Reenviar link` com um e-mail válido
-Então o cliente é chamado com `callbackURL` igual a `/verify-email`
+Então o cliente é chamado com `callbackURL` igual a `${window.location.origin}/verify-email`
 E a tela exibe "Se houver uma confirmação pendente para este e-mail, você receberá um novo link."
 E o botão fica desabilitado por 60 segundos
 ```
@@ -519,11 +522,11 @@ Sem campo. Exibe `user.name` e `user.email` da sessão.
 
 | Nome da Ação | Destino / Ação | Regra de Ativação | Mensagens Associadas |
 | --- | --- | --- | --- |
-| `Entrar` | `signIn.email` do cliente; vai para `search.redirect` ou `/app` | Habilitado com e-mail e senha preenchidos; desabilitado durante a submissão, com o rótulo `Entrando…` | Erro: tabela da regra 5 |
-| `Entrar com Google` | `signIn.social` com `provider: "google"`, `callbackURL` igual a `/app` e `errorCallbackURL` igual a `/login` | Sempre habilitado | Erro: "Não foi possível completar a ação. Tente de novo." |
-| `Criar conta` | `signUp.email` com `callbackURL` igual a `/verify-email`; vai para `/verify-email` | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Criando…` | Sucesso: "Enviamos um link de confirmação para {e-mail}." · Erro: tabela da regra 5 |
-| `Reenviar link` | `sendVerificationEmail` com `callbackURL` igual a `/verify-email` | Habilitado com um e-mail conhecido ou digitado; volta a ficar habilitado 60 segundos após cada acionamento | Sucesso: "Se houver uma confirmação pendente para este e-mail, você receberá um novo link." · Erro: "Muitas tentativas. Tente de novo em um minuto." |
-| `Enviar link` | `requestPasswordReset` com `redirectTo` igual a `/reset-password`; permanece em `/forgot-password` | Habilitado com o e-mail válido; desabilitado durante a submissão, com o rótulo `Enviando…` | Sucesso: "Se este e-mail tiver cadastro, você receberá um link para redefinir a senha." |
+| `Entrar` | `signIn.email` do cliente com `callbackURL` igual a `${window.location.origin}/verify-email`; vai para `search.redirect` ou `/app` | Habilitado com e-mail e senha preenchidos; desabilitado durante a submissão, com o rótulo `Entrando…` | Erro: tabela da regra 5 |
+| `Entrar com Google` | `signIn.social` com `provider: "google"`, `callbackURL` igual a `${window.location.origin}/app` e `errorCallbackURL` igual a `${window.location.origin}/login` | Sempre habilitado | Erro: "Não foi possível completar a ação. Tente de novo." |
+| `Criar conta` | `signUp.email` com `callbackURL` igual a `${window.location.origin}/verify-email`; vai para `/verify-email` | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Criando…` | Sucesso: "Enviamos um link de confirmação para {e-mail}." · Erro: tabela da regra 5 |
+| `Reenviar link` | `sendVerificationEmail` com `callbackURL` igual a `${window.location.origin}/verify-email` | Habilitado com um e-mail conhecido ou digitado; volta a ficar habilitado 60 segundos após cada acionamento | Sucesso: "Se houver uma confirmação pendente para este e-mail, você receberá um novo link." · Erro: "Muitas tentativas. Tente de novo em um minuto." |
+| `Enviar link` | `requestPasswordReset` com `redirectTo` igual a `${window.location.origin}/reset-password`; permanece em `/forgot-password` | Habilitado com o e-mail válido; desabilitado durante a submissão, com o rótulo `Enviando…` | Sucesso: "Se este e-mail tiver cadastro, você receberá um link para redefinir a senha." |
 | `Redefinir senha` | `resetPassword` com o `token` da query; vai para `/login` | Habilitado com as duas senhas válidas e iguais; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha redefinida. Entre com a nova senha." · Erro: tabela da regra 5 |
 | `Salvar` | `changePassword` com `revokeOtherSessions: true`; permanece na tela | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha alterada." · Erro: tabela da regra 5 |
 | `Sair` | `signOut`, invalida o cache do Query; vai para `/login` | Sempre habilitado | Erro: "Não foi possível completar a ação. Tente de novo." |

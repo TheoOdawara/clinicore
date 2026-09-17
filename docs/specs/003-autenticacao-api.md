@@ -57,7 +57,7 @@ no critério: são o mecanismo que limita as chamadas.
 | `name` | `string` | Sim | 1 a 100 caracteres, após remover espaços das pontas |
 | `email` | `string` | Sim | endereço de e-mail válido; gravado em minúsculas |
 | `password` | `string` | Sim | regra 4 (política de senha) |
-| `callbackURL` | `string` | Sim | `${WEB_ORIGIN}/verify-email` |
+| `callbackURL` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/verify-email` |
 
 ```json
 { "name": "Ana Souza", "email": "ana@exemplo.com", "password": "Clinica#2026", "callbackURL": "http://localhost:3000/verify-email" }
@@ -68,29 +68,35 @@ no critério: são o mecanismo que limita as chamadas.
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `email` | `string` | Sim | endereço de e-mail válido |
-| `password` | `string` | Sim | 1 a 128 caracteres |
+| `password` | `string` | Sim | não vazia |
+| `callbackURL` | `string` | Não | regra 1; é o destino do link reenviado pela regra 5, e o web sempre envia `${WEB_ORIGIN}/verify-email` |
 
 **`POST /api/auth/sign-in/social`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `provider` | `string` | Sim | exatamente `google` |
-| `callbackURL` | `string` | Sim | `${WEB_ORIGIN}/app` |
-| `errorCallbackURL` | `string` | Sim | `${WEB_ORIGIN}/login` |
+| `callbackURL` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/app` |
+| `errorCallbackURL` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/login` |
 
 **`POST /api/auth/send-verification-email`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `email` | `string` | Sim | endereço de e-mail válido |
-| `callbackURL` | `string` | Sim | `${WEB_ORIGIN}/verify-email` |
+| `callbackURL` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/verify-email` |
 
 **`POST /api/auth/request-password-reset`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `email` | `string` | Sim | endereço de e-mail válido |
-| `redirectTo` | `string` | Sim | `${WEB_ORIGIN}/reset-password` |
+| `redirectTo` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/reset-password` |
+
+**Os campos de redirecionamento são contrato do web, não da API.** O Better Auth não os exige; o
+web os envia sempre, como fixa a spec irmã. Sem `callbackURL`, o link de verificação leva
+`callbackURL=/`, e um link inválido ou expirado responde `401` em JSON em vez de redirecionar
+(regra 5).
 
 **`POST /api/auth/reset-password`**
 
@@ -105,7 +111,7 @@ no critério: são o mecanismo que limita as chamadas.
 | --- | --- | --- | --- |
 | `currentPassword` | `string` | Sim | senha atual da conta |
 | `newPassword` | `string` | Sim | regra 4 (política de senha) |
-| `revokeOtherSessions` | `boolean` | Sim | sempre `true` (regra 7) |
+| `revokeOtherSessions` | `boolean` | Não | o web sempre envia `true` (regra 7); ausente, as outras sessões ficam |
 
 ### Response
 
@@ -165,12 +171,12 @@ respondem por redirecionamento para o `callbackURL` do link. Em erro, o redireci
 | --- | --- |
 | `200` | A operação concluiu, a sessão é inexistente em `get-session`, ou a resposta é genérica das regras 8 e 15 |
 | `302` | Links de verificação e de reset, com sucesso ou com `?error=` |
-| `400` | Corpo inválido, senha fora da política, token de reset inválido ou expirado |
-| `401` | Credenciais incorretas, ou senha atual incorreta em `change-password` |
-| `403` | E-mail ainda não verificado, ou `Origin` fora de `trustedOrigins` |
+| `400` | Corpo inválido, senha fora da política, token de reset inválido ou expirado, senha atual incorreta em `change-password`, sessão não fresca |
+| `401` | Credenciais incorretas; link de verificação inválido ou expirado sem `callbackURL` |
+| `403` | E-mail ainda não verificado, `Origin` fora de `trustedOrigins`, ou URL de redirecionamento absoluta fora de `trustedOrigins` |
 | `422` | Dois cadastros simultâneos com o mesmo e-mail — o segundo perde no índice único |
 | `429` | Limite de requisições da rota excedido (regra 11) |
-| `500` | Erro desconhecido, sem detalhe no corpo (regra 10) |
+| `500` | Erro desconhecido, sem detalhe no corpo (regra 10); SMTP fora do ar (regra 13) |
 
 ### Perfis e privilégios
 
@@ -195,6 +201,10 @@ função. Papéis, permissões e tenancy são as issues #6 e #7.
 - O Better Auth recebe `trustedOrigins: [env.WEB_ORIGIN]`, a mesma origem.
 - **Validação:** uma requisição com `Origin` diferente de `WEB_ORIGIN` não recebe
   `Access-Control-Allow-Origin` na resposta, e o Better Auth responde `403 INVALID_ORIGIN`.
+- **Sem redirecionamento aberto.** Em todo `POST`, o Better Auth confere `callbackURL`, `redirectTo` e
+  `errorCallbackURL` contra `trustedOrigins`: caminho relativo passa, URL absoluta de outra origem
+  responde `403` com `INVALID_CALLBACK_URL`, `INVALID_REDIRECT_URL` ou `INVALID_ERROR_CALLBACK_URL`.
+  O mesmo vale para o `callbackURL` da query em `GET /reset-password/:token`.
 
 ### 2. O cookie de sessão
 
@@ -229,11 +239,14 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - `emailAndPassword.minPasswordLength: 8` e `maxPasswordLength: 128` cobrem o tamanho. **A
   complexidade não tem opção nativa no Better Auth** e é escrita aqui.
 - A regra vive em `features/auth/password-policy.ts` como **função pura, testada**, exportando
-  `isStrongPassword(password: string): boolean`.
+  `isStrongPassword(password: string): boolean`, que confere as quatro condições, tamanho incluído.
 - A aplicação é um `hooks.before`, com `createAuthMiddleware` de `better-auth/api`, que dispara nos
   caminhos `/sign-up/email`, `/reset-password` e `/change-password`. Falhando, lança
   `APIError("BAD_REQUEST", { code: "WEAK_PASSWORD", message: "Password must have at least 8 characters, one uppercase letter, one digit and one special character" })`.
 - **A guarda fica no hook, não em cada rota.** As três rotas passam pelo mesmo ponto.
+- **O hook roda antes da checagem de tamanho do Better Auth**, que fica dentro do handler. Por isso
+  toda senha recusada nessas três rotas sai como `WEAK_PASSWORD`; `PASSWORD_TOO_SHORT` e
+  `PASSWORD_TOO_LONG` não são alcançáveis nesta API.
 
 ### 5. O e-mail é verificado antes do primeiro login
 
@@ -251,6 +264,8 @@ Uma senha é aceita quando cumpre **todas** as condições:
   - e-mail já verificado → redireciona para o `callbackURL` sem criar sessão;
   - expirado → redireciona com `?error=TOKEN_EXPIRED`;
   - inválido → redireciona com `?error=INVALID_TOKEN`.
+- Os dois redirecionamentos de erro dependem de o link levar `callbackURL`. Sem ele, o Better Auth
+  responde `401` em JSON com o mesmo código.
 
 ### 6. Google e senha são a mesma conta
 
@@ -263,7 +278,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
   nasce uma linha em `account` com `providerId = "google"` apontando para o mesmo `userId`, e nenhum
   `user` novo é criado.
 - Uma conta criada por Google nasce com `emailVerified = true` e nunca passa pela regra 5. A criação de
-  `user` e `account` pelo Google é atômica no Better Auth.
+  `user` e `account` pelo Google é atômica (regra 12).
 - **`account.storeStateStrategy: "cookie"`.** Com o adapter de banco, o padrão do Better Auth é
   `"database"`, que grava uma linha em `verification` a cada `POST /sign-in/social` — uma chamada
   pública, sem sessão, que faria o banco crescer a cada clique. Com `"cookie"`, o `state` viaja num
@@ -283,8 +298,8 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - `emailAndPassword.revokeSessionsOnPasswordReset: true` — redefinir a senha derruba todas as sessões.
 - O token é **consumido antes** da troca da senha. Duas chamadas simultâneas com o mesmo token: a
   primeira troca, a segunda responde `400 INVALID_TOKEN`.
-- **Redefinir a senha de um usuário sem `account` de senha cria essa `account`.** É o caminho de
-  recuperação da regra 12 para um cadastro que falhou no meio.
+- **Redefinir a senha de um usuário sem `account` de senha cria essa `account`.** É assim que quem
+  entrou só com Google passa a ter também login por senha.
 - `POST /api/auth/change-password` é sempre chamado com `revokeOtherSessions: true`: quem troca a senha
   continua logado no dispositivo atual e é deslogado em todos os outros.
 
@@ -298,8 +313,12 @@ Uma senha é aceita quando cumpre **todas** as condições:
   cadastrado.
 - `POST /api/auth/sign-in/email` responde `401 INVALID_EMAIL_OR_PASSWORD` tanto para e-mail inexistente
   quanto para senha errada.
-- `POST /api/auth/send-verification-email` responde `200` para e-mail inexistente, já verificado ou
-  pendente, com tempo mínimo de resposta de 500 ms aplicado pelo próprio Better Auth.
+- `POST /api/auth/send-verification-email` sem sessão responde `200` para e-mail inexistente, já
+  verificado ou pendente, com tempo mínimo de resposta de 500 ms aplicado pelo próprio Better Auth.
+  Com sessão, responde na hora e não há o que esconder: o e-mail é o do próprio usuário.
+- **Trade-off aceito:** dois cadastros simultâneos com o mesmo e-mail novo fazem o segundo responder
+  `422 FAILED_TO_CREATE_USER`, o que revela que o e-mail acabou de ser cadastrado. A janela é a
+  duração de uma transação, e fechá-la exigiria reescrever a rota do Better Auth.
 
 ### 9. Todo request é logado, e nenhum segredo sai no log
 
@@ -310,7 +329,9 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - **`GET /health` não é logado.**
 - O `redact` do Pino cobre, no mínimo: `req.headers.cookie`, `req.headers.authorization`,
   `res.headers["set-cookie"]`, `req.body.password`, `req.body.newPassword`,
-  `req.body.currentPassword`, `req.body.token` e `env.DATABASE_URL`.
+  `req.body.currentPassword` e `req.body.token`.
+- **O objeto `env` nunca é passado ao logger.** A connection string e os segredos do ambiente não
+  entram em nenhum objeto logado, então não há caminho de `redact` para eles.
 - O Pino escreve em `stdout`. O erro de ambiente do boot continua indo cru para `stderr`.
 - O worker da regra 17 usa a mesma instância de logger.
 
@@ -319,8 +340,10 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - O `onError` global de `core/` é o único lugar do app que conhece HTTP.
 - Um erro que ele não reconheça é registrado no Pino com a stack completa e respondido como `500` com
   corpo `{ "code": "INTERNAL_ERROR", "message": "Internal server error" }`.
-- **As rotas do Better Auth não passam por aqui.** `.mount()` entrega o request a um handler externo
-  ao ciclo do Elysia, e o Better Auth responde no formato dele, `{ code, message }`. O `code` é a chave
+- **Os erros do Better Auth não chegam aqui.** `.mount(auth.handler)` registra uma rota comum do
+  Elysia, então `onAfterResponse` e `onError` rodam para ela e o log da regra 9 cobre `/api/auth`.
+  Mas o Better Auth captura os próprios erros e já devolve uma `Response` no formato dele,
+  `{ code, message }`; um erro que não é `APIError` sai como `500` com corpo vazio. O `code` é a chave
   comum entre os dois formatos, e é sobre ele que o web traduz.
 
 ### 11. Toda rota de autenticação tem limite por IP, e o IP não pode ser forjado
@@ -328,8 +351,9 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - `rateLimit.enabled: true` nos dois ambientes. O padrão do Better Auth desliga em desenvolvimento, e a
   spec liga explicitamente.
 - `rateLimit.storage: "database"` e `modelName: "rateLimit"`. Redis está fora da stack por decisão.
-- A contagem e o incremento acontecem num único passo atômico no Better Auth: requisições concorrentes
-  não passam todas por uma leitura desatualizada.
+- O incremento é uma escrita condicional: o `UPDATE` só acontece enquanto a contagem está abaixo do
+  máximo, e quando a condição falha o Better Auth lê de novo e decide. Requisições concorrentes não
+  passam todas por uma leitura desatualizada.
 - Limite efetivo de cada rota:
 
   | Caminho | Janela | Máximo | Origem |
@@ -346,15 +370,22 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - `customRules` compara o caminho exato: `/reset-password` não alcança `/reset-password/:token`, que
   fica no limite global.
 - Excedido, a resposta é `429`.
-- **O IP vem só de proxy confiável.** O Better Auth lê o IP do header `x-forwarded-for`, que qualquer
-  cliente pode forjar trocando o valor a cada chamada. `advanced.ipAddress.trustedProxies` recebe
-  `env.TRUSTED_PROXIES`, e o endereço só é aceito quando a cadeia passa por esses proxies.
-- Sem IP confiável, o Better Auth **não desliga o limite**: agrupa todas essas requisições num único
-  contador compartilhado por caminho. Forjar ou omitir o header não abre uma porta.
-- Em `development`, sem proxy, o Better Auth resolve o IP como `localhost`.
+- **O IP vem da cadeia de proxies confiáveis.** O Better Auth lê o IP só do header
+  `x-forwarded-for`, nunca do socket. `advanced.ipAddress.trustedProxies` recebe
+  `env.TRUSTED_PROXIES`, e o Better Auth percorre a cadeia da direita para a esquerda, pula os hops
+  confiáveis e usa o primeiro que não é. O que o cliente escreve à esquerda do hop que o proxy
+  acrescentou nunca é lido.
+- Uma cadeia malformada, ou só com hops confiáveis, não resolve IP. Sem IP, o Better Auth **não
+  desliga o limite**: agrupa essas requisições num contador compartilhado por caminho.
+- **A garantia depende do deploy:** a API só pode ser alcançável através do proxy que acrescenta o hop.
+  Exposta direto, um `x-forwarded-for` de valor único forjado seria aceito como IP do cliente. Isso é a
+  issue #4 (Fora de Escopo).
+- Em `development`, sem proxy, o IP resolve como `127.0.0.1`.
 
 ### 12. Persistência e Auditoria
 
+- **O adapter é `prismaAdapter(prisma, { provider: "postgresql", transaction: true })`.** O padrão do
+  adapter é `transaction: false`, e com ele nenhum `runWithTransaction` do Better Auth é atômico.
 - **Tabelas criadas:** seis, em duas migrations. As tabelas do Better Auth vêm do schema gerado pelo
   CLI (`better-auth generate`) e conferido; `emailDispatch` é desta entrega.
 
@@ -377,11 +408,10 @@ Uma senha é aceita quando cumpre **todas** as condições:
   adapter do Prisma deixa o banco gerar o valor. `emailDispatch.id` segue o mesmo formato. Os dois
   comportamentos foram verificados no código do Better Auth.
 - A senha vive em `account.password`, com o hash do Better Auth, e nunca em `user`.
-- **O cadastro por senha não é atômico no Better Auth**: grava `user` e depois `account`, em duas
-  operações. Uma falha entre as duas deixa um `user` sem `account` de senha. Nenhum repository desta
-  entrega corrige isso por dentro; o usuário se recupera sozinho por dois caminhos — redefinir a senha,
-  que cria a `account` que falta (regra 7), ou entrar com Google, que vincula uma `account` nova
-  (regra 6).
+- **Cadastro por senha e por Google são atômicos.** Os dois rodam em `runWithTransaction`; com
+  `transaction: true`, `user` e `account` são gravados juntos ou nenhum é. O e-mail de verificação do
+  cadastro é enviado dentro dessa transação: SMTP fora do ar desfaz o cadastro e a rota responde `500`
+  (regra 13).
 - **Auditoria:** `N/A` nesta entrega. Não há acesso a prontuário para registrar, e a trilha de
   auditoria é a issue #9.
 - **Eventos/integrações disparados:** envio de e-mail por SMTP (regra 13) e o job agendado de limpeza
@@ -398,8 +428,9 @@ Uma senha é aceita quando cumpre **todas** as condições:
   | Cadastro, login sem verificação e reenvio | "Confirme seu e-mail no Clinicore" | "Olá, {nome}. Confirme seu e-mail para começar a usar o Clinicore. O link expira em 1 hora." + botão "Confirmar e-mail" |
   | Recuperação de senha | "Redefinir sua senha do Clinicore" | "Olá, {nome}. Recebemos um pedido para redefinir sua senha. O link expira em 1 hora. Se não foi você, ignore este e-mail." + botão "Redefinir senha" |
 
-- **O envio é aguardado.** SMTP fora do ar faz a chamada falhar, e isso é preferível a uma resposta de
-  sucesso cujo link nunca chega.
+- **O envio é aguardado.** SMTP fora do ar faz a chamada responder `500` com corpo vazio, e isso é
+  preferível a uma resposta de sucesso cujo link nunca chega. No cadastro, a transação da regra 12 é
+  desfeita junto.
 - A fila da regra 17 não é usada para e-mail.
 
 ### 14. Toda variável nova é obrigatória e validada no boot
@@ -441,15 +472,18 @@ Resend acabaria para todos os usuários.
 - **Por endereço, em qualquer IP:** no máximo **1 pedido a cada 60 segundos** e **5 pedidos a cada 24
   horas**, contados separadamente para `verification` e `password_reset`.
 - A contagem vive em `emailDispatch`. Cada pedido aceito grava uma linha; o pedido barrado não grava.
-- **Duas guardas, uma por camada, sobre a mesma contagem** em
-  `features/auth/repository/email-dispatch.repository.ts`:
-  1. **`hooks.before` em `/request-password-reset` e `/send-verification-email`.** Barrado, o hook
-     devolve a resposta genérica da rota — o mesmo status e o mesmo corpo de um pedido aceito — sem
-     deixar o Better Auth prosseguir. Nenhuma linha em `verification`, nenhum e-mail. Um `hooks.before`
-     que retorna uma resposta interrompe a rota; isso foi verificado no código do Better Auth.
-  2. **Dentro de `sendVerificationEmail` e `sendResetPassword`**, o ponto por onde passa todo envio,
-     inclusive os que nascem do cadastro e do login não verificado. Barrado, não envia, e a rota
-     responde exatamente como responderia enviando.
+- **Duas guardas sobre a mesma contagem**, em
+  `features/auth/repository/email-dispatch.repository.ts`, **separadas pelo caminho do request**. Um
+  pedido é contado por exatamente uma delas, nunca pelas duas:
+  1. **`hooks.before` em `/request-password-reset` e `/send-verification-email`.** Confere e grava.
+     Barrado, o hook devolve a resposta genérica da rota — o mesmo status e o mesmo corpo de um pedido
+     aceito — sem deixar o Better Auth prosseguir. Nenhuma linha em `verification`, nenhum e-mail. Um
+     `hooks.before` que retorna uma resposta interrompe a rota.
+  2. **Dentro de `sendVerificationEmail` e `sendResetPassword`**, que recebem o `request` como segundo
+     argumento. Quando o caminho do request é um dos dois da guarda 1, o callback envia sem conferir:
+     o pedido já foi contado e aceito. Em qualquer outro caminho — `/sign-up/email` e
+     `/sign-in/email` — o callback confere e grava; barrado, não envia, e a rota responde exatamente
+     como responderia enviando.
 - **O pedido conta exista a conta ou não.** Se só pedidos de contas existentes fossem registrados, uma
   resposta barrada revelaria que o e-mail tem cadastro. Por isso a primeira guarda grava o pedido
   antes de o Better Auth consultar o usuário.
@@ -475,7 +509,8 @@ Resend acabaria para todos os usuários.
 O Better Auth só remove uma `session` ou uma `verification` vencida quando alguém tenta lê-la. Linha
 que ninguém lê fica para sempre.
 
-- `core/queue/` conecta o pg-boss 12 ao Postgres de `DATABASE_URL`. O pg-boss cria e mantém o próprio
+- `core/queue/` conecta o pg-boss 12, versão mínima 12.33 — a que tem `TestClock` e a garantia de um
+  job por horário verificadas —, ao Postgres de `DATABASE_URL`. O pg-boss cria e mantém o próprio
   schema `pgboss` ao iniciar; esse schema não passa pelo Prisma.
 - `src/worker.ts` é a entrada do processo separado: inicia o pg-boss, cria a fila
   `purge-expired-auth-records`, agenda com `boss.schedule("purge-expired-auth-records", "0 3 * * *", null, { tz: "America/Sao_Paulo" })`
@@ -502,23 +537,28 @@ que ninguém lê fica para sempre.
 ## Erros
 
 Os códigos vêm do `BASE_ERROR_CODES` do Better Auth, exceto `WEAK_PASSWORD` e `INTERNAL_ERROR`, que
-são desta entrega. A `message` é inglês, texto de desenvolvedor.
+são desta entrega. A `message` é inglês, texto de desenvolvedor. `PASSWORD_TOO_SHORT` e
+`PASSWORD_TOO_LONG` existem no Better Auth, mas não saem desta API (regra 4).
 
 | Código | HTTP | Quando | Mensagem |
 | --- | --- | --- | --- |
 | `INVALID_EMAIL_OR_PASSWORD` | `401` | E-mail inexistente, ou senha incorreta no login | "Invalid email or password" |
 | `EMAIL_NOT_VERIFIED` | `403` | Login com a senha correta e o e-mail ainda não verificado | "Email not verified" |
 | `FAILED_TO_CREATE_USER` | `422` | Segundo de dois cadastros simultâneos com o mesmo e-mail | "Failed to create user" |
-| `PASSWORD_TOO_SHORT` | `400` | Senha com menos de 8 caracteres | "Password too short" |
-| `PASSWORD_TOO_LONG` | `400` | Senha com mais de 128 caracteres | "Password too long" |
-| `WEAK_PASSWORD` | `400` | Senha sem maiúscula, sem dígito ou sem caractere especial | "Password must have at least 8 characters, one uppercase letter, one digit and one special character" |
+| `WEAK_PASSWORD` | `400` | Senha fora da política da regra 4, inclusive por tamanho | "Password must have at least 8 characters, one uppercase letter, one digit and one special character" |
 | `INVALID_TOKEN` | `400` | Token de reset inválido, consumido ou expirado em `POST /reset-password` | "Invalid token" |
 | `INVALID_TOKEN` | `302` | Link de verificação ou de reset inválido; vai em `?error=` | — |
 | `TOKEN_EXPIRED` | `302` | Link de verificação expirado; vai em `?error=` | — |
-| `INVALID_PASSWORD` | `401` | `currentPassword` incorreta em `change-password` | "Invalid password" |
-| `SESSION_EXPIRED` | `401` | Sessão expirada em operação que exige sessão fresca | "Session expired. Re-authenticate to perform this action." |
+| `INVALID_TOKEN` | `401` | Link de verificação inválido sem `callbackURL` | "Invalid token" |
+| `TOKEN_EXPIRED` | `401` | Link de verificação expirado sem `callbackURL` | "Token expired" |
+| `INVALID_PASSWORD` | `400` | `currentPassword` incorreta em `change-password` | "Invalid password" |
+| `SESSION_EXPIRED` | `400` | Sessão expirada em operação que exige sessão fresca | "Session expired. Re-authenticate to perform this action." |
 | `INVALID_ORIGIN` | `403` | `Origin` fora de `trustedOrigins` | "Invalid origin" |
+| `INVALID_CALLBACK_URL` | `403` | `callbackURL` absoluta fora de `trustedOrigins` | "Invalid callbackURL" |
+| `INVALID_REDIRECT_URL` | `403` | `redirectTo` absoluta fora de `trustedOrigins` | "Invalid redirectURL" |
+| `INVALID_ERROR_CALLBACK_URL` | `403` | `errorCallbackURL` absoluta fora de `trustedOrigins` | "Invalid errorCallbackURL" |
 | — | `429` | Limite da rota excedido (regra 11) | corpo do Better Auth, sem código próprio |
+| — | `500` | Erro que não é `APIError` numa rota do Better Auth, como SMTP fora do ar | corpo vazio |
 | `INTERNAL_ERROR` | `500` | Erro desconhecido em rota própria da API | "Internal server error" |
 
 ## Efeitos Colaterais
@@ -540,8 +580,9 @@ são desta entrega. A `message` é inglês, texto de desenvolvedor.
     segundo é barrado;
   - dois logins simultâneos do mesmo usuário — regra 16.
 - **Transação:**
-  - cadastro por senha — **não é atômico** (regra 12), com recuperação por reset ou Google;
-  - cadastro por Google — atômico no Better Auth;
+  - cadastro por senha — `user`, `account` e o envio do e-mail de verificação numa transação
+    (regra 12); a linha de `emailDispatch` é gravada fora dela e fica mesmo se o cadastro for desfeito;
+  - cadastro por Google — `user` e `account` numa transação (regra 12);
   - `keepNewestSessions` e a checagem-e-gravação de `emailDispatch` — um `$transaction` cada, nos
     repositories desta entrega.
 
@@ -563,6 +604,7 @@ E existe uma linha em `user` com `email = "ana@exemplo.com"` e `emailVerified = 
 E existe uma linha em `account` com `providerId = "credential"` e `password` preenchida
 E `user.id` e `account.userId` são o mesmo UUID, gerado pelo banco
 E um e-mail com o assunto `Confirme seu e-mail no Clinicore` foi entregue ao transport
+E existe exatamente uma linha em `emailDispatch` para esse endereço, com `kind = "verification"`
 E nenhum cookie de sessão é devolvido
 ```
 
@@ -648,7 +690,7 @@ E repetir `POST /api/auth/sign-out` com o mesmo cookie não altera nenhuma tabel
 ```gherkin
 Dado o hook de política de senha ativo
 Quando `sem_maiuscula#1`, `SEM_DIGITO#a`, `SemEspecial1` ou `Aa#1` são enviados como senha
-Então cada um responde `400` com o código `WEAK_PASSWORD` ou `PASSWORD_TOO_SHORT`
+Então cada um responde `400` com o código `WEAK_PASSWORD`
 E o mesmo vale nas rotas `/sign-up/email`, `/reset-password` e `/change-password`
 E nenhuma linha é gravada em `user`, `account` ou `verification`
 E `Clinica#2026` é aceita nas três
@@ -737,13 +779,15 @@ E com um token inexistente responde `302` para `http://localhost:3000/reset-pass
 E nenhuma das duas chamadas altera a tabela `verification`
 ```
 
-### Cenário 18 — Cadastro que falhou no meio se recupera pelo reset (caminho alternativo, regra 12)
+### Cenário 18 — Quem entrou só com Google ganha login por senha pelo reset (caminho alternativo, regra 7)
 
 ```gherkin
-Dado uma linha em `user` com `email = "ana@exemplo.com"` e nenhuma linha em `account` para ela
+Dado uma linha em `user` com `email = "ana@exemplo.com"` e `emailVerified = true`
+E uma única linha em `account` para ela, com `providerId = "google"`
 Quando é pedido o reset de senha e o token recebido é usado com a senha `Clinica#2026`
 Então passa a existir uma linha em `account` com `providerId = "credential"` para esse usuário
-E um novo cadastro com o mesmo e-mail continua respondendo `200` sem gravar nada
+E a linha com `providerId = "google"` continua existindo
+E entrar com `ana@exemplo.com` e `Clinica#2026` responde `200`
 ```
 
 ### Cenário 19 — Trocar a senha mantém a sessão atual e derruba as outras (caminho feliz, regra 7)
@@ -753,7 +797,7 @@ Dado um usuário logado em dois dispositivos, com duas linhas em `session`
 Quando é enviado `POST /api/auth/change-password` com a senha atual correta, a nova senha e `revokeOtherSessions: true`
 Então o sistema responde `200`
 E resta exatamente uma linha em `session`, a do cookie usado na requisição
-E repetir a mesma requisição responde `401` com o código `INVALID_PASSWORD`
+E repetir a mesma requisição responde `400` com o código `INVALID_PASSWORD`
 E a senha continua a da primeira chamada
 ```
 
@@ -792,10 +836,12 @@ E a sexta responde `429`
 ### Cenário 23 — Forjar `x-forwarded-for` não escapa do limite (exceção, regra 11)
 
 ```gherkin
-Dado a API com `TRUSTED_PROXIES` igual a `10.0.0.0/8`
-E requisições que chegam de um endereço fora de `10.0.0.0/8`
-Quando seis requisições `POST /api/auth/sign-in/email` são enviadas dentro de 60 segundos, cada uma com um `x-forwarded-for` diferente
-Então a sexta responde `429`
+Dado a API com `TRUSTED_PROXIES` igual a `10.0.0.0/8` e a tabela `rateLimit` vazia
+Quando seis requisições `POST /api/auth/sign-in/email` com senha errada são enviadas dentro de 60 segundos
+E cada uma traz `x-forwarded-for: <forjado>, 203.0.113.7, 10.0.0.1`, com um `<forjado>` diferente a cada chamada
+Então as cinco primeiras respondem `401`
+E a sexta responde `429`
+E a tabela `rateLimit` tem uma única linha para `/sign-in/email`, com a chave de `203.0.113.7`
 ```
 
 ### Cenário 24 — O log registra a requisição sem vazar segredo (caminho feliz, regra 9)
@@ -864,6 +910,28 @@ Então exatamente um job `purge-expired-auth-records` é criado
 E iniciar uma segunda instância do worker não cria um segundo job para o mesmo horário
 ```
 
+### Cenário 30 — SMTP fora do ar desfaz o cadastro (exceção, regras 12 e 13)
+
+```gherkin
+Dado que o e-mail `ana@exemplo.com` não existe na tabela `user`
+E o transport de e-mail falha ao enviar
+Quando é enviado `POST /api/auth/sign-up/email` com nome, e-mail e a senha `Clinica#2026`
+Então o sistema responde `500` com corpo vazio
+E não existe linha em `user` nem em `account` para esse e-mail
+```
+
+### Cenário 31 — URL de redirecionamento de outra origem é recusada (exceção, regra 1)
+
+```gherkin
+Dado um usuário verificado com o e-mail `ana@exemplo.com`
+Quando é enviado `POST /api/auth/request-password-reset` com `redirectTo` igual a `http://evil.example/reset-password`
+Então o sistema responde `403` com o código `INVALID_REDIRECT_URL`
+E nenhuma linha é criada em `verification`
+E nenhum e-mail é entregue ao transport
+E `POST /api/auth/sign-up/email` com `callbackURL` igual a `http://evil.example/verify-email` responde `403` com o código `INVALID_CALLBACK_URL`
+E `redirectTo` igual ao caminho relativo `/reset-password` é aceito
+```
+
 ---
 
 ## Fora de Escopo
@@ -875,23 +943,22 @@ E iniciar uma segunda instância do worker não cria um segundo job para o mesmo
 - **Convite de usuário** — decidido que não existe: o cadastro é público. A issue #8 precisa ser
   reescrita como gestão de usuários já cadastrados.
 - **E-mail pela fila** — a fila desta entrega serve só ao job de limpeza (regra 13).
-- **Tornar atômico o cadastro por senha** — exigiria reescrever a rota do Better Auth. A regra 12
-  garante a recuperação.
 - **Trilha de auditoria de acesso ao prontuário** — issue #9.
 - **2FA, sessões ativas por dispositivo, revogar sessão específica, excluir conta, trocar e-mail e
   editar perfil** — não pedidos.
 - **Outros provedores sociais além do Google** — não pedidos.
 - **Limite de requisições em `/health`** — decidido deixar de fora.
 - **Dockerfile, `compose.yaml` da raiz, container do worker e deploy de homolog** — issue #4, que
-  também define o valor de `TRUSTED_PROXIES` em homolog.
+  também define o valor de `TRUSTED_PROXIES` em homolog e garante que a API só é alcançável pelo proxy
+  que acrescenta o hop em `x-forwarded-for` (regra 11).
 
 ## Quebra em Tasks
 
 | # | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- |
 | 1 | Add the authentication environment, the logger and the global error handler to apps/api | `core/config/env-schema.ts` e `env.ts` com as 12 variáveis, `core/logger/` com o plugin de Pino, `onError` global em `core/`, `src/__tests__/boot.test.ts` atualizado, `.github/workflows/ci.yml` com as variáveis novas | Cenários 24, 25 e 26 verdes, sem a linha do worker no 26; os quatro gates da API saem com código 0 | — |
-| 2 | Authenticate with email and password through Better Auth | `core/auth/`, `features/auth/password-policy.ts` e o `hooks.before` de senha, CORS em `server.ts`, migration `add_better_auth`, `features/auth/repository/session.repository.ts` e o `databaseHooks` de sessão, step `prisma migrate deploy` no CI | Cenários 6, 7, 8, 9, 20, 21 e 27 verdes | 1 |
-| 3 | Send the verification and the reset emails with a per-address limit | `core/mail/` e os dois templates, `requireEmailVerification`, `sendOnSignIn`, `sendResetPassword`, migration `add_email_dispatch`, `features/auth/repository/email-dispatch.repository.ts` e as duas guardas da regra 15 | Cenários 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17 e 18 verdes | 2 |
+| 2 | Authenticate with email and password through Better Auth | `core/auth/` com `prismaAdapter` em `transaction: true`, `features/auth/password-policy.ts` e o `hooks.before` de senha, CORS em `server.ts`, migration `add_better_auth`, `features/auth/repository/session.repository.ts` e o `databaseHooks` de sessão, step `prisma migrate deploy` no CI | Cenários 6, 7, 8, 9, 20, 21 e 27 verdes | 1 |
+| 3 | Send the verification and the reset emails with a per-address limit | `core/mail/` e os dois templates, `requireEmailVerification`, `sendOnSignIn`, `sendResetPassword`, migration `add_email_dispatch`, `features/auth/repository/email-dispatch.repository.ts` e as duas guardas da regra 15, separadas pelo caminho do request | Cenários 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 30 e 31 verdes | 2 |
 | 4 | Sign in with Google and link it to the existing account | `socialProviders.google`, `account.accountLinking` e `storeStateStrategy: "cookie"` em `core/auth/` | Cenários 10 e 11 verdes | 2 |
 | 5 | Rate-limit the authentication routes by trusted client IP | `rateLimit` com `customRules` e `advanced.ipAddress.trustedProxies` em `core/auth/` | Cenários 22 e 23 verdes | 2 |
 | 6 | Change the password of the signed-in user | `change-password` com `revokeOtherSessions`, coberto pelo hook de política da task 2 | Cenário 19 verde | 2 |
