@@ -6,13 +6,17 @@
 > **Epic:** #1 — Plataforma
 > **Issue:** #3
 > **Spec irmã:** `docs/specs/autenticacao/003-autenticacao-api.md` (perfil API)
+> **Decisões:** `docs/decisions/0002-web-e-site-em-vite.md` ·
+> `docs/decisions/0003-design-system-com-shadcn-ui-e-react-bits.md`
 
 ## Acceptance Criteria
 
 ### Referência visual
 
 `N/A` — sem protótipo. O layout é definido pelas regras abaixo, e o tema visual da aplicação não é
-esta issue. As telas usam utilitárias do Tailwind diretamente, sem design system.
+esta issue. As telas usam os componentes do shadcn/ui em `shared/`, decididos na ADR 0003, com
+utilitárias do Tailwind no que o shadcn não cobrir. **Tema, tipografia e cores continuam fora**: aqui o
+shadcn entra pelo que ele já resolve de rótulo, descrição de erro, anúncio e foco — a regra 8.
 
 ### Especificação das telas
 
@@ -84,24 +88,43 @@ entre elas; `/app/account/password` é alcançada pelo link `Trocar senha` em `/
 - **A guarda fica na rota de layout, não em cada tela.** Toda tela da aplicação passa por ela; colocar
   a checagem em cada componente deixaria a próxima tela desprotegida por omissão.
 - **`/login` e `/signup` fazem o inverso:** com sessão válida, redirecionam para `/app`.
+- **Sessão que vence durante o uso** não passa por aqui: quem trata é o interceptor da regra 11, que
+  tenta renovar antes de mandar o usuário para `/login`.
 
 #### Origem do fluxo
 
 O usuário chega por URL direta, pelo link de confirmação recebido por e-mail, ou pelo redirecionamento
 da guarda ao tentar abrir uma tela da aplicação sem sessão.
 
-### 2. A API é chamada com credenciais
+### 2. A API é chamada com credenciais, por uma instância só de axios
 
-- O cliente do Better Auth é criado uma vez em `shared/auth/`, com
-  `baseURL: env.VITE_API_URL` e `fetchOptions: { credentials: "include" }`.
-- **Toda URL de redirecionamento enviada à API é absoluta**, montada como
-  `${window.location.origin}/<caminho>`. Um caminho relativo é resolvido pelo browser contra o host
-  da API, porque é a API que redireciona, e o usuário cairia fora do web. Isso vale para
-  `callbackURL`, `errorCallbackURL` e `redirectTo`.
-- `shared/http/` centraliza qualquer `fetch` que não passe pelo cliente do Better Auth, também com
-  `credentials: "include"`.
-- **O JavaScript nunca lê o cookie de sessão** — ele é `httpOnly`. Quem diz se há sessão é
-  `getSession`, e o resultado é cacheado pelo TanStack Query.
+- **`shared/http/` cria a única instância de axios do app**, com `baseURL: env.VITE_API_URL` e
+  `withCredentials: true`. Nenhuma feature cria instância própria nem importa `axios` direto.
+- **Não existe mais cliente do Better Auth.** Ele saiu da API na ADR 0001, e cada ação desta spec passa
+  a ser uma chamada às rotas da spec irmã:
+
+  | Ação da tela | Rota |
+  | --- | --- |
+  | Entrar | `POST /auth/sign-in` |
+  | Criar conta | `POST /auth/sign-up` |
+  | Carregar a sessão | `GET /auth/session` |
+  | Renovar a sessão | `POST /auth/refresh` (regra 11) |
+  | Sair | `POST /auth/sign-out` |
+  | Reenviar link de confirmação | `POST /auth/send-verification-email` |
+  | Enviar link de recuperação | `POST /auth/request-password-reset` |
+  | Redefinir a senha | `POST /auth/reset-password` |
+  | Trocar a senha | `POST /auth/change-password` |
+  | Entrar com Google | navegação de topo para `GET /auth/google` |
+
+- **O web não envia URL de redirecionamento em nenhuma chamada.** `callbackURL`, `errorCallbackURL` e
+  `redirectTo` deixaram de existir: a API monta todo destino no servidor a partir de `APP_ORIGIN`, e o
+  DTO recusa campo desconhecido. Mandar qualquer um deles faz a requisição ser recusada.
+- **`Entrar com Google` é navegação de topo, não requisição.** O botão leva o browser para
+  `<VITE_API_URL>/auth/google` com `window.location.assign`, porque o fluxo termina em `302` para o
+  Google e volta por navegação. Chamar essa rota por axios não funcionaria: o `XHR` segue o
+  redirecionamento dentro da própria requisição, e o usuário nunca sairia da página.
+- **O JavaScript nunca lê o cookie de sessão** — ele é `HttpOnly`. Quem diz se há sessão é
+  `GET /auth/session`, e o resultado é cacheado pelo TanStack Query.
 - `sessionQueryOptions` vive em `features/auth/api/` e é o que rota e componentes consomem.
 
 ### 3. Toda resposta da API passa por um schema Zod
@@ -130,21 +153,38 @@ genérica, e a resposta original é registrada no console para depuração.
 
 | `code` ou situação | Mensagem exibida |
 | --- | --- |
-| `INVALID_EMAIL_OR_PASSWORD` | "E-mail ou senha incorretos." |
+| `INVALID_CREDENTIALS` | "E-mail ou senha incorretos." |
 | `EMAIL_NOT_VERIFIED` | "Confirme seu e-mail antes de entrar. Confira sua caixa de entrada ou peça um novo link." |
-| `WEAK_PASSWORD` | "A senha precisa ter no mínimo 8 caracteres, com uma letra maiúscula, um número e um caractere especial." |
 | `INVALID_TOKEN` | "Este link expirou ou já foi usado. Peça um novo." |
 | `TOKEN_EXPIRED` | "Este link expirou ou já foi usado. Peça um novo." |
 | `INVALID_PASSWORD` | "Senha atual incorreta." |
-| `SESSION_EXPIRED` | "Sua sessão expirou. Entre de novo." |
-| HTTP `429` | "Muitas tentativas. Tente de novo em um minuto." |
+| `INVALID_SESSION` | "Sua sessão expirou. Entre de novo." |
+| `SESSION_REUSED` | "Sua sessão expirou. Entre de novo." |
+| `INVALID_STATE` | "Não foi possível entrar com o Google. Tente de novo." |
+| `UNVERIFIED_PROVIDER_EMAIL` | "A sua conta do Google ainda não tem o e-mail confirmado. Confirme no Google e tente de novo." |
+| `PROVIDER_ERROR` | "Não foi possível entrar com o Google. Tente de novo." |
+| `SERVICE_UNAVAILABLE` | "O sistema está indisponível no momento. Tente de novo em instantes." |
+| `RATE_LIMITED`, ou HTTP `429` | "Muitas tentativas. Tente de novo em um minuto." |
+| `VALIDATION_FAILED` | "Não foi possível completar a ação. Tente de novo." |
+| `INTERNAL_ERROR` | "Não foi possível completar a ação. Tente de novo." |
+| `INVALID_ORIGIN` | "Não foi possível completar a ação. Tente de novo." |
 | resposta que não passa no `.parse()` do Zod | "Não foi possível completar a ação. Tente de novo." |
 | qualquer outro, ou falha de rede | "Não foi possível completar a ação. Tente de novo." |
+
+**`VALIDATION_FAILED` e `INVALID_ORIGIN` não ganham texto próprio de propósito.** O web valida todo campo
+antes de enviar (regras 3 e 4), e a origem é configuração — se qualquer um dos dois chegar, é defeito
+nosso, não algo que o usuário possa corrigir. Os dois caem na mensagem genérica e a resposta inteira vai
+para o console, como manda o parágrafo acima.
+
+**Não existe `WEAK_PASSWORD` na API.** Senha fora da política volta como `VALIDATION_FAILED` com o campo
+em `fields`. A mensagem de senha fraca que o usuário lê é escrita no navegador, pela regra 4, antes de
+qualquer requisição sair.
 
 Mensagens validadas apenas no navegador, sem `code` correspondente na API:
 
 | Situação | Mensagem exibida |
 | --- | --- |
+| Senha fora da política da regra 4 | "A senha precisa ter no mínimo 8 caracteres, com uma letra maiúscula, um número e um caractere especial." |
 | `Confirmar nova senha` diferente de `Nova senha` | "As senhas não coincidem." |
 | `Nova senha` igual à `Senha atual` | "A nova senha precisa ser diferente da atual." |
 | Campo obrigatório vazio ao submeter | "Preencha este campo." |
@@ -160,9 +200,9 @@ Mensagens de sucesso:
 | Senha redefinida | "Senha redefinida. Entre com a nova senha." |
 | Senha alterada | "Senha alterada." |
 
-**Cadastro com e-mail já cadastrado não tem tratamento no web.** A API responde `200` com `token`
-nulo, exatamente como num cadastro novo, e não envia e-mail (regra 8 da spec irmã). O web mostra a
-mesma mensagem de sucesso e leva para `/verify-email` nos dois casos, sem ter como distingui-los.
+**Cadastro com e-mail já cadastrado não tem tratamento no web.** A API responde `202` com corpo vazio,
+exatamente como num cadastro novo, e não envia e-mail (regra 8 da spec irmã). O web mostra a mesma
+mensagem de sucesso e leva para `/verify-email` nos dois casos, sem ter como distingui-los.
 
 **As mensagens de reenvio e de recuperação não afirmam que um e-mail saiu.** A API limita pedidos por
 endereço (regra 15 da spec irmã) e responde igual quando barra; uma frase como "Link reenviado" seria
@@ -232,6 +272,26 @@ falsa nesse caso.
   mudança de sessão.
 - **Auditoria:** `N/A` — a trilha de auditoria é a issue #9, e não há acesso a prontuário aqui.
 
+### 11. A sessão se renova sozinha, uma vez por vez
+
+O access token vive 15 minutos e o refresh vive 24 horas (regra 2 da spec irmã). O Better Auth escondia
+essa renovação; agora ela é código nosso, e mora inteira no interceptor de resposta da instância de
+`shared/http/`.
+
+- **Um `401` dispara uma única chamada a `POST /auth/refresh`.** Enquanto ela está em curso, toda
+  requisição que também tomar `401` **espera essa mesma chamada** em vez de disparar a sua. Sem isso,
+  uma tela que carrega três recursos de uma vez dispara três refreshes, e a rotação da regra 3 da spec
+  irmã trata o segundo como reúso e **derruba a sessão do usuário**.
+- **Sucesso:** a requisição original é repetida **uma vez**, com os cookies novos. Um segundo `401` na
+  repetição não tenta renovar de novo.
+- **Falha:** o cache do TanStack Query é invalidado, o usuário vai para `/login` com o destino atual em
+  `search.redirect`, e a mensagem exibida é a de `INVALID_SESSION` da regra 5: "Sua sessão expirou.
+  Entre de novo.".
+- **`POST /auth/refresh` e `POST /auth/sign-in` estão fora do interceptor.** Um `401` neles é resposta
+  legítima, não sessão vencida; tentar renovar a partir deles seria laço infinito.
+- **O web não sabe quando o token expira** — ele não lê o cookie, que é `HttpOnly`, e não há
+  temporizador. A renovação é sempre reativa, disparada por um `401`.
+
 ---
 
 ## Cenários de Aceite (Gherkin)
@@ -246,7 +306,7 @@ Dado um visitante em `/login`
 E que a API responde o login com sucesso
 Quando ele preenche e-mail e senha e aciona `Entrar`
 Então o formulário é submetido uma única vez
-E o cliente é chamado com `callbackURL` igual a `${window.location.origin}/verify-email`
+E o corpo de `POST /auth/sign-in` traz só `email` e `password`, sem nenhuma URL de redirecionamento
 E o usuário é levado para `/app`
 E `/app` exibe o nome e o e-mail devolvidos pela sessão
 ```
@@ -255,7 +315,7 @@ E `/app` exibe o nome e o e-mail devolvidos pela sessão
 
 ```gherkin
 Dado um visitante em `/login`
-E que a API responde `401` com o código `INVALID_EMAIL_OR_PASSWORD`
+E que a API responde `401` com o código `INVALID_CREDENTIALS`
 Quando ele aciona `Entrar`
 Então a tela exibe "E-mail ou senha incorretos."
 E a mensagem está numa região com `aria-live="polite"`
@@ -277,9 +337,9 @@ E o usuário é levado para `/verify-email` com o e-mail digitado no estado da n
 
 ```gherkin
 Dado um visitante em `/signup`
-E que a API responde `200` com `token` nulo
+E que a API responde `202` com o corpo vazio
 Quando ele aciona `Criar conta`
-Então o cliente é chamado com `callbackURL` igual a `${window.location.origin}/verify-email`
+Então o corpo de `POST /auth/sign-up` traz só `name`, `email` e `password`
 E a tela exibe "Enviamos um link de confirmação para {e-mail}." com o e-mail digitado
 E o usuário é levado para `/verify-email`
 E o componente não recebe nenhuma informação que distinga um e-mail novo de um já cadastrado
@@ -371,18 +431,20 @@ E o botão em submissão mantém a mesma largura ao trocar o rótulo pelo texto 
 ```gherkin
 Dado um visitante em `/login`
 Quando ele aciona `Entrar com Google`
-Então o cliente do Better Auth é chamado com o provedor `google`, `callbackURL` igual a `${window.location.origin}/app` e `errorCallbackURL` igual a `${window.location.origin}/login`
+Então o browser navega para `<VITE_API_URL>/auth/google`, sem passar por axios
 E nenhuma credencial é enviada pelo formulário
-E o mesmo botão em `/signup` faz exatamente a mesma chamada
-Quando o Google devolve o visitante para `/login` com `error` na query
-Então a tela exibe "Não foi possível completar a ação. Tente de novo."
+E nenhuma URL de redirecionamento é enviada na query
+E o mesmo botão em `/signup` faz exatamente a mesma navegação
+Quando o Google devolve o visitante para `/login?error=INVALID_STATE`
+Então a tela exibe "Não foi possível entrar com o Google. Tente de novo."
+E com `error=UNVERIFIED_PROVIDER_EMAIL` exibe a mensagem correspondente da regra 5
 ```
 
 ### Cenário 14 — Trocar a senha exige a senha atual (exceção, regra 5)
 
 ```gherkin
 Dado um usuário em `/app/account/password`
-E que a API responde `401` com o código `INVALID_PASSWORD`
+E que a API responde `400` com o código `INVALID_PASSWORD`
 Quando ele aciona `Salvar`
 Então a tela exibe "Senha atual incorreta."
 E ele continua logado e na mesma tela
@@ -441,7 +503,7 @@ Quando não há sessão e a query traz `error=TOKEN_EXPIRED`
 Então a tela exibe "Este link expirou ou já foi usado. Peça um novo."
 E exibe o campo E-mail e o botão `Reenviar link`
 Quando ele aciona `Reenviar link` com um e-mail válido
-Então o cliente é chamado com `callbackURL` igual a `${window.location.origin}/verify-email`
+Então `POST /auth/send-verification-email` é chamado só com `email`
 E a tela exibe "Se houver uma confirmação pendente para este e-mail, você receberá um novo link."
 E o botão fica desabilitado por 60 segundos
 ```
@@ -466,6 +528,31 @@ Então a tela abre a partir do cache
 E a chamada de sessão à API falha em vez de ser respondida pelo service worker
 E a tela exibe "Não foi possível completar a ação. Tente de novo."
 E o Cache Storage não contém nenhuma URL da origem de `VITE_API_URL`
+```
+
+### Cenário 22 — A sessão se renova uma vez só, mesmo com três chamadas juntas (caminho feliz, regra 11)
+
+```gherkin
+Dado um usuário em `/app` cujo access token venceu
+E uma tela que dispara três requisições à API ao abrir
+Quando as três respondem `401` com o código `INVALID_SESSION`
+Então `POST /auth/refresh` é chamado exatamente uma vez
+E as outras duas esperam essa chamada em vez de dispararem a sua
+E, com o refresh bem-sucedido, as três requisições originais são repetidas uma única vez cada
+E o usuário permanece em `/app`, sem ver nenhuma mensagem
+```
+
+### Cenário 23 — Refresh que falha manda para o login guardando o destino (exceção, regra 11)
+
+```gherkin
+Dado um usuário em `/app/account/password` cujo access token venceu
+E que `POST /auth/refresh` responde `401`
+Quando a renovação falha
+Então o cache do TanStack Query é invalidado
+E o usuário é levado para `/login` com `redirect` igual a `/app/account/password`
+E a tela exibe "Sua sessão expirou. Entre de novo."
+E nenhuma segunda chamada a `POST /auth/refresh` é disparada
+E um `401` em `POST /auth/sign-in` nunca dispara renovação
 ```
 
 ---
@@ -522,14 +609,14 @@ Sem campo. Exibe `user.name` e `user.email` da sessão.
 
 | Nome da Ação | Destino / Ação | Regra de Ativação | Mensagens Associadas |
 | --- | --- | --- | --- |
-| `Entrar` | `signIn.email` do cliente com `callbackURL` igual a `${window.location.origin}/verify-email`; vai para `search.redirect` ou `/app` | Habilitado com e-mail e senha preenchidos; desabilitado durante a submissão, com o rótulo `Entrando…` | Erro: tabela da regra 5 |
-| `Entrar com Google` | `signIn.social` com `provider: "google"`, `callbackURL` igual a `${window.location.origin}/app` e `errorCallbackURL` igual a `${window.location.origin}/login` | Sempre habilitado | Erro: "Não foi possível completar a ação. Tente de novo." |
-| `Criar conta` | `signUp.email` com `callbackURL` igual a `${window.location.origin}/verify-email`; vai para `/verify-email` | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Criando…` | Sucesso: "Enviamos um link de confirmação para {e-mail}." · Erro: tabela da regra 5 |
-| `Reenviar link` | `sendVerificationEmail` com `callbackURL` igual a `${window.location.origin}/verify-email` | Habilitado com um e-mail conhecido ou digitado; volta a ficar habilitado 60 segundos após cada acionamento | Sucesso: "Se houver uma confirmação pendente para este e-mail, você receberá um novo link." · Erro: "Muitas tentativas. Tente de novo em um minuto." |
-| `Enviar link` | `requestPasswordReset` com `redirectTo` igual a `${window.location.origin}/reset-password`; permanece em `/forgot-password` | Habilitado com o e-mail válido; desabilitado durante a submissão, com o rótulo `Enviando…` | Sucesso: "Se este e-mail tiver cadastro, você receberá um link para redefinir a senha." |
-| `Redefinir senha` | `resetPassword` com o `token` da query; vai para `/login` | Habilitado com as duas senhas válidas e iguais; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha redefinida. Entre com a nova senha." · Erro: tabela da regra 5 |
-| `Salvar` | `changePassword` com `revokeOtherSessions: true`; permanece na tela | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha alterada." · Erro: tabela da regra 5 |
-| `Sair` | `signOut`, invalida o cache do Query; vai para `/login` | Sempre habilitado | Erro: "Não foi possível completar a ação. Tente de novo." |
+| `Entrar` | `POST /auth/sign-in` com `email` e `password`; vai para `search.redirect` ou `/app` | Habilitado com e-mail e senha preenchidos; desabilitado durante a submissão, com o rótulo `Entrando…` | Erro: tabela da regra 5 |
+| `Entrar com Google` | navegação de topo para `<VITE_API_URL>/auth/google`, sem corpo e sem query | Sempre habilitado | Erro: o que voltar em `?error=` na query de `/login`, pela tabela da regra 5 |
+| `Criar conta` | `POST /auth/sign-up` com `name`, `email` e `password`; vai para `/verify-email` | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Criando…` | Sucesso: "Enviamos um link de confirmação para {e-mail}." · Erro: tabela da regra 5 |
+| `Reenviar link` | `POST /auth/send-verification-email` com `email` | Habilitado com um e-mail conhecido ou digitado; volta a ficar habilitado 60 segundos após cada acionamento | Sucesso: "Se houver uma confirmação pendente para este e-mail, você receberá um novo link." · Erro: "Muitas tentativas. Tente de novo em um minuto." |
+| `Enviar link` | `POST /auth/request-password-reset` com `email`; permanece em `/forgot-password` | Habilitado com o e-mail válido; desabilitado durante a submissão, com o rótulo `Enviando…` | Sucesso: "Se este e-mail tiver cadastro, você receberá um link para redefinir a senha." |
+| `Redefinir senha` | `POST /auth/reset-password` com o `token` da query e a nova senha; vai para `/login` | Habilitado com as duas senhas válidas e iguais; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha redefinida. Entre com a nova senha." · Erro: tabela da regra 5 |
+| `Salvar` | `POST /auth/change-password` com `currentPassword` e `newPassword`; permanece na tela | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha alterada." · Erro: tabela da regra 5 |
+| `Sair` | `POST /auth/sign-out`, invalida o cache do Query; vai para `/login` | Sempre habilitado | Erro: "Não foi possível completar a ação. Tente de novo." |
 | `Esqueci minha senha` | Link para `/forgot-password` | Sempre habilitado | — |
 | `Criar conta` (link) | Link para `/signup` | Sempre habilitado | — |
 | `Já tenho conta` | Link para `/login` | Sempre habilitado | — |
@@ -541,8 +628,11 @@ Sem campo. Exibe `user.name` e `user.email` da sessão.
 
 ## Fora de Escopo
 
-- **Tema visual, tipografia, design system, ícones e cores do PWA** — pertencem à fase de design
-  system, que ainda não tem issue. As telas desta spec usam utilitárias do Tailwind diretamente.
+- **Tema visual, tipografia, ícones e cores do PWA** — pertencem à fase de design system, que a ADR 0003
+  abre sem cobrir. As telas desta spec usam os componentes do shadcn/ui já adotados, com utilitárias do
+  Tailwind no resto, e nenhuma decisão de cor ou de tipografia é tomada aqui.
+- **Animação e componente do React Bits** — a ADR 0003 define em quais categorias ele pode entrar no
+  `apps/web`; nenhuma tela desta spec usa nenhuma delas.
 - **Página offline e aviso de nova versão** — não pedidos; a regra 9 define o comportamento sem conexão
   e a atualização automática.
 - **Layout da aplicação: menu, barra lateral, cabeçalho** — `/app` é um placeholder até a issue #6
@@ -561,9 +651,9 @@ A numeração continua a da spec irmã, `docs/specs/autenticacao/003-autenticaca
 
 | # | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- |
-| 8 | Create the sign-in and sign-up screens on apps/web | `@tanstack/react-query`, `@tanstack/react-form` e `@testing-library/*` instalados, `setupFilesAfterEnv` no `jest.config.json`, `QueryClientProvider` e o contexto do router em `main.tsx`, `shared/auth/`, `shared/http/`, `features/auth/api/` com schemas Zod e `messages.ts`, `features/auth/password-policy.ts`, rotas `/login`, `/signup` e `/verify-email` | Cenários 1, 2, 3, 4, 5, 11, 13, 16, 17, 18 e 19 verdes; os quatro gates do web saem com código 0 | 2, 3 |
-| 9 | Protect the application area and sign out | `routes/(app)/route.tsx` com a guarda, `pendingComponent` e `errorComponent`, rota `/app`, ação `Sair`, `VITE_API_URL` no job `web` do CI | Cenários 7, 8, 9 e 12 verdes | 8 |
-| 10 | Recover, reset and change the password on apps/web | Rotas `/forgot-password`, `/reset-password` e `/app/account/password` | Cenários 10, 14 e 15 verdes | 3, 6, 9 |
+| 8 | Create the sign-in and sign-up screens on apps/web | `@tanstack/react-query`, `@tanstack/react-form`, `axios` e `@testing-library/*` instalados, `setupFilesAfterEnv` no `jest.config.json`, `QueryClientProvider` e o contexto do router em `main.tsx`, `shared/http/` com a instância de axios, `features/auth/api/` com schemas Zod e `messages.ts`, `features/auth/password-policy.ts`, rotas `/login`, `/signup` e `/verify-email` | Cenários 1, 2, 3, 4, 5, 11, 13, 16, 17, 18 e 19 verdes; os quatro gates do web saem com código 0 | task de fundação do shadcn/ui (ADR 0003), #65, #66, #67 |
+| 9 | Protect the application area, refresh the session and sign out | `routes/(app)/route.tsx` com a guarda, `pendingComponent` e `errorComponent`, rota `/app`, ação `Sair`, o interceptor de renovação da regra 11 em `shared/http/`, `VITE_API_URL` no job `web` do CI | Cenários 7, 8, 9, 12, 22 e 23 verdes | 8 |
+| 10 | Recover, reset and change the password on apps/web | Rotas `/forgot-password`, `/reset-password` e `/app/account/password` | Cenários 10, 14 e 15 verdes | 9, #67, #70 |
 | 11 | Make apps/web an installable PWA | `vite-plugin-pwa` em `vite.config.ts`, manifesto da regra 9, ícones em `apps/web/public/` | Cenários 20 e 21 verdes | — |
 
 A task 11 não depende de outra task desta spec, mas só fecha quando a fase de design system entregar
