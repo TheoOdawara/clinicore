@@ -13,7 +13,7 @@
     "format:fix": "prettier --write  .",
     "typecheck": "tsc --noEmit",
     "build": "nest build",
-    "test": "npm run build && node --env-file-if-exists=.env ./node_modules/.bin/jest",
+    "test": "npm run build && node --env-file-if-exists=.env.test ./node_modules/.bin/jest",
     "migration:generate": "node --env-file-if-exists=.env ./node_modules/.bin/typeorm-ts-node-commonjs migration:generate -d src/core/db/data-source.ts",
     "migration:run": "node --env-file-if-exists=.env ./node_modules/.bin/typeorm-ts-node-commonjs migration:run -d src/core/db/data-source.ts",
     "migration:revert": "node --env-file-if-exists=.env ./node_modules/.bin/typeorm-ts-node-commonjs migration:revert -d src/core/db/data-source.ts"

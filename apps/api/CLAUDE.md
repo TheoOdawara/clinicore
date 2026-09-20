@@ -79,7 +79,7 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
 - **Quem barra o TypeScript 7.0 na API é o `ts-jest@29`**, com peer `typescript >=4.3 <7`. O
   `@nestjs/cli@11.0.24` também carrega `typescript 5.9.3`, mas como dependência aninhada em
   `node_modules/@nestjs/cli/node_modules/`, e por isso não disputa com o `typescript` da raiz: o
-  `6.0.3` instala e o `nest build` roda sobre ele. O `apps/web` segue no 7.0 porque usa `@swc/jest`.
+  `6.0.3` instala e o `nest build` roda sobre ele. O `apps/web` também está no `6.0.3`.
 - **O TypeScript 6.0 reprova `moduleResolution: "node"` e `baseUrl`** com `TS5107` e `TS5101`, a menos
   que se declare `ignoreDeprecations`. O jeito de continuar em CommonJS sem isso é
   `module` e `moduleResolution` em `node16`: o formato do emit vem do `type` do `package.json`, que
@@ -121,9 +121,19 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
   `process.env` cru — é a licença da regra 6 — e falha nomeando a variável quando ela não está lá. Por
   isso os scripts `migration:*` invocam a CLI por `node --env-file-if-exists=.env`, que é nativo do
   Node e **deixa o ambiente já existente vencer**, então o job do CI entrega a `DATABASE_URL` sem
-  disputa. O script `test` invoca o Jest pelo mesmo caminho, então o app inteiro tem um mecanismo só
-  de ambiente e nenhuma dependência para isso — o custo é que `npx jest` cru não enxerga o `.env`, e
-  quem fizer isso cai no fail-fast do `boot.test.ts`.
+  disputa. O script `test` invoca o Jest pelo mesmo caminho, com `.env.test` no lugar do `.env`,
+  então o app inteiro tem um mecanismo só de ambiente e nenhuma dependência para isso — o custo é que
+  `npx jest` cru não enxerga arquivo nenhum, e quem fizer isso cai no `validateEnv` dos testes. **A
+  flag não passa por `NODE_OPTIONS`** (`--env-file-if-exists= is not allowed`), e é por isso que o
+  script invoca `node` com o binário do Jest como argumento em vez de chamar `jest` direto.
+- **A suíte inteira exige o ambiente inteiro, não só a `DATABASE_URL`.** Subir o `ConfigModule` num
+  teste roda o `validateEnv`, que cobra as cinco variáveis. Por isso o teste que precisa do ambiente
+  chama `validateEnv(process.env)` no topo do módulo: a mensagem que falta uma variável chega no
+  lugar de um erro de conexão ou de um teste com nome enganoso.
+- **O `migration:generate` da CLI do TypeORM 1.1 exige o caminho do arquivo como argumento
+  posicional**, então o script sozinho sai com `Argumentos insuficientes`. A forma que roda é
+  `npm run migration:generate -- src/core/db/migrations/<Nome>`. O `migration:run` e o
+  `migration:revert` são completos, e é essa assimetria que engana.
 - **A partir da #74 o gate `npm run test` exige o Postgres do compose de pé.** O `DbModule` está no
   `CoreModule`, então o boot conecta — e os testes do `boot.test.ts` que sobem o processo real caem
   com `ECONNREFUSED` sem o container. Com `retryAttempts: 0` a falha é imediata, porque quem ordena a

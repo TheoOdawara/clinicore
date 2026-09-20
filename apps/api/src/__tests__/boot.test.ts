@@ -3,22 +3,15 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { validateEnv } from "../core/config/env.validation";
 import { freePort } from "./free-port";
 
 const ENTRY = resolve(__dirname, "../../dist/main.js");
 
-const DATABASE_URL = process.env.DATABASE_URL;
-
-if (DATABASE_URL === undefined) {
-  throw new Error(
-    "DATABASE_URL is required to run the suite: the api boots against the compose Postgres",
-  );
-}
-
 const VALID_ENVIRONMENT = {
   ALLOWED_ORIGINS: "http://localhost:3000",
   APP_ORIGIN: "http://localhost:3000",
-  DATABASE_URL,
+  DATABASE_URL: validateEnv(process.env).DATABASE_URL,
   NODE_ENV: "development",
   PORT: "3333",
 };
