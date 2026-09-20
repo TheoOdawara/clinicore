@@ -1,4 +1,4 @@
 dist
 coverage
-bun.lock
+package-lock.json
 src/routeTree.gen.ts

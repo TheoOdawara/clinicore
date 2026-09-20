@@ -53,7 +53,7 @@ Cada comando roda de dentro do diretório do seu app.
 | Análise estática e formato | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` |
 | Tipos | `npm run typecheck` | `npm run typecheck` | `npm run typecheck` |
 | Build | `npm run build` | `npm run build` | `npm run build` |
-| Testes | `npm run test` · `npm run test:e2e` | `npm run test` | — enquanto não houver lógica a testar |
+| Testes | `npm run test` | `npm run test` | — enquanto não houver lógica a testar |
 
 Instalação: `npm ci` nos três apps.
 
