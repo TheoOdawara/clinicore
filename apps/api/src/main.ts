@@ -1,16 +1,17 @@
 import "reflect-metadata";
 import { writeSync } from "node:fs";
-import type { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { EnvironmentService } from "./core/config/environment.service";
+import { PinoLoggerService } from "./core/logger/pino-logger.service";
 
 const INVALID_ENVIRONMENT = "Invalid environment:";
 
-async function createApplication(): Promise<INestApplication> {
+async function createApplication(): Promise<NestExpressApplication> {
   try {
-    return await NestFactory.create(AppModule, {
+    return await NestFactory.create<NestExpressApplication>(AppModule, {
       abortOnError: false,
       bufferLogs: true,
       autoFlushLogs: false,
@@ -27,7 +28,7 @@ async function createApplication(): Promise<INestApplication> {
   }
 }
 
-function mountDocumentation(app: INestApplication): void {
+function mountDocumentation(app: NestExpressApplication): void {
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder().setTitle("Clinicore API").setVersion("0.1.0").build(),
@@ -37,6 +38,7 @@ function mountDocumentation(app: INestApplication): void {
 
 async function bootstrap(): Promise<void> {
   const app = await createApplication();
+  app.useLogger(app.get(PinoLoggerService));
   app.flushLogs();
   app.enableShutdownHooks();
 
@@ -44,6 +46,8 @@ async function bootstrap(): Promise<void> {
   if (environment.get("NODE_ENV") !== "production") {
     mountDocumentation(app);
   }
+
+  app.set("trust proxy", environment.get("TRUSTED_PROXIES"));
 
   await app.listen(environment.get("PORT"));
 }

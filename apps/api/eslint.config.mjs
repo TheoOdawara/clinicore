@@ -16,7 +16,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/**/*.module.ts", "src/main.ts"],
+    files: ["src/**/*.module.ts", "src/main.ts", "test/**/*.ts"],
     rules: { "@typescript-eslint/no-extraneous-class": "off" },
   },
   eslintConfigPrettier,

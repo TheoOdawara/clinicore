@@ -390,7 +390,11 @@ Uma senha é aceita quando cumpre **todas** as condições:
 ### 9. Todo request é logado, e nenhum segredo sai no log
 
 - `core/logger/` cria a instância do Pino 10 e o `LoggerService` do Nest registrado por
-  `app.useLogger()`, mais o interceptor que registra a requisição. **Nenhum wrapper de terceiro.**
+  `app.useLogger()`, mais o **middleware** que registra a requisição. **Nenhum wrapper de terceiro.**
+- **É middleware, e não interceptor, porque o guard roda antes do interceptor.** Um interceptor não
+  veria o `403 INVALID_ORIGIN` da guarda da regra 1 nem o `404` de rota inexistente, e a regra
+  valeria só para o request que alcança um controller. O middleware registra o `res.on("finish")`,
+  então enxerga o status final venha ele do controller, do guard ou do filtro.
 - O nível vem de `LOG_LEVEL`.
 - Cada requisição registra método, caminho, status e duração em milissegundos.
 - **`GET /health` não é logado.**
@@ -401,6 +405,9 @@ Uma senha é aceita quando cumpre **todas** as condições:
   SMTP e do Google não entram em nenhum objeto logado, então não existe caminho de `redact` para eles.
 - O Pino escreve em `stdout`. O erro de ambiente do boot continua indo cru para `stderr`, antes de
   existir logger (regra 14).
+- **Em `development` o destino é o `pino-pretty`**, colorido e legível; em `test` e em `production` é
+  `stdout` cru, uma linha JSON por evento. Quem decide é o `NODE_ENV`, não uma variável nova, e o
+  `pino-pretty` é dependência de desenvolvimento — a imagem de produção não o instala.
 - O worker da regra 17 usa a mesma instância de logger.
 
 ### 10. O erro tem um catálogo próprio, e o desconhecido vira 500 sem detalhe
@@ -417,8 +424,12 @@ Uma senha é aceita quando cumpre **todas** as condições:
   campo para o **nome da primeira restrição violada**, em maiúsculas com sublinhado:
   `{ "email": "IS_EMAIL", "password": "WEAK_PASSWORD" }`. O texto que a pessoa lê é escrito no web a
   partir desses códigos, nunca da `message`.
-- Um erro que o filtro não reconheça é registrado no Pino com a stack completa e respondido como `500`
-  com corpo `{ "code": "INTERNAL_ERROR", "message": "Internal server error", "fields": {} }`.
+- **Um `HttpException` do próprio Nest mantém o status.** Rota inexistente continua `404`, método
+  errado continua `405`, e o `code` é o nome do status em maiúsculas com sublinhado — `NOT_FOUND`,
+  `METHOD_NOT_ALLOWED` —, com `fields` vazio. É regra geral, não uma tabela por caso.
+- Um erro que não é `BusinessError` nem `HttpException` é registrado no Pino com a stack completa e
+  respondido como `500` com corpo
+  `{ "code": "INTERNAL_ERROR", "message": "Internal server error", "fields": {} }`.
 - A `message` é inglês e é texto de desenvolvedor, para log e depuração.
 
 ### 11. Toda rota de autenticação tem limite por IP, e o IP não pode ser forjado
@@ -558,7 +569,8 @@ variável em `core/config/env.validation.ts`, `validateEnv` puro e testado, `mai
   (regra 13). Diferente, o boot falha.
 - O teste de boot da `002` passa a listar todas as variáveis ausentes, e o caso feliz precisa das novas.
 - `.github/workflows/ci.yml` recebe as mesmas variáveis no bloco `env` do job `api`, um serviço
-  `redis:8` ao lado do `postgres:18`, e um step `npm run migration:run` antes dos testes.
+  `redis:8` ao lado do `postgres:18`, e um step `npm run migration:run` antes dos testes — o step de
+  migration nasce na task #66, junto da primeira migration.
 
 ### 15. Pedidos de e-mail são limitados por endereço, e não só por IP
 
@@ -648,6 +660,10 @@ escrito no web a partir do `code` (regra 10).
 | `RATE_LIMITED` | `429` | Limite da rota excedido (regra 11) | "Too many requests" |
 | `INTERNAL_ERROR` | `500` | Erro desconhecido | "Internal server error" |
 | `SERVICE_UNAVAILABLE` | `503` | Redis inalcançável numa requisição autenticada (regra 2) | "Service temporarily unavailable" |
+
+Além destes, o filtro devolve o nome do status HTTP como `code` para um `HttpException` levantado
+pelo próprio framework — `NOT_FOUND`, `METHOD_NOT_ALLOWED`, `PAYLOAD_TOO_LARGE` —, com a `message`
+do framework e `fields` vazio.
 
 Códigos que saem apenas em `?error=` de um `302`, sem corpo e sem `message`:
 
