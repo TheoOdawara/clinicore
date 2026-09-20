@@ -1,16 +1,24 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { freePort } from "./free-port";
 
 const ENTRY = resolve(__dirname, "../../dist/main.js");
+
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (DATABASE_URL === undefined) {
+  throw new Error(
+    "DATABASE_URL is required to run the suite: the api boots against the compose Postgres",
+  );
+}
 
 const VALID_ENVIRONMENT = {
   ALLOWED_ORIGINS: "http://localhost:3000",
   APP_ORIGIN: "http://localhost:3000",
-  DATABASE_URL: "postgresql://clinicore:local@localhost:5432/clinicore",
+  DATABASE_URL,
   NODE_ENV: "development",
   PORT: "3333",
 };
@@ -49,24 +57,6 @@ function bootWithout(
     child.on("error", fail);
     child.on("close", (code) => {
       settle({ code, stderr, stdout });
-    });
-  });
-}
-
-function freePort(): Promise<number> {
-  const probe = createServer();
-
-  return new Promise((settle, fail) => {
-    probe.on("error", fail);
-    probe.listen(0, "127.0.0.1", () => {
-      const address = probe.address();
-      if (address === null || typeof address === "string") {
-        fail(new Error("the probe server reported no port"));
-        return;
-      }
-      probe.close(() => {
-        settle(address.port);
-      });
     });
   });
 }

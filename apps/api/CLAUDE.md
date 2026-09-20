@@ -93,8 +93,9 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
   na versão 12 enquanto o Jest for CommonJS.** O peer é `@nestjs/common: ^11.0.0 || ^12.0.0`, e é ele
   que engana: o peer aceita, o Jest não. O `@nestjs/config@12` e o `@nestjs/terminus@12` publicam
   `"type": "module"`, exatamente como o `@nestjs/common@12`. Os pins que rodam sobre o Nest 11 são
-  `@nestjs/config@4.0.4` e `@nestjs/terminus@11.1.1`. O `@nestjs/swagger` não é exceção, é o mesmo
-  caso por outra porta: o `@nestjs/swagger@12` exige `@nestjs/common: ^12.0.0` e o npm recusa a
+  `@nestjs/config@4.0.4`, `@nestjs/terminus@11.1.1` e `@nestjs/typeorm@11.0.3` — este último com o
+  peer já aceitando `typeorm ^1.0.0-dev`, então o pin não custa versão do TypeORM. O `@nestjs/swagger`
+  não é exceção, é o mesmo caso por outra porta: o `@nestjs/swagger@12` exige `@nestjs/common: ^12.0.0` e o npm recusa a
   instalação — o pin é `@nestjs/swagger@11.4.7`. **A conferência antes de subir um satélite é o
   `"type"` do `package.json` publicado, nunca o peer.**
 - **O `ConfigModule.forRoot` do `@nestjs/config` é `async`** e devolve `Promise<DynamicModule>`. Um
@@ -116,6 +117,21 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
   limpo se confere pela ausência de `ERROR_DURING_SHUTDOWN` e pela porta liberada, não pelo código.
 - **O `latest` do TypeORM é o 1.1.1, e o 0.3.x virou o dist-tag `legacy`.** Tutorial e resposta de
   fórum anteriores a isso descrevem a API do 0.3.
+- **A CLI do TypeORM roda fora do Nest e ninguém carrega o `.env` para ela.** O `data-source.ts` lê
+  `process.env` cru — é a licença da regra 6 — e falha nomeando a variável quando ela não está lá. Por
+  isso os scripts `migration:*` invocam a CLI por `node --env-file-if-exists=.env`, que é nativo do
+  Node e **deixa o ambiente já existente vencer**, então o job do CI entrega a `DATABASE_URL` sem
+  disputa. O script `test` invoca o Jest pelo mesmo caminho, então o app inteiro tem um mecanismo só
+  de ambiente e nenhuma dependência para isso — o custo é que `npx jest` cru não enxerga o `.env`, e
+  quem fizer isso cai no fail-fast do `boot.test.ts`.
+- **A partir da #74 o gate `npm run test` exige o Postgres do compose de pé.** O `DbModule` está no
+  `CoreModule`, então o boot conecta — e os testes do `boot.test.ts` que sobem o processo real caem
+  com `ECONNREFUSED` sem o container. Com `retryAttempts: 0` a falha é imediata, porque quem ordena a
+  dependência é o `healthcheck` do compose, não retry às cegas.
+- **O glob de `entities` casa `.ts` quando o `__dirname` é `src/`**, o que acontece sob o `ts-node` da
+  CLI e sob o Jest. Hoje resolve para lista vazia; quando a #66 trouxer a primeira entity, ela precisa
+  ser carregável nos três contextos — `dist`, `ts-node` e `ts-jest` —, e isso se confere naquela
+  entrega.
 - **A DI do Nest depende de `reflect-metadata` e de `emitDecoratorMetadata`.** Faltando qualquer um
   dos dois, a compilação passa e a injeção falha em runtime.
 - **O `class-validator` não tem decorador de CIDR.** Tem `@IsIP`, `@IsPort`, `@IsUrl`, `@IsFQDN` e
