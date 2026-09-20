@@ -42,10 +42,9 @@ ADR 0004.
 
 - **Nem o Vite nem o `@swc/jest` checam tipo.** Os dois apagam o tipo e seguem: um arquivo com erro
   de tipo roda, o teste passa e o build sai com código 0. Só o `tsc` pega, e por isso o
-  `bun run typecheck` é um gate separado.
+  `npm run typecheck` é um gate separado.
 - **`import.meta.env` do Vite não existe no Jest.** No modo CommonJS, o arquivo que o lê derruba a
   suíte com `Must use import to load ES Module`; no modo ESM, carrega e o valor chega `undefined`.
-- **O binário do Jest é `#!/usr/bin/env node`**: mesmo com Bun, o web precisa de Node instalado.
 - **O `shadcn add` e o `jsrepo` geram arquivo comentado**, e o repo só admite o marcador `ponytail:`. A
   limpeza é parte de adicionar o componente, não uma passada depois.
 - **Parte dos componentes do React Bits ignora `prefers-reduced-motion`.** Conferir e corrigir no

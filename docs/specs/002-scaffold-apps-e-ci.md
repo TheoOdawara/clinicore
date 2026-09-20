@@ -48,8 +48,7 @@ Nenhum outro papel existe nesta entrega. Papéis e permissões nascem no epic #5
 
 ### 1. Os dois apps são independentes
 
-- `apps/api` e `apps/web` têm cada um o próprio `package.json` e o próprio lockfile —
-  `package-lock.json` na API, `bun.lock` no web.
+- `apps/api` e `apps/web` têm cada um o próprio `package.json` e o próprio `package-lock.json`.
 - Não existe manifest na raiz, workspace, nem qualquer `import` que atravesse a fronteira dos dois.
 - **Validação:** o gate de tipos de cada app roda com o diretório do outro ausente e continua verde.
 
@@ -182,11 +181,10 @@ validada sem consumidor nem destino é dívida, não preparação.
   buscador sem ninguém perceber.
 - O job `api` sobe um serviço `postgres:18` com healthcheck `pg_isready`; as variáveis do job apontam
   para esse serviço efêmero.
-- O job `api` usa **apenas `actions/setup-node` com Node 26**; o Bun não entra nele.
-- O job `web` instala **Node 26 além do Bun**: o binário do Jest é `#!/usr/bin/env node` e não roda sem
-  ele. O job `site` precisa só do Bun, porque não roda Jest.
-- Todos instalam com lockfile congelado — `npm ci` na API, `bun install --frozen-lockfile` no web e no
-  site. Um lockfile desatualizado reprova o PR.
+- **Os três jobs usam `actions/setup-node` com Node 26**, pela ADR 0005; o Bun não entra em nenhum.
+- Todos instalam com lockfile congelado, com `npm ci`. Um lockfile desatualizado reprova o PR.
+- **O lint e o formato são dois passos**, `npm run lint` e `npm run format:check`, para que o nome do
+  passo vermelho já diga qual dos dois caiu.
 - **Um job por app, não um job por gate**: a quota do GitHub Actions cobra por job arredondado ao minuto
   inteiro, e este é um repositório privado.
 
@@ -365,6 +363,6 @@ web, já entregue em #59, e **não muda**. A task 5 nasce com a ADR 0002.
 | --- | --- | --- | --- | --- | --- |
 | 1 | #73 | Recreate apps/api on NestJS with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `nest-cli.json`, `eslint.config.mjs`, `.prettierrc`, `jest` no `package.json`, `src/main.ts`, `src/app.module.ts`, `src/core/config/` com `env.validation.ts` validando `APP_ORIGIN` e `ALLOWED_ORIGINS` no lugar de `WEB_ORIGIN`, `environment.service.ts` e `config.module.ts`, `src/features/health/` com módulo, controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
 | 2 | #74 | Add the development Postgres and the TypeORM DataSource to apps/api | `apps/api/compose.yaml`, `src/core/db/` com `data-source.ts`, `db.module.ts`, `migrations/` e `__tests__` | Cenário 4 verde; `tsc --noEmit` sai com código 0 | task 1 |
-| 3 | #59 — entregue | Create apps/web with green gates and the root route | `apps/web`: entregue em Bun, Vite e TanStack Router pela ADR 0002; o lint e o TypeScript foram trocados depois pela ADR 0004 | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
-| 4 | #75 | Update the CI workflow for the API toolchain | `.github/workflows/ci.yml`: job `api` com `setup-node` e `npm ci`, sem Bun; job `web` inalterado; `WEB_ORIGIN` trocada por `APP_ORIGIN` e `ALLOWED_ORIGINS` no ambiente do job `api` | Cenários 6, 7 e 8 verdes, observados em um pull request real | tasks 1 e 2 |
+| 3 | #59 — entregue | Create apps/web with green gates and the root route | `apps/web`: entregue em Bun, Vite e TanStack Router pela ADR 0002; o lint e o TypeScript foram trocados depois pela ADR 0004, e o gerenciador de pacotes pela ADR 0005 | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
+| 4 | #75 | Update the CI workflow for the npm toolchain of both apps | `.github/workflows/ci.yml`: jobs `api` e `web` com `setup-node` e `npm ci`, sem Bun em nenhum, com lint e formato em passos separados; `apps/web` migrado para npm pela ADR 0005; `WEB_ORIGIN` trocada por `APP_ORIGIN` e `ALLOWED_ORIGINS` no ambiente do job `api` | Cenários 6, 7 e 8 verdes, observados em um pull request real | tasks 1 e 2 |
 | 5 | #76 | Create apps/site with green gates and the prerendered landing shell | `apps/site`: `package.json`, `tsconfig.json`, `vite.config.ts` com `vite-prerender-plugin` e `vite-imagetools`, `eslint.config.mjs`, `.prettierrc`, TypeScript 6, `src/main.tsx`, `src/prerender.tsx`, `src/routes/index.tsx` e `src/styles/`; `.github/workflows/ci.yml` com o job `site` e a conferência do HTML | Cenários 6 a 10 verdes; os gates do site saem com código 0 e o `dist/index.html` tem conteúdo | task 4 |
