@@ -4,7 +4,7 @@
 > **Perfil:** API
 > **Módulo:** `apps/api`, `apps/web`, `.github/workflows`
 > **Epic:** #1 — Plataforma
-> **Issue:** #2
+> **Issue:** #2, reescrita para a stack de #72
 
 ## Acceptance Criteria
 
@@ -47,7 +47,8 @@ Nenhum outro papel existe nesta entrega. Papéis e permissões nascem no epic #5
 
 ### 1. Os dois apps são independentes
 
-- `apps/api` e `apps/web` têm cada um o próprio `package.json` e o próprio `bun.lock`.
+- `apps/api` e `apps/web` têm cada um o próprio `package.json` e o próprio lockfile —
+  `package-lock.json` na API, `bun.lock` no web.
 - Não existe manifest na raiz, workspace, nem qualquer `import` que atravesse a fronteira dos dois.
 - **Validação:** o gate de tipos de cada app roda com o diretório do outro ausente e continua verde.
 
@@ -57,28 +58,29 @@ Análise estática e formato → tipos → build → testes. Cada um sai com có
 
 | Gate | `apps/api` | `apps/web` |
 | --- | --- | --- |
-| Análise estática e formato | `biome check .` | `biome check .` |
-| Tipos | `prisma generate && tsc --noEmit` | `tsc --noEmit` |
-| Build | `bun build` | `vite build` |
-| Testes | `bun test` | `jest` |
+| Análise estática e formato | `eslint . --max-warnings 0` e `prettier --check` | `biome check .` |
+| Tipos | `tsc --noEmit` | `tsc --noEmit` |
+| Build | `nest build` | `vite build` |
+| Testes | `jest` | `jest` |
 
-- **`prisma generate` faz parte do gate de tipos da API**, não é passo separado: no Prisma 7 ele deixou
-  de rodar dentro de `migrate dev`, e sem ele o client não existe e o `tsc` falha.
+- **O ESLint da API roda com regras type-aware**, o que exige `parserOptions.projectService` apontando
+  para o `tsconfig.json`. Sem isso, `no-unsafe-assignment` não existe — e é a única regra que denuncia
+  o `any` que escapa de decorator e de injeção.
 - **`routeTree.gen.ts` é commitado e excluído do Biome.** É gerado pelo plugin do TanStack Router, mas a
   documentação oficial o trata como parte do runtime da aplicação, não como artefato de build.
-- **O `bun test` da API roda com `CLAUDECODE` ausente do ambiente.** Com essa variável presente, a saída
-  esconde os testes que passam.
+- **A API não tem passo de geração antes do gate de tipos.** Entity do TypeORM é classe escrita à mão;
+  não há client gerado, então `tsc --noEmit` roda sozinho.
 
 ### 3. A entrada de cada app só faz wiring
 
-- `apps/api/src/server.ts` monta os plugins, registra os controllers e escuta. Não tem handler inline.
-- O handler do health check vive em `apps/api/src/features/health/controller/health.controller.ts`. Não
-  tem service nem repository, porque não tem regra.
-- **A documentação da API é o `@elysiajs/openapi`**, montado no `server.ts` no modo baseado em schema: o
-  documento sai em runtime dos schemas TypeBox declarados nas rotas. O `fromTypes` do plugin nunca é
-  usado — ele depende da API programática do compilador, que o TypeScript 7.0 não tem. O
-  `@elysiajs/swagger` parou na 1.3.1 e não tem versão para o Elysia 1.4: foi renomeado para
-  `@elysiajs/openapi` na 1.3.
+- `apps/api/src/main.ts` cria a aplicação a partir do `AppModule`, aplica o que é global e escuta.
+  Não tem handler, não tem regra e não declara provider.
+- `apps/api/src/app.module.ts` só importa: o `CoreModule` e os módulos de feature. Nada mais.
+- O handler do health check vive em `apps/api/src/features/health/controller/health.controller.ts`,
+  declarado pelo `health.module.ts`. Não tem service nem repository, porque não tem regra.
+- **A documentação da API é o `@nestjs/swagger`**, montada no `main.ts` com `SwaggerModule.setup()`. O
+  documento sai dos decorators das classes de DTO. O plugin de CLI do `@nestjs/swagger` fica ligado no
+  `nest-cli.json`, para que o schema saia do tipo sem `@ApiProperty` repetido em cada campo.
 - `apps/web/src/main.tsx` monta o React e o router. Não tem rota inline.
 - **Verificação:** revisão do pull request, não cenário automatizado. É uma regra de organização de
   arquivos, sem resultado observável em runtime — o Cenário 1 prova que o health check responde, não
@@ -86,24 +88,29 @@ Análise estática e formato → tipos → build → testes. Cada um sai com có
 
 ### 4. Toda variável de ambiente é obrigatória e validada no boot
 
-- **A API** lê o ambiente em um único módulo, `apps/api/src/core/config/`, dividido em dois arquivos,
-  com schema TypeBox:
-  - `env-schema.ts` exporta o schema e `parseEnv(source: Record<string, string | undefined>)` — **função
-    pura, testada**;
-  - `env.ts` chama `parseEnv(Bun.env)`, escreve em `stderr` e sai com `1` quando a chamada lança, e
-    exporta `env` — **uma responsabilidade, sem teste próprio**, coberta pelo Cenário 2.
+- **A API** lê o ambiente em um único módulo, `apps/api/src/core/config/`, com três arquivos:
+  - `env.validation.ts` exporta a classe `Environment`, com um decorator de `class-validator` por
+    variável, e `validateEnv(source: Record<string, unknown>): Environment` — **função pura, testada**.
+    Ela converte com `plainToInstance`, valida com `validateSync` e, falhando, lança com a mensagem
+    montada no formato abaixo;
+  - `environment.service.ts` expõe o acessor tipado `get<Key extends keyof Environment>(key: Key)` sobre
+    `ConfigService.getOrThrow`. **Nenhum outro arquivo chama `ConfigService.get`**, porque a sobrecarga
+    que casa com `get('CHAVE')` devolve `any` e apaga a tipagem em silêncio;
+  - `config.module.ts` registra `ConfigModule.forRoot({ validate: validateEnv })` e provê o
+    `Environment`.
 
-  A divisão é a mesma do web e existe pela mesma razão: `env.ts` valida no import, e um teste de função
-  pura não pode depender do ambiente do runner para carregar. **`env.ts` é o único arquivo do app que lê
-  `Bun.env`**; nenhum outro lê `process.env`, `Bun.env` ou equivalente.
+  **Nenhum arquivo do app lê `process.env`.** Quem lê é o `ConfigModule`; quem entrega valor é o
+  `Environment` injetado.
 - **O web** lê em um único módulo, `apps/web/src/shared/env/`, dividido em dois arquivos:
   - `env-schema.ts` exporta o schema Zod e `parseEnv(source: Record<string, unknown>)` — **função pura,
     testada**;
   - `env.ts` exporta `export const env = parseEnv(import.meta.env)` — **uma linha, sem teste**, porque
     `import.meta.env` é substituído em build-time pelo Vite e não existe sob o Jest.
 - **Nenhum valor padrão em nenhum ambiente**, dev e teste incluídos.
-- **Validação:** na primeira linha do boot, antes de qualquer conexão ou listen. Falhando, o processo
-  escreve em `stderr` e sai com código `1`:
+- **Validação:** na criação do `AppModule`, antes de qualquer conexão ou listen — o `validate` do
+  `ConfigModule` roda enquanto o container é construído, e o `TypeOrmModule` só conecta depois. O
+  `main.ts` envolve o `NestFactory.create` e, capturando a falha de validação, escreve em `stderr` e
+  sai com código `1`:
 
   > ```
   > Invalid environment:
@@ -125,22 +132,27 @@ Análise estática e formato → tipos → build → testes. Cada um sai com có
 
 `WEB_ORIGIN` nasce aqui, mas quem a consome é o CORS, na #3. Nesta entrega ela é validada e não usada.
 
+`LOG_LEVEL` **não** nasce aqui: o logger é a #3, junto do `ExceptionFilter` global, e uma variável
+validada sem consumidor nem destino é dívida, não preparação.
+
 ### 5. O Postgres de desenvolvimento sobe pelo compose da API
 
 - `apps/api/compose.yaml`, Compose V2, carrega **somente** o Postgres 18 — a stack inteira é a #4.
 - O serviço declara `healthcheck` com `pg_isready`, para que o compose da #4 possa depender dele.
 - O volume de dados é nomeado, não um bind mount.
 
-### 6. O client do Prisma é o único caminho até o banco
+### 6. O `DataSource` do TypeORM é o único caminho até o banco
 
-- `apps/api/prisma/schema.prisma` tem `datasource` e `generator client` com `provider = "prisma-client"`
-  e `output = "../generated/prisma"`. **Nenhum `model` nesta entrega** — a primeira migration vem com o
-  Better Auth, na #3.
-- `apps/api/src/core/db/prisma.ts` instancia
-  `new PrismaClient({ adapter: new PrismaPg({ connectionString: env.DATABASE_URL }) })`.
-  `PrismaPg` vem de `@prisma/adapter-pg` e recebe um objeto de configuração, não uma string solta.
-  Sem `previewFeatures`: driver adapters são GA e obrigatórios no Prisma 7.
-- `apps/api/generated/` é ignorado pelo git e pelo Biome, e incluído no `tsc`.
+- `apps/api/src/core/db/data-source.ts` exporta o `DataSource` que a CLI do TypeORM usa para gerar e
+  rodar migration. Ele lê a `DATABASE_URL` do ambiente do processo, porque a CLI roda fora do container
+  de DI do Nest — é o **único** arquivo com essa licença, e ela existe por causa da CLI, não do app.
+- `apps/api/src/core/db/db.module.ts` registra `TypeOrmModule.forRootAsync()` com a `DATABASE_URL` vinda
+  do `Environment` injetado.
+- **`synchronize` é `false` em todo ambiente, sem exceção.** Schema muda por migration versionada em
+  `core/db/migrations/`, nunca por diff automático.
+- **Nenhuma entity nesta entrega** — a primeira vem com a autenticação, na #3. O `entities` do
+  `forRootAsync` aponta para o padrão de arquivo das features e resolve para lista vazia.
+- Não há client gerado nem diretório de artefato: entity do TypeORM é classe escrita à mão.
 
 ### 7. O CI roda os gates em pull request para `develop` e para `main`
 
@@ -149,9 +161,11 @@ Análise estática e formato → tipos → build → testes. Cada um sai com có
   primeiro que falhar.
 - O job `api` sobe um serviço `postgres:18` com healthcheck `pg_isready`; as variáveis do job apontam
   para esse serviço efêmero.
+- O job `api` usa **apenas `actions/setup-node` com Node 26**; o Bun não entra nele.
 - O job `web` instala **Node 26 além do Bun**: o binário do Jest é `#!/usr/bin/env node` e não roda sem
   ele.
-- Ambos instalam com lockfile congelado — um lockfile desatualizado reprova o PR.
+- Ambos instalam com lockfile congelado — `npm ci` na API, `bun install --frozen-lockfile` no web. Um
+  lockfile desatualizado reprova o PR.
 - **Um job por app, não um job por gate**: a quota do GitHub Actions cobra por job arredondado ao minuto
   inteiro, e este é um repositório privado.
 
@@ -216,20 +230,20 @@ E a mensagem contém `VITE_API_URL: expected an absolute URL with no trailing sl
 E o valor recebido não aparece na mensagem
 ```
 
-### Cenário 4 — O client do Prisma alcança o Postgres do compose (caminho feliz)
+### Cenário 4 — O `DataSource` do TypeORM alcança o Postgres do compose (caminho feliz)
 
 ```gherkin
 Dado o Postgres do `apps/api/compose.yaml` de pé
 E a variável `DATABASE_URL` apontando para ele
-Quando o client do Prisma abre uma transação vazia
+Quando o `DataSource` é inicializado e abre uma transação vazia
 Então a chamada completa sem lançar
 E com o container parado a mesma chamada falha com `ECONNREFUSED`
 ```
 
-**Não é `$connect()`.** Com driver adapter o `$connect()` não abre conexão: ele resolve igual com o
-Postgres desligado, medido nesta stack. Um cenário que passa com a dependência fora do ar não é
-critério de aceite. A transação vazia é API do Prisma — sem raw SQL e sem `model` — e é o menor
-caminho que faz ida e volta de verdade até o servidor.
+**A transação vazia faz parte do cenário, não só o `initialize()`.** O critério é provar ida e volta
+até o servidor, e a transação emite `BEGIN` e `COMMIT` de verdade. Um cenário que possa passar com a
+dependência fora do ar não é critério de aceite. `dataSource.transaction(async () => {})` é API do
+TypeORM, sem SQL cru e sem entity nenhuma declarada.
 
 ### Cenário 5 — A tela inicial do web renderiza com Tailwind aplicado (caminho feliz)
 
@@ -245,7 +259,7 @@ E o `h1` está com as classes utilitárias do Tailwind aplicadas, não com o est
 ```gherkin
 Dado um pull request de uma branch `feature/*` para `develop`
 Quando o workflow `CI` roda
-Então o job `api` executa Biome, tipos, build e testes, todos com código 0
+Então o job `api` executa ESLint e Prettier, tipos, build e testes, todos com código 0
 E o job `web` executa Biome, tipos, build e testes, todos com código 0
 E o pull request aparece com o check verde
 ```
@@ -274,16 +288,19 @@ E o mesmo vale na direção inversa, removendo `apps/api`
 
 ## Fora de Escopo
 
-- **CORS, `trustedOrigins` e `credentials: "include"`** — issue #3, junto com o Better Auth. `WEB_ORIGIN`
-  nasce aqui apenas validada.
-- **`onError` global, `BusinessError` e o formato `{ code, message, fields }`** — issue #3. Nesta entrega
-  não existe uma única rota que valide entrada ou que lance erro de negócio, então o tratador nasceria
-  sem um caso testável.
+- **CORS e `credentials: "include"`** — issue #3. `WEB_ORIGIN` nasce aqui apenas validada.
+- **`ExceptionFilter` global, `BusinessError` e o formato `{ code, message, fields }`** — issue #3. Nesta
+  entrega não existe uma única rota que valide entrada ou que lance erro de negócio, então o filtro
+  nasceria sem um caso testável.
+- **Logger Pino, `LoggerService` e a variável `LOG_LEVEL`** — issue #3, pelo mesmo motivo: não há erro
+  nem requisição com conteúdo para registrar.
 - **Dockerfile dos apps, `compose.yaml` da raiz e deploy de homolog** — issue #4.
-- **`worker.ts`, pg-boss e `core/queue/`** — não há job nesta entrega; nasce com a primeira feature que
-  enfileira.
+- **`worker.ts`, `@nestjs/bullmq` e `core/queue/`** — não há job nesta entrega; nascem com o primeiro,
+  a issue #71.
+- **Redis** — não há consumidor nesta entrega. Ele sobe no compose na issue #69, que é o primeiro uso:
+  a contagem do limite por IP e a denylist de revogação de sessão.
 - **`core/mail/` e Nodemailer** — idem, nasce com o primeiro e-mail.
-- **Qualquer `model` no `schema.prisma` e a primeira migration** — issue #3.
+- **Qualquer entity e a primeira migration** — issue #3.
 - **Rota `(app)` protegida por sessão e layout da aplicação** — issue #3.
 - **Git hooks, Storybook, matriz de versões no CI, cache de dependências no CI, badge de cobertura** —
   não pedidos por ninguém; entram quando houver dor medida.
@@ -292,9 +309,13 @@ E o mesmo vale na direção inversa, removendo `apps/api`
 
 ## Quebra em Tasks
 
+As tasks 1, 2 e 4 são refeitas na stack de #72 e viram sub-issues dela; as issues originais
+(#57, #58, #60) ficam fechadas como histórico do que foi entregue na stack anterior. A task 3 é do
+web, já entregue em #59, e **não muda**.
+
 | # | Issue | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- | --- |
-| 1 | #57 | Create apps/api with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `biome.json`, `src/server.ts`, `src/core/config/` com `env-schema.ts` e `env.ts`, `src/features/health/` com controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
-| 2 | #58 | Add the development Postgres and the Prisma client to apps/api | `apps/api/compose.yaml`, `prisma/schema.prisma`, `src/core/db/prisma.ts` e `src/core/db/__tests__` | Cenário 4 verde; `prisma generate` e `tsc --noEmit` saem com código 0 | #57 |
-| 3 | #59 | Create apps/web with green gates and the root route | `apps/web`: `package.json`, `vite.config.ts`, `tsconfig.json`, `biome.json`, `jest.config.ts`, `src/main.tsx`, `src/routes/`, `src/styles/`, `src/shared/env/` com `__tests__` | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
-| 4 | #60 | Add the CI workflow for pull requests to develop and main | `.github/workflows/ci.yml` | Cenários 6, 7 e 8 verdes, observados em um pull request real | #57, #58, #59 |
+| 1 | sub-issue de #72 | Recreate apps/api on NestJS with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `nest-cli.json`, `eslint.config.mjs`, `.prettierrc`, `jest` no `package.json`, `src/main.ts`, `src/app.module.ts`, `src/core/config/` com `env.validation.ts`, `environment.service.ts` e `config.module.ts`, `src/features/health/` com módulo, controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
+| 2 | sub-issue de #72 | Add the development Postgres and the TypeORM DataSource to apps/api | `apps/api/compose.yaml`, `src/core/db/` com `data-source.ts`, `db.module.ts`, `migrations/` e `__tests__` | Cenário 4 verde; `tsc --noEmit` sai com código 0 | task 1 |
+| 3 | #59 — entregue | Create apps/web with green gates and the root route | `apps/web`: inalterado. O web fica em Bun, Vite, Biome e TypeScript 7 até migrar para Next | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
+| 4 | sub-issue de #72 | Update the CI workflow for the API toolchain | `.github/workflows/ci.yml`: job `api` com `setup-node` e `npm ci`, sem Bun; job `web` inalterado | Cenários 6, 7 e 8 verdes, observados em um pull request real | tasks 1 e 2 |

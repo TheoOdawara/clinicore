@@ -4,186 +4,173 @@
 > **Perfil:** API
 > **Módulo:** `apps/api`
 > **Epic:** #1 — Plataforma
-> **Issue:** #3
-> **Spec irmã:** `docs/specs/autenticacao/003-autenticacao-web.md` (perfil UI)
+> **Issue:** #3, reescrita para a stack de #72
+> **Spec irmã:** `docs/specs/autenticacao/003-autenticacao-web.md` (perfil UI) — **desatualizada**, ver
+> Fora de Escopo
 
 ## Acceptance Criteria
 
 ### Contrato
 
-O handler do Better Auth é montado com `.mount(auth.handler)` e responde sob o `basePath` padrão
-`/api/auth`. Nenhuma dessas rotas é escrita à mão; método e caminho são os do Better Auth.
+Todas as rotas são escritas nesta entrega. Não existe handler de terceiro montado: método, caminho,
+corpo, status e cookie são os desta spec.
 
 | Método | Rota | Auth / Role | Idempotente |
 | --- | --- | --- | --- |
-| `POST` | `/api/auth/sign-up/email` | público | Sim |
-| `POST` | `/api/auth/sign-in/email` | público | Não — limitado pela regra 16 |
-| `POST` | `/api/auth/sign-in/social` | público | Sim |
-| `GET` | `/api/auth/callback/google` | `state` e `code` do Google | Sim |
-| `POST` | `/api/auth/sign-out` | sessão válida | Sim |
-| `GET` | `/api/auth/get-session` | cookie de sessão | Sim |
-| `POST` | `/api/auth/send-verification-email` | público | Sim, na janela da regra 15 |
-| `GET` | `/api/auth/verify-email` | token de verificação | Sim |
-| `POST` | `/api/auth/request-password-reset` | público | Sim, na janela da regra 15 |
-| `GET` | `/api/auth/reset-password/:token` | token de reset | Sim |
-| `POST` | `/api/auth/reset-password` | token de reset | Sim |
-| `POST` | `/api/auth/change-password` | sessão válida | Sim |
+| `POST` | `/auth/sign-up` | público | Sim |
+| `POST` | `/auth/sign-in` | público | Não — limitado pela regra 16 |
+| `POST` | `/auth/refresh` | cookie `clinicore_refresh` | Não — rotaciona (regra 3) |
+| `POST` | `/auth/sign-out` | cookie `clinicore_access` | Sim |
+| `GET` | `/auth/session` | cookie `clinicore_access` | Sim |
+| `POST` | `/auth/send-verification-email` | público | Sim, na janela da regra 15 |
+| `GET` | `/auth/verify-email` | token na query | Sim |
+| `POST` | `/auth/request-password-reset` | público | Sim, na janela da regra 15 |
+| `POST` | `/auth/reset-password` | token no corpo | Sim |
+| `POST` | `/auth/change-password` | cookie `clinicore_access` | Sim |
+| `GET` | `/auth/google` | público | Sim |
+| `GET` | `/auth/google/callback` | `state` e `code` do Google | Sim |
 | `GET` | `/health` | público | Sim |
 
-**Critério de idempotência:** uma rota é idempotente quando N chamadas iguais deixam o banco, e o
-que sai por e-mail, no mesmo estado que uma chamada. A resposta pode mudar — uma segunda chamada que
-responde `400` sem gravar nada continua idempotente. As atualizações da tabela `rateLimit` não entram
-no critério: são o mecanismo que limita as chamadas.
+**Critério de idempotência:** uma rota é idempotente quando N chamadas iguais deixam o banco, e o que
+sai por e-mail, no mesmo estado que uma chamada. A resposta pode mudar — uma segunda chamada que
+responde `400` sem gravar nada continua idempotente. A contagem do limite por IP não entra no critério:
+vive no Redis e é o mecanismo que limita as chamadas.
 
 | Rota | Por que é idempotente, ou como é limitada |
 | --- | --- |
-| `sign-up/email` | O e-mail é único. Repetir devolve a mesma resposta genérica, sem gravar e sem enviar (regra 8) |
-| `sign-in/email` | **Não é.** Cada login com sucesso cria uma `session` — esse é o propósito da rota. O crescimento é limitado a 5 sessões por usuário (regra 16) |
-| `sign-in/social` | O `state` do OAuth vive num cookie, não no banco (regra 6). A chamada não grava nada |
-| `callback/google` | O `code` do Google é de uso único. Repetir o callback falha na troca do código e não cria sessão |
+| `sign-up` | O e-mail é único. Repetir responde `202` com corpo vazio, sem gravar e sem enviar (regra 8) |
+| `sign-in` | **Não é.** Cada login com sucesso cria uma `session` — esse é o propósito da rota. O crescimento é limitado a 5 sessões por usuário (regra 16) |
+| `refresh` | **Não é.** Cada chamada rotaciona o refresh token; a segunda chamada com o token antigo derruba a sessão (regra 3) |
+| `sign-out` | Depois da primeira, a sessão não existe. Repetir responde `401` e não altera nada |
 | `send-verification-email` | Dentro de 60 segundos, a repetição para o mesmo endereço não envia (regra 15) |
-| `verify-email` | Depois da primeira, o e-mail já está verificado. Repetir redireciona sem criar sessão |
+| `verify-email` | Depois da primeira, o token está consumido. Repetir redireciona com `?error=INVALID_TOKEN` |
 | `request-password-reset` | Dentro de 60 segundos, a repetição para o mesmo endereço não grava token nem envia (regra 15) |
-| `reset-password/:token` | Só redireciona, sem gravar |
 | `reset-password` | O token é consumido na primeira. Repetir responde `400 INVALID_TOKEN` e a senha continua a da primeira |
 | `change-password` | Repetir falha em `currentPassword`, porque a senha já mudou |
+| `google` | Só gera a URL de autorização e o cookie de `state`. Não grava nada (regra 6) |
+| `google/callback` | O `code` do Google é de uso único. Repetir falha na troca do código e não cria sessão |
 
 ### Request
 
-**`POST /api/auth/sign-up/email`**
+Todo corpo é JSON e é uma classe DTO com decorators de `class-validator` em
+`features/auth/dto/`. **A API não aceita URL de redirecionamento do cliente em nenhuma rota**: todo
+destino é montado no servidor a partir de `WEB_ORIGIN` (regra 1). Campo desconhecido no corpo é
+recusado.
+
+**`POST /auth/sign-up`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `name` | `string` | Sim | 1 a 100 caracteres, após remover espaços das pontas |
 | `email` | `string` | Sim | endereço de e-mail válido; gravado em minúsculas |
 | `password` | `string` | Sim | regra 4 (política de senha) |
-| `callbackURL` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/verify-email` |
 
 ```json
-{ "name": "Ana Souza", "email": "ana@exemplo.com", "password": "Clinica#2026", "callbackURL": "http://localhost:3000/verify-email" }
+{ "name": "Ana Souza", "email": "ana@exemplo.com", "password": "Clinica#2026" }
 ```
 
-**`POST /api/auth/sign-in/email`**
+**`POST /auth/sign-in`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `email` | `string` | Sim | endereço de e-mail válido |
-| `password` | `string` | Sim | não vazia |
-| `callbackURL` | `string` | Não | regra 1; é o destino do link reenviado pela regra 5, e o web sempre envia `${WEB_ORIGIN}/verify-email` |
+| `password` | `string` | Sim | 1 a 128 caracteres |
 
-**`POST /api/auth/sign-in/social`**
-
-| Campo | Tipo | Obrigatório | Validação |
-| --- | --- | --- | --- |
-| `provider` | `string` | Sim | exatamente `google` |
-| `callbackURL` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/app` |
-| `errorCallbackURL` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/login` |
-
-**`POST /api/auth/send-verification-email`**
+**`POST /auth/send-verification-email`** e **`POST /auth/request-password-reset`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `email` | `string` | Sim | endereço de e-mail válido |
-| `callbackURL` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/verify-email` |
 
-**`POST /api/auth/request-password-reset`**
+**`GET /auth/verify-email`**
 
-| Campo | Tipo | Obrigatório | Validação |
-| --- | --- | --- | --- |
-| `email` | `string` | Sim | endereço de e-mail válido |
-| `redirectTo` | `string` | Não | regra 1; o web sempre envia `${WEB_ORIGIN}/reset-password` |
+| Parâmetro | Onde | Tipo | Obrigatório | Validação |
+| --- | --- | --- | --- | --- |
+| `token` | query | `string` | Sim | 43 caracteres base64url |
 
-**Os campos de redirecionamento são contrato do web, não da API.** O Better Auth não os exige; o
-web os envia sempre, como fixa a spec irmã. Sem `callbackURL`, o link de verificação leva
-`callbackURL=/`, e um link inválido ou expirado responde `401` em JSON em vez de redirecionar
-(regra 5).
-
-**`POST /api/auth/reset-password`**
+**`POST /auth/reset-password`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
+| `token` | `string` | Sim | 43 caracteres base64url |
 | `newPassword` | `string` | Sim | regra 4 (política de senha) |
-| `token` | `string` | Sim | token de reset não expirado e não consumido |
 
-**`POST /api/auth/change-password`**
+**`POST /auth/change-password`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
-| `currentPassword` | `string` | Sim | senha atual da conta |
+| `currentPassword` | `string` | Sim | 1 a 128 caracteres |
 | `newPassword` | `string` | Sim | regra 4 (política de senha) |
-| `revokeOtherSessions` | `boolean` | Não | o web sempre envia `true` (regra 7); ausente, as outras sessões ficam |
+
+**`POST /auth/refresh`**, **`POST /auth/sign-out`**, **`GET /auth/session`**, **`GET /auth/google`**:
+sem corpo e sem parâmetro. O que identifica quem chama é o cookie (regra 2).
+
+**`GET /auth/google/callback`**
+
+| Parâmetro | Onde | Tipo | Obrigatório | Validação |
+| --- | --- | --- | --- | --- |
+| `code` | query | `string` | Sim | não vazio |
+| `state` | query | `string` | Sim | igual ao cookie `clinicore_oauth_state` (regra 6) |
 
 ### Response
 
-**`200 OK` — `POST /api/auth/sign-in/email`**
+**`200 OK` — `POST /auth/sign-in` e `GET /auth/session`**
 
 ```json
 {
-  "redirect": false,
-  "token": "…",
   "user": {
-    "id": "…",
+    "id": "0b8f2c1e-5a4d-4c3b-9e7f-1a2b3c4d5e6f",
     "name": "Ana Souza",
     "email": "ana@exemplo.com",
     "emailVerified": true,
-    "image": null,
-    "createdAt": "2026-09-16T12:00:00.000Z",
-    "updatedAt": "2026-09-16T12:00:00.000Z"
+    "image": null
   }
 }
 ```
 
-Junto, o header `Set-Cookie` com o cookie de sessão da regra 2.
+Em `sign-in`, junto vêm os dois `Set-Cookie` da regra 2. Em `session`, nenhum cookie é reescrito.
+Todo `id` é um UUID em texto (regra 12).
 
-**`200 OK` — `POST /api/auth/sign-up/email`**, tanto para e-mail novo quanto para e-mail já
-cadastrado (regra 8):
+**`202 Accepted` com corpo vazio** — `POST /auth/sign-up`, `POST /auth/send-verification-email` e
+`POST /auth/request-password-reset`. **Sempre a mesma resposta**, para e-mail novo, já cadastrado,
+inexistente, já verificado, dentro ou fora da janela da regra 15. Não há corpo porque não há nada que
+possa ser dito sem revelar o estado da conta (regra 8).
+
+**`204 No Content`** — `POST /auth/refresh`, `POST /auth/sign-out`, `POST /auth/reset-password` e
+`POST /auth/change-password`. Em `refresh` vêm os dois `Set-Cookie` novos; em `sign-out`, os dois
+`Set-Cookie` de expiração.
+
+**`302 Found`** — `GET /auth/verify-email` redireciona para `${WEB_ORIGIN}/verify-email`, com
+`?error=<code>` em caso de erro. `GET /auth/google` redireciona para a URL de autorização do Google, e
+`GET /auth/google/callback` redireciona para `${WEB_ORIGIN}/app` com os dois cookies de sessão, ou para
+`${WEB_ORIGIN}/login?error=<code>`. **Os três destinos são montados a partir de `WEB_ORIGIN`**, nunca
+recebidos do cliente.
+
+**Corpo de erro**, em toda rota, vindo do `ExceptionFilter` global:
 
 ```json
-{ "token": null, "user": { "id": "…", "name": "Ana Souza", "email": "ana@exemplo.com", "emailVerified": false, "image": null, "createdAt": "…", "updatedAt": "…" } }
+{ "code": "INVALID_CREDENTIALS", "message": "Invalid email or password", "fields": {} }
 ```
-
-**`200 OK` — `POST /api/auth/request-password-reset`**, para qualquer e-mail, cadastrado ou não, e
-dentro ou fora da janela da regra 15:
-
-```json
-{ "status": true, "message": "If this email exists in our system, check your email for the reset link" }
-```
-
-**`200 OK` — `GET /api/auth/get-session`**
-
-```json
-{
-  "session": { "id": "…", "token": "…", "userId": "…", "expiresAt": "2026-09-17T12:00:00.000Z", "ipAddress": "…", "userAgent": "…" },
-  "user": { "id": "…", "name": "Ana Souza", "email": "ana@exemplo.com", "emailVerified": true, "image": null }
-}
-```
-
-Sem cookie de sessão válido, o corpo é `null` com status `200` — não `401`.
-
-Todo `id` e todo `userId` nas respostas é um UUID em texto, como `"0b8f2c1e-5a4d-4c3b-9e7f-1a2b3c4d5e6f"`
-(regra 12).
-
-**`302 Found` — `GET /api/auth/verify-email`** e **`GET /api/auth/reset-password/:token`**: os dois
-respondem por redirecionamento para o `callbackURL` do link. Em erro, o redirecionamento leva
-`?error=<code>` na query; em `reset-password/:token` com sucesso, leva `?token=<token>`.
 
 | Status | Quando |
 | --- | --- |
-| `200` | A operação concluiu, a sessão é inexistente em `get-session`, ou a resposta é genérica das regras 8 e 15 |
-| `302` | Links de verificação e de reset, com sucesso ou com `?error=` |
-| `400` | Corpo inválido, senha fora da política, token de reset inválido ou expirado, senha atual incorreta em `change-password`, sessão não fresca |
-| `401` | Credenciais incorretas; link de verificação inválido ou expirado sem `callbackURL` |
-| `403` | E-mail ainda não verificado, `Origin` fora de `trustedOrigins`, ou URL de redirecionamento absoluta fora de `trustedOrigins` |
-| `422` | Dois cadastros simultâneos com o mesmo e-mail — o segundo perde no índice único |
+| `200` | Login bem-sucedido, ou leitura da sessão |
+| `202` | As três rotas que não revelam estado de conta (regra 8) |
+| `204` | Refresh, logout e as duas trocas de senha |
+| `302` | Verificação de e-mail e as duas pontas do fluxo do Google |
+| `400` | Corpo ou query inválidos, senha fora da política, token inválido ou consumido, senha atual incorreta |
+| `401` | Credenciais incorretas, cookie de acesso ausente, expirado ou revogado, refresh inválido |
+| `403` | E-mail ainda não verificado, ou `Origin` diferente de `WEB_ORIGIN` |
 | `429` | Limite de requisições da rota excedido (regra 11) |
-| `500` | Erro desconhecido, sem detalhe no corpo (regra 10); SMTP fora do ar (regra 13) |
+| `500` | Erro desconhecido, sem detalhe no corpo (regra 10) |
+| `503` | Redis inalcançável (regra 2) |
 
 ### Perfis e privilégios
 
 | Papel | Permissão | Observação |
 | --- | --- | --- |
 | Visitante sem sessão | — | Cadastra-se, entra, pede recuperação de senha e verifica e-mail |
-| Usuário autenticado | sessão válida | Lê a própria sessão, troca a própria senha e sai |
+| Usuário autenticado | cookie de acesso válido | Lê a própria sessão, renova, troca a própria senha e sai |
 | Orquestrador de container | — | `GET /health`, antes de existir sessão |
 
 **Não existe papel nesta entrega.** O usuário autenticado não pertence a nenhuma clínica e não tem
@@ -193,39 +180,87 @@ função. Papéis, permissões e tenancy são as issues #6 e #7.
 
 ## Regras de Negócio
 
-### 1. O browser fala com a API em origem cruzada, com credenciais
+### 1. O browser fala com a API em origem cruzada, com credenciais, e o `Origin` é conferido
 
-- `@elysiajs/cors` é registrado antes de qualquer rota, com `origin: env.WEB_ORIGIN` — a **origem
-  exata**, nunca `*` e nunca um curinga —, `credentials: true`, `methods: ["GET", "POST", "OPTIONS"]`
-  e `allowedHeaders: ["Content-Type"]`.
-- O Better Auth recebe `trustedOrigins: [env.WEB_ORIGIN]`, a mesma origem.
-- **Validação:** uma requisição com `Origin` diferente de `WEB_ORIGIN` não recebe
-  `Access-Control-Allow-Origin` na resposta, e o Better Auth responde `403 INVALID_ORIGIN`.
-- **Sem redirecionamento aberto.** Em todo `POST`, o Better Auth confere `callbackURL`, `redirectTo` e
-  `errorCallbackURL` contra `trustedOrigins`: caminho relativo passa, URL absoluta de outra origem
-  responde `403` com `INVALID_CALLBACK_URL`, `INVALID_REDIRECT_URL` ou `INVALID_ERROR_CALLBACK_URL`.
-  O mesmo vale para o `callbackURL` da query em `GET /reset-password/:token`.
+- `main.ts` chama `app.enableCors({ origin: env.WEB_ORIGIN, credentials: true, methods: ["GET", "POST", "OPTIONS"], allowedHeaders: ["Content-Type"] })`
+  — a **origem exata**, nunca `*` e nunca um curinga.
+- **O CORS não é a guarda.** Ele instrui o browser; não impede requisição alguma de chegar. A guarda é
+  `common/guards/origin.guard.ts`, registrada como `APP_GUARD`: **todo `POST` precisa do header
+  `Origin` exatamente igual a `WEB_ORIGIN`**, e qualquer outro valor, ou a ausência do header, responde
+  `403 INVALID_ORIGIN` antes de o controller rodar.
+- **Por que a guarda existe:** o cookie de acesso é `SameSite=None` em produção (regra 2), então um
+  formulário de outro site carregaria o cookie num `POST`. `/auth/refresh` e `/auth/sign-out` não têm
+  corpo, então nem a validação de DTO os protegeria. O browser sempre envia `Origin` num `POST`
+  cross-site, e é sobre isso que a guarda decide.
+- `GET` é isento: `/health`, `/auth/session`, `/auth/verify-email` e as duas rotas do Google não mudam
+  estado a partir de um corpo, e a navegação de volta do Google chega sem `Origin`.
+- **Não existe redirecionamento aberto porque não existe parâmetro de redirecionamento.** Nenhuma rota
+  lê `callbackURL`, `redirectTo` ou `errorCallbackURL`; o DTO recusa campo desconhecido, e os três
+  destinos da API são montados no servidor a partir de `WEB_ORIGIN`.
+- `app.set("trust proxy", env.TRUSTED_PROXIES)` é aplicado no adapter do Express antes do listen, e é o
+  que faz `req.ip` valer (regra 11).
 
-### 2. O cookie de sessão
+### 2. A sessão são dois cookies: um JWT de acesso curto e um refresh opaco
 
-- `httpOnly: true` sempre. O JavaScript do web nunca lê o cookie; quem carrega a sessão é
-  `GET /api/auth/get-session` com `credentials: "include"`.
+A sessão não é um token único. São dois, com tempos de vida e caminhos diferentes:
+
+| Cookie | Conteúdo | `Path` | `Max-Age` | Quem valida |
+| --- | --- | --- | --- | --- |
+| `clinicore_access` | JWT assinado com `JWT_SECRET` | `/` | 900 (15 min) | `JwtStrategy`, sem tocar o banco |
+| `clinicore_refresh` | `<sessionId>.<segredo>` opaco | `/auth/refresh` | 86400 (24 h) | `POST /auth/refresh`, contra a tabela `session` |
+
+- Os dois são **`HttpOnly: true` sempre**. O JavaScript do web nunca lê nenhum dos dois; quem carrega o
+  usuário é `GET /auth/session` com `credentials: "include"`.
 - Em `NODE_ENV === "production"` (homolog e produção): `sameSite: "none"` e `secure: true`, porque o
   web e a API ficam em subdomínios distintos e o cookie viaja entre sites.
 - Em `NODE_ENV === "development"`: `sameSite: "lax"` e `secure: false`, porque `http://localhost` não
-  aceita `Secure`.
-- `advanced.defaultCookieAttributes` carrega esses valores; `advanced.useSecureCookies` acompanha
-  `NODE_ENV === "production"`.
-- **Sem `crossSubDomainCookies`.** O cookie pertence ao host da API e não é compartilhado com nenhum
-  outro subdomínio.
+  aceita `Secure`, e `localhost:3000` e `localhost:3333` são o mesmo site — a porta não conta para
+  `SameSite`.
+- **O `Path` do refresh é `/auth/refresh`, e isso é o ponto.** O refresh token não acompanha nenhuma
+  outra requisição. `POST /auth/sign-out` não precisa dele: o `sessionId` está no JWT de acesso.
+- **Nenhum `Domain`.** Os cookies pertencem ao host da API e não são compartilhados com subdomínio
+  nenhum.
+- O JWT de acesso carrega `sub` (o `user.id`), `sid` (o `session.id`) e `exp`. Nada mais — nome,
+  e-mail e `emailVerified` saem de `GET /auth/session`, para que uma mudança neles não fique presa no
+  token por 15 minutos.
+- **A denylist do Redis é o que torna a revogação imediata.** Revogar uma sessão grava
+  `auth:revoked:<sessionId>` com TTL de 900 segundos — o tempo de vida do access token. O
+  `JwtStrategy` consulta essa chave em toda requisição autenticada e responde `401 INVALID_SESSION` se
+  ela existir. Passados os 900 segundos, nenhum token daquela sessão pode mais existir e a chave some
+  sozinha.
+- **Toda revogação escreve na denylist**, sem exceção: logout, reset de senha, troca de senha, reuso de
+  refresh detectado e corte pelo teto de 5 sessões (regra 16).
+- **O Redis é dependência dura da requisição autenticada, e a falha é fechada.** Redis inalcançável faz
+  o `JwtStrategy` responder `503` com o código `SERVICE_UNAVAILABLE`, e faz a rota que revoga responder
+  `500` sem revogar pela metade. Responder `204` num logout cujo token continua valendo por 15 minutos
+  é pior do que responder erro.
 
-### 3. A sessão dura 24 horas
+### 3. O refresh rotaciona a cada uso, e reusar o antigo derruba a sessão
 
-- `session.expiresIn: 60 * 60 * 24` — 86400 segundos.
-- `session.updateAge: 60 * 60` — a expiração é empurrada para frente no máximo uma vez por hora de uso.
-- `session.freshAge: 60 * 60`.
-- **Não existe "lembrar de mim".** Toda sessão dura o mesmo.
-- `session.cookieCache` fica desabilitado.
+- O refresh token é `<sessionId>.<segredo>`, com o segredo em 32 bytes aleatórios em base64url. A
+  tabela `session` guarda **o SHA-256 do segredo**, nunca o segredo.
+- **SHA-256, não argon2.** O segredo tem 256 bits de entropia e não é adivinhável por força bruta; o
+  argon2 existe para senha escolhida por gente (regra 4). A comparação é feita com
+  `crypto.timingSafeEqual`.
+- `POST /auth/refresh` faz, numa única transação de repository:
+  1. localiza a `session` pelo `sessionId` do token;
+  2. compara o hash do segredo recebido com o gravado;
+  3. **iguais:** grava um segredo novo, empurra `expiresAt` para 24 horas à frente, devolve `204` com os
+     dois cookies novos;
+  4. **diferentes:** apaga a `session`, grava o `sessionId` na denylist e responde
+     `401 SESSION_REUSED`.
+- **O caso 4 é a detecção de reuso.** Um segredo que não bate é ou um token roubado e já rotacionado, ou
+  uma forja. Nos dois casos a sessão está comprometida e morre inteira, junto com o access token que
+  ainda estiver vivo.
+- Sessão inexistente ou vencida responde `401 INVALID_SESSION`, sem gravar nada.
+- **A sessão dura 24 horas de inatividade**, empurradas a cada rotação. Não existe teto absoluto e
+  **não existe "lembrar de mim"**: toda sessão dura o mesmo.
+- **Não existe conceito de sessão fresca.** A única operação sensível desta entrega é
+  `change-password`, que já exige `currentPassword`.
+- Duas chamadas simultâneas de `/auth/refresh` com o mesmo token válido: a transação serializa, uma
+  rotaciona e a outra cai no caso 4 e derruba a sessão. É o comportamento correto — o custo é um
+  relogin, e o benefício é que roubo de refresh não passa despercebido. O web serializa o refresh numa
+  única chamada em voo.
 
 ### 4. A política de senha
 
@@ -236,191 +271,226 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - ao menos um dígito;
 - ao menos um caractere que não seja letra nem dígito.
 
-- `emailAndPassword.minPasswordLength: 8` e `maxPasswordLength: 128` cobrem o tamanho. **A
-  complexidade não tem opção nativa no Better Auth** e é escrita aqui.
-- A regra vive em `features/auth/password-policy.ts` como **função pura, testada**, exportando
+- A regra vive em `features/auth/utils/password-policy.ts` como **função pura, testada**, exportando
   `isStrongPassword(password: string): boolean`, que confere as quatro condições, tamanho incluído.
-- A aplicação é um `hooks.before`, com `createAuthMiddleware` de `better-auth/api`, que dispara nos
-  caminhos `/sign-up/email`, `/reset-password` e `/change-password`. Falhando, lança
-  `APIError("BAD_REQUEST", { code: "WEAK_PASSWORD", message: "Password must have at least 8 characters, one uppercase letter, one digit and one special character" })`.
-- **A guarda fica no hook, não em cada rota.** As três rotas passam pelo mesmo ponto.
-- **O hook roda antes da checagem de tamanho do Better Auth**, que fica dentro do handler. Por isso
-  toda senha recusada nessas três rotas sai como `WEAK_PASSWORD`; `PASSWORD_TOO_SHORT` e
-  `PASSWORD_TOO_LONG` não são alcançáveis nesta API.
+- A aplicação é um decorator `@IsStrongPassword()` de `class-validator`, montado com `registerDecorator`
+  sobre essa função, usado nos DTOs de `sign-up`, `reset-password` e `change-password`. **A guarda fica
+  no DTO, não em cada service.**
+- O `ValidationPipe` global recusa com `400 VALIDATION_FAILED` e
+  `fields: { "password": "WEAK_PASSWORD" }` ou `fields: { "newPassword": "WEAK_PASSWORD" }` (regra 10).
+- A senha é hasheada com `@node-rs/argon2`, algoritmo `Argon2id`, nos parâmetros padrão da biblioteca.
+  O hash vive em `account.passwordHash` e nunca em `user`.
 
 ### 5. O e-mail é verificado antes do primeiro login
 
-- `emailAndPassword.requireEmailVerification: true` e `emailAndPassword.autoSignIn: false` — o cadastro
-  não cria sessão.
-- `emailVerification.sendOnSignUp: true`, `sendOnSignIn: true`, `autoSignInAfterVerification: true`,
-  `expiresIn: 3600` (1 hora).
-- **O reenvio no login não é automático no Better Auth**: depende de `sendOnSignIn: true`, declarado
-  aqui. Com ele, entrar com a senha correta e o e-mail não verificado responde
-  `403 EMAIL_NOT_VERIFIED` e reenvia o link, sujeito à regra 15. Senha errada responde `401` antes de
-  chegar a esse ponto, sem enviar nada.
-- O link de verificação é um JWT assinado com `BETTER_AUTH_SECRET`, não uma linha no banco. Ele leva
-  `callbackURL` igual a `${WEB_ORIGIN}/verify-email`:
-  - válido → marca `emailVerified = true`, cria a sessão e redireciona para o `callbackURL`;
-  - e-mail já verificado → redireciona para o `callbackURL` sem criar sessão;
-  - expirado → redireciona com `?error=TOKEN_EXPIRED`;
-  - inválido → redireciona com `?error=INVALID_TOKEN`.
-- Os dois redirecionamentos de erro dependem de o link levar `callbackURL`. Sem ele, o Better Auth
-  responde `401` em JSON com o mesmo código.
+- `POST /auth/sign-up` **não cria sessão** e não devolve cookie. Responde `202` e envia o link.
+- `POST /auth/sign-in` com a senha correta e `user.emailVerified = false` responde
+  `403 EMAIL_NOT_VERIFIED`, não cria sessão, e **reenvia o link**, sujeito à regra 15. Senha errada
+  responde `401 INVALID_CREDENTIALS` antes desse ponto, sem enviar nada.
+- O token de verificação é uma linha em `verification` com `purpose = "email_verification"`, 32 bytes
+  aleatórios em base64url, gravados como SHA-256, com `expiresAt` 1 hora à frente.
+- `GET /auth/verify-email?token=…` consome o token e redireciona para `${WEB_ORIGIN}/verify-email`:
+  - válido → marca `user.emailVerified = true`, grava `verification.consumedAt`, **cria a sessão** e
+    redireciona com os dois cookies;
+  - inválido, consumido ou inexistente → `?error=INVALID_TOKEN`, sem cookie;
+  - expirado → `?error=TOKEN_EXPIRED`, sem cookie.
+- Uma conta criada pelo Google nasce com `emailVerified = true` e nunca passa por esta regra (regra 6).
+- Ao marcar `emailVerified = true`, **todos os tokens de verificação pendentes daquele endereço são
+  consumidos na mesma transação**, para que um segundo link no e-mail da pessoa não crie uma segunda
+  sessão depois.
 
 ### 6. Google e senha são a mesma conta
 
-- `socialProviders.google` com `clientId: env.GOOGLE_CLIENT_ID`,
-  `clientSecret: env.GOOGLE_CLIENT_SECRET` e `prompt: "select_account"`.
-- A URL de callback registrada no Google Cloud Console é `${BETTER_AUTH_URL}/api/auth/callback/google`.
-- `account.accountLinking.enabled: true`, `trustedProviders: ["google"]`,
-  `allowDifferentEmails: false`, `allowUnlinkingAll: false`.
+- `GET /auth/google` monta a URL de autorização do Google e responde `302` para ela, com
+  `prompt=select_account` e `scope=openid email profile`. **Não grava nada no banco** — o `state` viaja
+  em cookie.
+- **O `state` é um cookie, não uma linha.** `clinicore_oauth_state` guarda 32 bytes aleatórios em
+  base64url, `HttpOnly`, `Path=/auth/google`, `Max-Age=600`, `SameSite=Lax`, e `Secure` em produção.
+  `Lax` basta porque a volta do Google é uma navegação `GET` de topo, que carrega cookie `Lax`. O
+  `state` da query é comparado com o do cookie em `crypto.timingSafeEqual`; diferente ou ausente,
+  `302` para `${WEB_ORIGIN}/login?error=INVALID_STATE`.
+- A implementação é `@nestjs/passport` com `passport-google-oauth20`, e o `state` é guardado por um
+  `store` próprio sobre o cookie — `passport-oauth2` aceita um `store` e é isso que dispensa
+  `express-session`. A URL de callback registrada no Google Cloud Console é
+  `${API_URL}/auth/google/callback`.
+- **O perfil do Google só é aceito com `email_verified = true`.** Falso, a resposta é `302` para
+  `${WEB_ORIGIN}/login?error=UNVERIFIED_PROVIDER_EMAIL`, e nada é gravado. Sem isso, um provedor que
+  devolvesse um e-mail não verificado sequestraria a conta de quem tem esse endereço.
 - Entrar com Google num e-mail que já tem cadastro por senha **vincula** o provedor à conta existente:
-  nasce uma linha em `account` com `providerId = "google"` apontando para o mesmo `userId`, e nenhum
-  `user` novo é criado.
-- Uma conta criada por Google nasce com `emailVerified = true` e nunca passa pela regra 5. A criação de
-  `user` e `account` pelo Google é atômica (regra 12).
-- **`account.storeStateStrategy: "cookie"`.** Com o adapter de banco, o padrão do Better Auth é
-  `"database"`, que grava uma linha em `verification` a cada `POST /sign-in/social` — uma chamada
-  pública, sem sessão, que faria o banco crescer a cada clique. Com `"cookie"`, o `state` viaja num
-  cookie cifrado e a rota não grava nada.
-- **`allowDifferentEmails: false` impede o sequestro de conta**: um provedor que devolvesse outro
-  e-mail não vincula a conta errada.
+  nasce uma linha em `account` com `provider = "google"` apontando para o mesmo `userId`, e nenhum
+  `user` novo é criado. Entrar com a senha original continua funcionando.
+- E-mail sem cadastro nenhum: `user` e `account` são criados na mesma transação, com
+  `emailVerified = true`.
+- **Nenhum token do Google é guardado.** O `access_token` e o `refresh_token` da troca são descartados
+  depois de lido o perfil; a API não chama API nenhuma do Google depois do login. Por isso a tabela
+  `account` não tem coluna de token.
+- O callback cria a sessão, aplica a regra 16 e responde `302` para `${WEB_ORIGIN}/app` com os dois
+  cookies.
 
 ### 7. Recuperar e trocar senha
 
-- `POST /api/auth/request-password-reset` grava um token em `verification` com
-  `identifier = "reset-password:<token>"` e envia o link por `emailAndPassword.sendResetPassword`,
-  sujeito à regra 15.
-- O link aponta para `GET /api/auth/reset-password/:token?callbackURL=${WEB_ORIGIN}/reset-password`,
-  que redireciona para o web com `?token=<token>`, ou com `?error=INVALID_TOKEN` quando o token não
-  existe ou expirou.
-- `emailAndPassword.resetPasswordTokenExpiresIn: 3600` (1 hora).
-- `emailAndPassword.revokeSessionsOnPasswordReset: true` — redefinir a senha derruba todas as sessões.
-- O token é **consumido antes** da troca da senha. Duas chamadas simultâneas com o mesmo token: a
-  primeira troca, a segunda responde `400 INVALID_TOKEN`.
+- `POST /auth/request-password-reset` grava uma linha em `verification` com
+  `purpose = "password_reset"`, token de 32 bytes aleatórios em base64url gravado como SHA-256 e
+  `expiresAt` 1 hora à frente, e envia o link, sujeito à regra 15. Responde `202` sempre (regra 8).
+- **O link aponta direto para o web**, `${WEB_ORIGIN}/reset-password?token=<token>`. Não existe rota de
+  API que apenas redirecione: ela só ampliaria a superfície de redirecionamento sem fazer nada.
+- `POST /auth/reset-password` faz, numa única transação de repository: consome o token, grava o hash da
+  nova senha em `account` e **apaga todas as sessões do usuário**. Fora da transação, cada `sessionId`
+  apagado vai para a denylist (regra 2). Responde `204`.
+- **Redefinir a senha derrubar todas as sessões é imediato**, inclusive os access tokens ainda dentro
+  dos 15 minutos, por causa da denylist. Sem ela a regra seria falsa por até 15 minutos.
+- Duas chamadas simultâneas com o mesmo token: a primeira troca, a segunda responde
+  `400 INVALID_TOKEN`, porque o token é consumido dentro da transação.
 - **Redefinir a senha de um usuário sem `account` de senha cria essa `account`.** É assim que quem
   entrou só com Google passa a ter também login por senha.
-- `POST /api/auth/change-password` é sempre chamado com `revokeOtherSessions: true`: quem troca a senha
-  continua logado no dispositivo atual e é deslogado em todos os outros.
+- `POST /auth/change-password` confere `currentPassword` com o argon2, grava o hash novo e **apaga
+  todas as sessões do usuário exceto a do cookie usado na requisição**, mandando as apagadas para a
+  denylist. Quem troca a senha continua logado no dispositivo atual e cai em todos os outros. Não há
+  parâmetro para desligar isso. Responde `204`; o cookie de acesso e o de refresh atuais continuam
+  valendo.
 
 ### 8. Nenhuma resposta revela quem tem conta
 
-- **Cadastro com e-mail já cadastrado responde `200`**, com `token: null` e um usuário sintético, sem
-  gravar nada e sem enviar e-mail. É o comportamento do Better Auth quando
-  `requireEmailVerification` está ligado, e a spec o mantém. `emailAndPassword.onExistingUserSignUp`
-  **não é configurado**: avisar o dono do e-mail seria um vetor de envio sem limite por endereço.
-- `POST /api/auth/request-password-reset` responde `200` com o mesmo corpo para e-mail cadastrado e não
-  cadastrado.
-- `POST /api/auth/sign-in/email` responde `401 INVALID_EMAIL_OR_PASSWORD` tanto para e-mail inexistente
-  quanto para senha errada.
-- `POST /api/auth/send-verification-email` sem sessão responde `200` para e-mail inexistente, já
-  verificado ou pendente, com tempo mínimo de resposta de 500 ms aplicado pelo próprio Better Auth.
-  Com sessão, responde na hora e não há o que esconder: o e-mail é o do próprio usuário.
-- **Trade-off aceito:** dois cadastros simultâneos com o mesmo e-mail novo fazem o segundo responder
-  `422 FAILED_TO_CREATE_USER`, o que revela que o e-mail acabou de ser cadastrado. A janela é a
-  duração de uma transação, e fechá-la exigiria reescrever a rota do Better Auth.
+- **As três rotas que recebem um e-mail sem sessão respondem `202` com corpo vazio, sempre.**
+  `sign-up`, `send-verification-email` e `request-password-reset` respondem igual para e-mail novo, já
+  cadastrado, inexistente, já verificado, dentro e fora da janela da regra 15. Não há corpo, então não
+  há nada que possa diferir.
+- `POST /auth/sign-in` responde `401 INVALID_CREDENTIALS` tanto para e-mail inexistente quanto para
+  senha errada.
+- **O tempo de resposta também não diferencia.** Quando não existe `account` de senha para o e-mail, o
+  service verifica a senha recebida contra um **hash argon2 fixo, gerado no boot**, e descarta o
+  resultado. Sem isso, o login de um e-mail inexistente responderia sem gastar o tempo do argon2 e a
+  diferença seria medível.
+- **Cadastro concorrente não vaza.** Dois `sign-up` simultâneos com o mesmo e-mail novo: o segundo
+  falha no índice único de `user.email`, o repository traduz o `QueryFailedError` do código `23505`
+  para o tipo `Conflict`, e o service **engole esse conflito e responde `202` igual aos outros**. Nada
+  é gravado e nada é enviado.
+- **Nenhum e-mail avisa o dono do endereço** de que alguém tentou cadastrar com ele: seria um vetor de
+  envio sem limite por endereço.
 
 ### 9. Todo request é logado, e nenhum segredo sai no log
 
-- `core/logger/` cria a instância do Pino e o plugin de requisição, que se pluga em `onAfterResponse`
-  e `onError`. Não existe plugin oficial do Elysia para Pino, e nenhum de terceiro entra.
-- O nível vem de `env.LOG_LEVEL`.
+- `core/logger/` cria a instância do Pino 10 e o `LoggerService` do Nest registrado por
+  `app.useLogger()`, mais o interceptor que registra a requisição. **Nenhum wrapper de terceiro.**
+- O nível vem de `LOG_LEVEL`.
 - Cada requisição registra método, caminho, status e duração em milissegundos.
 - **`GET /health` não é logado.**
 - O `redact` do Pino cobre, no mínimo: `req.headers.cookie`, `req.headers.authorization`,
-  `res.headers["set-cookie"]`, `req.body.password`, `req.body.newPassword`,
-  `req.body.currentPassword` e `req.body.token`.
-- **O objeto `env` nunca é passado ao logger.** A connection string e os segredos do ambiente não
-  entram em nenhum objeto logado, então não há caminho de `redact` para eles.
-- O Pino escreve em `stdout`. O erro de ambiente do boot continua indo cru para `stderr`.
+  `res.headers["set-cookie"]`, `req.body.password`, `req.body.newPassword`, `req.body.currentPassword`
+  e `req.body.token`.
+- **O `Environment` nunca é passado ao logger.** A connection string, o `JWT_SECRET` e os segredos de
+  SMTP e do Google não entram em nenhum objeto logado, então não existe caminho de `redact` para eles.
+- O Pino escreve em `stdout`. O erro de ambiente do boot continua indo cru para `stderr`, antes de
+  existir logger (regra 14).
 - O worker da regra 17 usa a mesma instância de logger.
 
-### 10. Erro desconhecido vira 500 sem detalhe
+### 10. O erro tem um catálogo próprio, e o desconhecido vira 500 sem detalhe
 
-- O `onError` global de `core/` é o único lugar do app que conhece HTTP.
-- Um erro que ele não reconheça é registrado no Pino com a stack completa e respondido como `500` com
-  corpo `{ "code": "INTERNAL_ERROR", "message": "Internal server error" }`.
-- **Os erros do Better Auth não chegam aqui.** `.mount(auth.handler)` registra uma rota comum do
-  Elysia, então `onAfterResponse` e `onError` rodam para ela e o log da regra 9 cobre `/api/auth`.
-  Mas o Better Auth captura os próprios erros e já devolve uma `Response` no formato dele,
-  `{ code, message }`; um erro que não é `APIError` sai como `500` com corpo vazio. O `code` é a chave
-  comum entre os dois formatos, e é sobre ele que o web traduz.
+- O service lança `BusinessError` de `common/exceptions/`, com um tipo (`NotFound`, `Conflict`,
+  `Forbidden`, `Invalid`, `Unauthorized`) e um código do catálogo da seção **Erros**.
+- O repository traduz o erro conhecido do TypeORM — `QueryFailedError` com o código do Postgres,
+  `EntityNotFoundError` — para esses tipos, e nunca deixa vazar erro de driver.
+- `common/filters/business-error.filter.ts`, registrado como `APP_FILTER`, é **o único lugar do app que
+  conhece HTTP**. Converte o tipo em status e responde `{ code, message, fields }`.
+- O `ValidationPipe` global roda com `whitelist: true`, `forbidNonWhitelisted: true` e
+  `transform: true`, e um `exceptionFactory` que devolve
+  `{ code: "VALIDATION_FAILED", message: "Validation failed", fields }`, onde `fields` mapeia o nome do
+  campo para o **nome da primeira restrição violada**, em maiúsculas com sublinhado:
+  `{ "email": "IS_EMAIL", "password": "WEAK_PASSWORD" }`. O texto que a pessoa lê é escrito no web a
+  partir desses códigos, nunca da `message`.
+- Um erro que o filtro não reconheça é registrado no Pino com a stack completa e respondido como `500`
+  com corpo `{ "code": "INTERNAL_ERROR", "message": "Internal server error", "fields": {} }`.
+- A `message` é inglês e é texto de desenvolvedor, para log e depuração.
 
 ### 11. Toda rota de autenticação tem limite por IP, e o IP não pode ser forjado
 
-- `rateLimit.enabled: true` nos dois ambientes. O padrão do Better Auth desliga em desenvolvimento, e a
-  spec liga explicitamente.
-- `rateLimit.storage: "database"` e `modelName: "rateLimit"`. Redis está fora da stack por decisão.
-- O incremento é uma escrita condicional: o `UPDATE` só acontece enquanto a contagem está abaixo do
-  máximo, e quando a condição falha o Better Auth lê de novo e decide. Requisições concorrentes não
-  passam todas por uma leitura desatualizada.
-- Limite efetivo de cada rota:
+- `@nestjs/throttler` é registrado em `core/redis/` com `@nest-lab/throttler-storage-redis`, a storage
+  que a documentação do próprio `@nestjs/throttler` indica, sobre o mesmo cliente `ioredis` da fila e
+  da denylist. **O `ioredis` é dependência direta do `package.json`**, não transitiva: o
+  `@nest-lab/throttler-storage-redis` o declara como peer, e o `bullmq` 6 o declara como peer
+  **opcional** — ninguém o instala sozinho, e a falta só aparece em runtime. **A contagem vive no
+  Redis, não em tabela.** Uma linha de contagem por requisição num
+  banco relacional é escrita de escrita alta com TTL, que é exatamente o que o Redis faz e o Postgres
+  não.
+- `ThrottlerGuard` é registrado como `APP_GUARD`; o limite por rota é um `@Throttle()` no controller:
 
-  | Caminho | Janela | Máximo | Origem |
-  | --- | --- | --- | --- |
-  | `/sign-up/email` | 60 s | 3 | `customRules` |
-  | `/sign-in/email` | 60 s | 5 | `customRules` |
-  | `/sign-in/social` | 10 s | 3 | regra padrão do Better Auth para `/sign-in*` |
-  | `/change-password` | 10 s | 3 | regra padrão do Better Auth para `/change-password*` |
-  | `/request-password-reset` | 60 s | 5 | `customRules` |
-  | `/reset-password` | 60 s | 5 | `customRules` |
-  | `/send-verification-email` | 60 s | 3 | regra padrão do Better Auth |
-  | qualquer outro caminho sob `/api/auth` | 10 s | 100 | limite global |
+  | Caminho | Janela | Máximo |
+  | --- | --- | --- |
+  | `/auth/sign-up` | 60 s | 3 |
+  | `/auth/sign-in` | 60 s | 5 |
+  | `/auth/refresh` | 60 s | 30 |
+  | `/auth/send-verification-email` | 60 s | 3 |
+  | `/auth/request-password-reset` | 60 s | 5 |
+  | `/auth/reset-password` | 60 s | 5 |
+  | `/auth/change-password` | 60 s | 3 |
+  | `/auth/google` e `/auth/google/callback` | 60 s | 10 |
+  | qualquer outra rota | 10 s | 100 |
+  | `/health` | sem limite, por `@SkipThrottle()` | — |
 
-- `customRules` compara o caminho exato: `/reset-password` não alcança `/reset-password/:token`, que
-  fica no limite global.
-- Excedido, a resposta é `429`.
-- **O IP vem da cadeia de proxies confiáveis.** O Better Auth lê o IP só do header
-  `x-forwarded-for`, nunca do socket. `advanced.ipAddress.trustedProxies` recebe
-  `env.TRUSTED_PROXIES`, e o Better Auth percorre a cadeia da direita para a esquerda, pula os hops
-  confiáveis e usa o primeiro que não é. O que o cliente escreve à esquerda do hop que o proxy
-  acrescentou nunca é lido.
-- Uma cadeia malformada, ou só com hops confiáveis, não resolve IP. Sem IP, o Better Auth **não
-  desliga o limite**: agrupa essas requisições num contador compartilhado por caminho.
+- Excedido, o `ThrottlerGuard` lança e o filtro responde `429` com o código `RATE_LIMITED`.
+- **O IP vem da cadeia de proxies confiáveis, pelo próprio Express.**
+  `app.set("trust proxy", env.TRUSTED_PROXIES)` recebe a lista de blocos CIDR; o Express percorre
+  `x-forwarded-for` da direita para a esquerda, pula os hops confiáveis e entrega em `req.ip` o
+  primeiro que não é. `getTracker(req)` do guard devolve `req.ip`. O que o cliente escreve à esquerda
+  do hop que o proxy acrescentou nunca é usado.
+- Uma cadeia em que **todos** os hops são confiáveis faz o Express entregar o valor mais à esquerda,
+  que o cliente controla. Por isso `TRUSTED_PROXIES` nomeia exatamente a sub-rede do proxy à frente da
+  API, e nunca uma faixa maior. Sem `req.ip`, o tracker é a string fixa `"unknown"` e essas
+  requisições dividem um contador só, em vez de escaparem do limite.
 - **A garantia depende do deploy:** a API só pode ser alcançável através do proxy que acrescenta o hop.
-  Exposta direto, um `x-forwarded-for` de valor único forjado seria aceito como IP do cliente. Isso é a
+  Exposta direto, um `x-forwarded-for` forjado de valor único seria aceito como IP do cliente. Isso é a
   issue #4 (Fora de Escopo).
 - Em `development`, sem proxy, o IP resolve como `127.0.0.1`.
 
 ### 12. Persistência e Auditoria
 
-- **O adapter é `prismaAdapter(prisma, { provider: "postgresql", transaction: true })`.** O padrão do
-  adapter é `transaction: false`, e com ele nenhum `runWithTransaction` do Better Auth é atômico.
-- **Tabelas criadas:** seis, em duas migrations. As tabelas do Better Auth vêm do schema gerado pelo
-  CLI (`better-auth generate`) e conferido; `emailDispatch` é desta entrega.
+- **Cinco tabelas, em duas migrations**, todas escritas à mão em `core/db/migrations/`, com
+  `synchronize: false` em todo ambiente (regra 6 da spec `002`). As entities do TypeORM ficam em
+  `features/auth/entities/`, uma classe por tabela.
 
-  | Tabela | Migration | Campos |
+  | Tabela | Migration | Colunas |
   | --- | --- | --- |
-  | `user` | `add_better_auth` | `id`, `name`, `email` (único), `emailVerified` (bool, padrão `false`), `image` (nulo), `createdAt`, `updatedAt` |
-  | `session` | `add_better_auth` | `id`, `token` (único), `expiresAt` (indexado), `ipAddress` (nulo), `userAgent` (nulo), `userId` → `user.id` `ON DELETE CASCADE` (indexado), `createdAt`, `updatedAt` |
-  | `account` | `add_better_auth` | `id`, `accountId`, `providerId`, `userId` → `user.id` `ON DELETE CASCADE` (indexado), `accessToken` (nulo), `refreshToken` (nulo), `idToken` (nulo), `accessTokenExpiresAt` (nulo), `refreshTokenExpiresAt` (nulo), `scope` (nulo), `password` (nulo), `createdAt`, `updatedAt` |
-  | `verification` | `add_better_auth` | `id`, `identifier` (indexado), `value`, `expiresAt` (indexado), `createdAt`, `updatedAt` |
-  | `rateLimit` | `add_better_auth` | `id`, `key` (único), `count`, `lastRequest` (bigint, milissegundos, indexado) |
-  | `emailDispatch` | `add_email_dispatch` | `id`, `email` (minúsculas), `kind` (`verification` ou `password_reset`), `createdAt` (indexado); índice composto em `email`, `kind`, `createdAt` |
+  | `user` | `AddAuth` | `id`, `name`, `email` (único, minúsculas), `emailVerified` (bool, padrão `false`), `image` (nulo), `createdAt`, `updatedAt` |
+  | `account` | `AddAuth` | `id`, `userId` → `user.id` `ON DELETE CASCADE`, `provider` (`credential` ou `google`), `providerAccountId` (nulo), `passwordHash` (nulo), `createdAt`, `updatedAt`; único em (`userId`, `provider`) e em (`provider`, `providerAccountId`) |
+  | `session` | `AddAuth` | `id`, `userId` → `user.id` `ON DELETE CASCADE` (indexado), `refreshTokenHash` (único), `expiresAt` (indexado), `ipAddress` (nulo), `userAgent` (nulo), `createdAt`, `updatedAt` |
+  | `verification` | `AddAuth` | `id`, `identifier` (o e-mail, minúsculas), `purpose` (`email_verification` ou `password_reset`), `tokenHash` (único), `expiresAt` (indexado), `consumedAt` (nulo), `createdAt`; índice composto em (`identifier`, `purpose`, `consumedAt`) |
+  | `emailDispatch` | `AddEmailDispatch` | `id`, `email` (minúsculas), `kind` (`verification` ou `password_reset`), `createdAt` (indexado); índice composto em (`email`, `kind`, `createdAt`) |
 
-- Os índices em `session.expiresAt`, `verification.expiresAt` e `rateLimit.lastRequest` **não vêm do
-  CLI**: são acrescentados ao schema gerado antes de criar a migration, para que a limpeza da regra 17
-  não varra a tabela inteira. Pelo mesmo motivo `emailDispatch.createdAt` tem índice próprio, além do
-  composto que atende a regra 15.
-- **Toda chave primária é UUID.** O padrão do Better Auth é `id` texto gerado na aplicação; aqui
-  `advanced.database.generateId: "uuid"`. Com essa opção, o CLI gera `id String @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid`
-  em todas as tabelas e marca `session.userId` e `account.userId` como `@db.Uuid`; com Postgres, o
-  adapter do Prisma deixa o banco gerar o valor. `emailDispatch.id` segue o mesmo formato. Os dois
-  comportamentos foram verificados no código do Better Auth.
-- A senha vive em `account.password`, com o hash do Better Auth, e nunca em `user`.
-- **Cadastro por senha e por Google são atômicos.** Os dois rodam em `runWithTransaction`; com
-  `transaction: true`, `user` e `account` são gravados juntos ou nenhum é. O e-mail de verificação do
-  cadastro é enviado dentro dessa transação: SMTP fora do ar desfaz o cadastro e a rota responde `500`
-  (regra 13).
+- **Não existe tabela de limite de requisições.** A contagem é do Redis (regra 11).
+- Os índices em `session.expiresAt`, `verification.expiresAt` e `emailDispatch.createdAt` existem para
+  que a limpeza da regra 17 não varra a tabela inteira.
+- **Toda chave primária é UUID**, com `@PrimaryGeneratedColumn("uuid")` na entity e
+  `DEFAULT gen_random_uuid()` escrito na migration — nativo do PostgreSQL 13 em diante, sem extensão.
+  O gate de que a entity e a migration não divergiram é um step do job da API no CI: roda
+  `typeorm migration:generate` apontando para um arquivo temporário e **falha se esse arquivo for
+  criado**.
+- `provider`, `purpose` e `kind` são colunas de enum do Postgres, criadas pela migration e espelhadas
+  em `features/auth/enums/`.
+- **Cadastro por senha e por Google são atômicos**, em `dataSource.transaction()` dentro do
+  repository, como manda o contrato: `user`, `account` e, no cadastro por senha, a linha de
+  `emailDispatch` da regra 15 são gravados juntos ou nenhum é. **O envio do e-mail fica fora da
+  transação** (regra 13).
+- São também uma transação só: a rotação do refresh (regra 3), o consumo de token com troca de senha
+  (regra 7), o consumo de token com verificação de e-mail (regra 5), a checagem-e-gravação de
+  `emailDispatch` (regra 15) e o corte do teto de sessões (regra 16).
 - **Auditoria:** `N/A` nesta entrega. Não há acesso a prontuário para registrar, e a trilha de
   auditoria é a issue #9.
 - **Eventos/integrações disparados:** envio de e-mail por SMTP (regra 13) e o job agendado de limpeza
   (regra 17).
 
-### 13. O e-mail sai direto, sem fila
+### 13. O e-mail sai direto, sem fila, e o envio não desfaz o cadastro
 
-- `core/mail/` cria o transport do Nodemailer sobre o SMTP da Resend, em todos os ambientes, a partir
-  de `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` e `MAIL_FROM`.
+- `core/mail/` cria o transport do Nodemailer sobre o SMTP do Gmail, em todos os ambientes, a partir de
+  `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` e `SMTP_PASSWORD`.
+- **O `From` é o da conta autenticada, e `MAIL_FROM` só nomeia o remetente.** O Gmail reescreve o
+  endereço do `From` com a conta autenticada, em silêncio; o alias do "Enviar e-mail como" não vale no
+  `smtp.gmail.com`. Por isso `MAIL_FROM` carrega o nome de exibição e **precisa ser o endereço da
+  conta de `SMTP_USER`**, e o boot recusa valores diferentes.
+- **Isso é um trade-off declarado, não um descuido.** Até o lançamento público, o e-mail transacional
+  sai de uma conta comum do Gmail, com app password e verificação em duas etapas ligada. O teto de
+  envio é diário e da conta inteira, e dev e homolog o dividem. Trocar para um remetente próprio é
+  `smtp-relay.gmail.com` com Google Workspace, ou outro provedor — decisão do lançamento, não desta
+  entrega.
 - Dois e-mails, os dois em pt-BR:
 
   | Gatilho | Assunto | Corpo |
@@ -428,548 +498,643 @@ Uma senha é aceita quando cumpre **todas** as condições:
   | Cadastro, login sem verificação e reenvio | "Confirme seu e-mail no Clinicore" | "Olá, {nome}. Confirme seu e-mail para começar a usar o Clinicore. O link expira em 1 hora." + botão "Confirmar e-mail" |
   | Recuperação de senha | "Redefinir sua senha do Clinicore" | "Olá, {nome}. Recebemos um pedido para redefinir sua senha. O link expira em 1 hora. Se não foi você, ignore este e-mail." + botão "Redefinir senha" |
 
-- **O envio é aguardado.** SMTP fora do ar faz a chamada responder `500` com corpo vazio, e isso é
-  preferível a uma resposta de sucesso cujo link nunca chega. No cadastro, a transação da regra 12 é
-  desfeita junto.
+- **O envio acontece depois da transação, e falhar nele não muda a resposta.** SMTP fora do ar registra
+  um log de nível `error` com o endereço e o motivo, e a rota responde exatamente o que responderia com
+  sucesso: `202`. **O motivo:** desfazer o cadastro porque o e-mail não saiu deixaria a pessoa sem conta
+  e sem aviso, e responder erro revelaria o estado da conta nas três rotas da regra 8. O link é
+  re-solicitável pelo botão de reenvio, que é justamente para isso.
+- A linha de `emailDispatch` é gravada **antes** do envio (regra 15), então um envio que falha consome
+  um dos 5 pedidos diários. É o preço de a contagem não poder depender do resultado sem revelar o
+  estado da conta.
 - A fila da regra 17 não é usada para e-mail.
 
 ### 14. Toda variável nova é obrigatória e validada no boot
 
-Segue a regra 4 da spec `002`, sem exceção: schema TypeBox em `core/config/env-schema.ts`, `parseEnv`
-puro e testado, `env.ts` escrevendo em `stderr` e saindo com `1`, nenhum valor padrão em nenhum
-ambiente, o valor recebido nunca impresso. **A API e o worker leem o mesmo módulo** e exigem o mesmo
-conjunto de variáveis.
+Segue a regra 4 da spec `002`, sem exceção: classe `Environment` com decorator de `class-validator` por
+variável em `core/config/env.validation.ts`, `validateEnv` puro e testado, `main.ts` escrevendo em
+`stderr` e saindo com `1`, nenhum valor padrão em nenhum ambiente, o valor recebido nunca impresso.
+**A API e o worker leem o mesmo módulo** e exigem o mesmo conjunto de variáveis.
 
 | Nome | Tipo | Formato esperado |
 | --- | --- | --- |
-| `NODE_ENV` | string | `expected one of: development, production` |
-| `BETTER_AUTH_SECRET` | string | `expected a string with at least 32 characters` |
-| `BETTER_AUTH_URL` | string | `expected an absolute URL with no trailing slash (https://…)` |
+| `API_URL` | string | `expected an absolute URL with no trailing slash (https://…)` |
 | `GOOGLE_CLIENT_ID` | string | `expected a non-empty string` |
 | `GOOGLE_CLIENT_SECRET` | string | `expected a non-empty string` |
+| `JWT_SECRET` | string | `expected a string with at least 32 characters` |
 | `LOG_LEVEL` | string | `expected one of: fatal, error, warn, info, debug, trace, silent` |
+| `MAIL_FROM` | string | `expected an email address equal to SMTP_USER` |
+| `REDIS_URL` | string | `expected a Redis connection string (redis://…)` |
 | `SMTP_HOST` | string | `expected a hostname` |
-| `SMTP_PORT` | inteiro | `expected an integer between 1 and 65535` |
-| `SMTP_USER` | string | `expected a non-empty string` |
 | `SMTP_PASSWORD` | string | `expected a non-empty string` |
-| `MAIL_FROM` | string | `expected an email address` |
+| `SMTP_PORT` | inteiro | `expected an integer between 1 and 65535` |
+| `SMTP_USER` | string | `expected an email address` |
 | `TRUSTED_PROXIES` | lista de string | `expected a comma-separated list of CIDR blocks (10.0.0.0/8,…)` |
 
-- `apps/api/src/__tests__/boot.test.ts` afirma hoje que o `stderr` tem exatamente duas linhas quando
-  falta `DATABASE_URL`. Com as variáveis acima ele passa a listar todas as ausentes, e o teste é
-  atualizado junto — o caso feliz também precisa das novas variáveis no `startServer`.
-- `.github/workflows/ci.yml` recebe as mesmas variáveis no bloco `env` do job `api`, e um step
-  `prisma migrate deploy` antes dos testes.
-- O job `web` recebe `VITE_API_URL`: hoje o `vite build` passa porque `src/shared/env/env.ts` não é
-  importado por ninguém, e isso deixa de valer quando o cliente do Better Auth o importar.
+- `NODE_ENV`, `DATABASE_URL`, `PORT` e `WEB_ORIGIN` já nascem na `002` e não mudam. `LOG_LEVEL` é
+  declarada lá como pertencente a esta entrega, e é aqui que ela nasce.
+- **`TRUSTED_PROXIES` precisa de um decorator próprio.** O `class-validator` não tem decorador de CIDR:
+  ele sai de um `registerDecorator` de poucas linhas sobre `isIPRange` do `validator` 13, que o próprio
+  `class-validator` já traz como dependência. Nunca de regex à mão.
+- `MAIL_FROM` é validada **contra outra variável**, com um decorator que compara com `SMTP_USER`
+  (regra 13). Diferente, o boot falha.
+- O teste de boot da `002` passa a listar todas as variáveis ausentes, e o caso feliz precisa das novas.
+- `.github/workflows/ci.yml` recebe as mesmas variáveis no bloco `env` do job `api`, um serviço
+  `redis:8` ao lado do `postgres:18`, e um step `npm run migration:run` antes dos testes.
 
 ### 15. Pedidos de e-mail são limitados por endereço, e não só por IP
 
 O limite por IP da regra 11 não protege uma vítima: de vários IPs, o mesmo endereço receberia e-mails
-sem fim, cada pedido de reset gravaria uma linha em `verification`, e a cota de 100 e-mails por dia da
-Resend acabaria para todos os usuários.
+sem fim, cada pedido de reset gravaria uma linha em `verification`, e o teto diário da conta de envio
+(regra 13) acabaria para todos os usuários.
 
 - **Por endereço, em qualquer IP:** no máximo **1 pedido a cada 60 segundos** e **5 pedidos a cada 24
   horas**, contados separadamente para `verification` e `password_reset`.
 - A contagem vive em `emailDispatch`. Cada pedido aceito grava uma linha; o pedido barrado não grava.
-- **Duas guardas sobre a mesma contagem**, em
-  `features/auth/repository/email-dispatch.repository.ts`, **separadas pelo caminho do request**. Um
-  pedido é contado por exatamente uma delas, nunca pelas duas:
-  1. **`hooks.before` em `/request-password-reset` e `/send-verification-email`.** Confere e grava.
-     Barrado, o hook devolve a resposta genérica da rota — o mesmo status e o mesmo corpo de um pedido
-     aceito — sem deixar o Better Auth prosseguir. Nenhuma linha em `verification`, nenhum e-mail. Um
-     `hooks.before` que retorna uma resposta interrompe a rota.
-  2. **Dentro de `sendVerificationEmail` e `sendResetPassword`**, que recebem o `request` como segundo
-     argumento. Quando o caminho do request é um dos dois da guarda 1, o callback envia sem conferir:
-     o pedido já foi contado e aceito. Em qualquer outro caminho — `/sign-up/email` e
-     `/sign-in/email` — o callback confere e grava; barrado, não envia, e a rota responde exatamente
-     como responderia enviando.
-- **O pedido conta exista a conta ou não.** Se só pedidos de contas existentes fossem registrados, uma
-  resposta barrada revelaria que o e-mail tem cadastro. Por isso a primeira guarda grava o pedido
-  antes de o Better Auth consultar o usuário.
-- Isso torna as duas rotas **idempotentes dentro da janela de 60 segundos**: repetir não grava e não
-  envia. Fora da janela, um novo e-mail é o comportamento pedido por quem clica em reenviar.
+- A guarda é **um método de `features/auth/repository/email-dispatch.repository.ts`**,
+  `registerDispatch(email, kind): boolean`, que confere as duas janelas e grava a linha **na mesma
+  transação**, e devolve se o pedido passou. Os quatro caminhos que enviam e-mail — `sign-up`,
+  `sign-in` sem verificação, `send-verification-email` e `request-password-reset` — chamam esse método
+  antes de montar o token, e não enviam nada quando ele devolve `false`.
+- **Um pedido barrado não grava token.** Nada entra em `verification`, nada sai por SMTP, e a rota
+  responde exatamente como responderia enviando: `202` com corpo vazio, ou `403 EMAIL_NOT_VERIFIED` no
+  caso do `sign-in`.
+- **O pedido conta exista a conta ou não.** A gravação acontece antes de o service consultar o usuário.
+  Se só pedidos de contas existentes fossem registrados, o comportamento sob o limite revelaria que o
+  e-mail tem cadastro.
+- Isso torna as três rotas da regra 8 **idempotentes dentro da janela de 60 segundos**: repetir não
+  grava e não envia. Fora da janela, um novo e-mail é o comportamento pedido por quem clica em
+  reenviar.
 - O web mostra o botão de reenvio desabilitado por 60 segundos, mas a guarda é esta, não a do web.
 
 ### 16. Cada usuário tem no máximo 5 sessões ativas
 
-- Toda sessão criada — login por senha, callback do Google, verificação de e-mail — passa por
-  `internalAdapter.createSession`, que grava pelo mecanismo de hooks do Better Auth. Isso foi verificado
-  no código.
-- `databaseHooks.session.create.after` chama
-  `features/auth/repository/session.repository.ts` → `keepNewestSessions(userId, 5)`, que apaga, dentro
-  de um único `$transaction`, todas as sessões do usuário exceto as 5 de `createdAt` mais recente.
-- O sexto login derruba a sessão mais antiga; o dispositivo dela recebe `null` em `get-session` na
-  próxima chamada.
-- Dois logins simultâneos do mesmo usuário podem apagar as mesmas linhas; apagar uma linha já apagada
-  não é erro, e o resultado final continua sendo as 5 mais recentes.
+- Toda sessão nasce em um único método,
+  `features/auth/repository/session.repository.ts` → `createSession(userId, refreshTokenHash, ip, userAgent)`,
+  chamado pelos três caminhos que criam sessão: login por senha, callback do Google e verificação de
+  e-mail.
+- Dentro da mesma transação, o método apaga todas as sessões daquele usuário exceto as 5 de `createdAt`
+  mais recente, e **devolve os `sessionId` apagados**. O service grava cada um na denylist (regra 2).
+- O sexto login derruba a sessão mais antiga na hora: o refresh dela não funciona mais, e o access
+  token dela cai no `401` da denylist na requisição seguinte.
+- Dois logins simultâneos do mesmo usuário podem tentar apagar as mesmas linhas; apagar uma linha já
+  apagada não é erro, e o resultado final continua sendo as 5 mais recentes.
 
 ### 17. Um job diário apaga o que venceu
 
-O Better Auth só remove uma `session` ou uma `verification` vencida quando alguém tenta lê-la. Linha
-que ninguém lê fica para sempre.
+Nada nesta API remove uma `session` ou uma `verification` vencida sozinho. Linha que ninguém lê fica
+para sempre.
 
-- `core/queue/` conecta o pg-boss 12, versão mínima 12.33 — a que tem `TestClock` e a garantia de um
-  job por horário verificadas —, ao Postgres de `DATABASE_URL`. O pg-boss cria e mantém o próprio
-  schema `pgboss` ao iniciar; esse schema não passa pelo Prisma.
-- `src/worker.ts` é a entrada do processo separado: inicia o pg-boss, cria a fila
-  `purge-expired-auth-records`, agenda com `boss.schedule("purge-expired-auth-records", "0 3 * * *", null, { tz: "America/Sao_Paulo" })`
-  e registra o job com `boss.work`.
-- `features/auth/job/purge-expired-auth-records.job.ts` chama o service, como o controller faria; o
-  service chama os repositories.
-- O job apaga, com `deleteMany` do Prisma:
+- `core/queue/` registra `@nestjs/bullmq` contra o `REDIS_URL`, sobre o mesmo cliente `ioredis` da
+  regra 11.
+- `src/worker.ts` é a entrada do processo separado, com o próprio container: cria a fila
+  `auth-maintenance` e registra o job repetível `purge-expired-auth-records` com
+  `repeat: { pattern: "0 3 * * *", tz: "America/Sao_Paulo" }`.
+- **O agendamento é do BullMQ, não do `@nestjs/schedule`.** Um `@Cron` roda em toda instância do
+  processo; um job repetível do BullMQ é uma chave no Redis, então duas instâncias de worker produzem
+  uma execução, não duas.
+- `features/auth/job/purge-expired-auth-records.job.ts` é o `@Processor` e chama o service, como o
+  controller faz.
+- O job apaga:
 
   | Tabela | Condição |
   | --- | --- |
   | `session` | `expiresAt` anterior a agora |
   | `verification` | `expiresAt` anterior a agora |
-  | `rateLimit` | `lastRequest` anterior a agora menos 24 horas |
   | `emailDispatch` | `createdAt` anterior a agora menos 24 horas |
 
-- **O job é idempotente**: rodar duas vezes seguidas apaga na segunda zero linhas. O pg-boss garante
-  um único job por horário mesmo com mais de uma instância de worker.
+- **Sessão vencida não vai para a denylist.** O access token dela expirou por conta própria muito antes,
+  e o refresh é conferido contra a tabela.
+- **O job é idempotente**: rodar duas vezes seguidas apaga na segunda zero linhas.
 - Cada execução registra no Pino a quantidade apagada por tabela.
-- Em desenvolvimento o worker roda por `bun run worker`. O container do worker na stack inteira é a
+- Em desenvolvimento o worker roda por `npm run worker`. O container do worker na stack inteira é a
   issue #4.
 
 ---
 
 ## Erros
 
-Os códigos vêm do `BASE_ERROR_CODES` do Better Auth, exceto `WEAK_PASSWORD` e `INTERNAL_ERROR`, que
-são desta entrega. A `message` é inglês, texto de desenvolvedor. `PASSWORD_TOO_SHORT` e
-`PASSWORD_TOO_LONG` existem no Better Auth, mas não saem desta API (regra 4).
+Catálogo próprio desta API. A `message` é inglês, texto de desenvolvedor; o texto que a pessoa lê é
+escrito no web a partir do `code` (regra 10).
 
 | Código | HTTP | Quando | Mensagem |
 | --- | --- | --- | --- |
-| `INVALID_EMAIL_OR_PASSWORD` | `401` | E-mail inexistente, ou senha incorreta no login | "Invalid email or password" |
-| `EMAIL_NOT_VERIFIED` | `403` | Login com a senha correta e o e-mail ainda não verificado | "Email not verified" |
-| `FAILED_TO_CREATE_USER` | `422` | Segundo de dois cadastros simultâneos com o mesmo e-mail | "Failed to create user" |
-| `WEAK_PASSWORD` | `400` | Senha fora da política da regra 4, inclusive por tamanho | "Password must have at least 8 characters, one uppercase letter, one digit and one special character" |
-| `INVALID_TOKEN` | `400` | Token de reset inválido, consumido ou expirado em `POST /reset-password` | "Invalid token" |
-| `INVALID_TOKEN` | `302` | Link de verificação ou de reset inválido; vai em `?error=` | — |
-| `TOKEN_EXPIRED` | `302` | Link de verificação expirado; vai em `?error=` | — |
-| `INVALID_TOKEN` | `401` | Link de verificação inválido sem `callbackURL` | "Invalid token" |
-| `TOKEN_EXPIRED` | `401` | Link de verificação expirado sem `callbackURL` | "Token expired" |
+| `VALIDATION_FAILED` | `400` | Corpo ou query fora do DTO; `fields` traz o campo e a restrição | "Validation failed" |
+| `INVALID_TOKEN` | `400` | Token de reset inválido, consumido ou expirado em `POST /auth/reset-password` | "Invalid token" |
 | `INVALID_PASSWORD` | `400` | `currentPassword` incorreta em `change-password` | "Invalid password" |
-| `SESSION_EXPIRED` | `400` | Sessão expirada em operação que exige sessão fresca | "Session expired. Re-authenticate to perform this action." |
-| `INVALID_ORIGIN` | `403` | `Origin` fora de `trustedOrigins` | "Invalid origin" |
-| `INVALID_CALLBACK_URL` | `403` | `callbackURL` absoluta fora de `trustedOrigins` | "Invalid callbackURL" |
-| `INVALID_REDIRECT_URL` | `403` | `redirectTo` absoluta fora de `trustedOrigins` | "Invalid redirectURL" |
-| `INVALID_ERROR_CALLBACK_URL` | `403` | `errorCallbackURL` absoluta fora de `trustedOrigins` | "Invalid errorCallbackURL" |
-| — | `429` | Limite da rota excedido (regra 11) | corpo do Better Auth, sem código próprio |
-| — | `500` | Erro que não é `APIError` numa rota do Better Auth, como SMTP fora do ar | corpo vazio |
-| `INTERNAL_ERROR` | `500` | Erro desconhecido em rota própria da API | "Internal server error" |
+| `INVALID_CREDENTIALS` | `401` | E-mail inexistente, ou senha incorreta no login | "Invalid email or password" |
+| `INVALID_SESSION` | `401` | Cookie de acesso ausente, malformado, expirado ou na denylist; refresh de sessão inexistente ou vencida | "Invalid session" |
+| `SESSION_REUSED` | `401` | Refresh token que não bate com o gravado; a sessão é derrubada (regra 3) | "Refresh token reuse detected" |
+| `EMAIL_NOT_VERIFIED` | `403` | Login com a senha correta e o e-mail ainda não verificado | "Email not verified" |
+| `INVALID_ORIGIN` | `403` | `POST` com `Origin` diferente de `WEB_ORIGIN`, ou sem o header | "Invalid origin" |
+| `RATE_LIMITED` | `429` | Limite da rota excedido (regra 11) | "Too many requests" |
+| `INTERNAL_ERROR` | `500` | Erro desconhecido | "Internal server error" |
+| `SERVICE_UNAVAILABLE` | `503` | Redis inalcançável numa requisição autenticada (regra 2) | "Service temporarily unavailable" |
+
+Códigos que saem apenas em `?error=` de um `302`, sem corpo e sem `message`:
+
+| Código | Rota | Quando |
+| --- | --- | --- |
+| `INVALID_TOKEN` | `/auth/verify-email` | Token inválido, consumido ou inexistente |
+| `TOKEN_EXPIRED` | `/auth/verify-email` | Token de verificação expirado |
+| `INVALID_STATE` | `/auth/google/callback` | `state` da query diferente do cookie, ou cookie ausente |
+| `UNVERIFIED_PROVIDER_EMAIL` | `/auth/google/callback` | O Google devolveu `email_verified` falso |
+| `PROVIDER_ERROR` | `/auth/google/callback` | A troca do `code` falhou, ou o Google devolveu erro |
 
 ## Efeitos Colaterais
 
 - **Persistência:** cadastro de e-mail novo grava uma linha em `user`, uma em `account`
-  (`providerId = "credential"`) e uma em `emailDispatch`. Cadastro de e-mail existente não grava nada.
-  Login grava uma linha em `session` e apaga as excedentes da regra 16. Logout apaga a linha de
-  `session`. Verificação de e-mail marca `user.emailVerified = true`. Pedido de reset aceito grava uma
-  linha em `emailDispatch` e uma em `verification`. Reset de senha consome a linha de `verification`,
-  atualiza ou cria `account.password` e apaga todas as sessões do usuário. Cada requisição limitada
-  atualiza `rateLimit`. O job da regra 17 apaga linhas vencidas.
+  (`provider = "credential"`), uma em `emailDispatch` e uma em `verification`. Cadastro de e-mail
+  existente não grava nada. Login grava uma linha em `session` e apaga as excedentes da regra 16.
+  Refresh atualiza `refreshTokenHash` e `expiresAt` da `session`; refresh reusado apaga a linha.
+  Logout apaga a linha de `session`. Verificação de e-mail marca `user.emailVerified = true`, consome
+  os tokens pendentes daquele endereço e cria uma `session`. Pedido de reset aceito grava uma linha em
+  `emailDispatch` e uma em `verification`. Reset de senha consome a linha de `verification`, atualiza
+  ou cria `account.passwordHash` e apaga todas as sessões do usuário. O job da regra 17 apaga linhas
+  vencidas.
+- **Redis:** cada requisição limitada incrementa um contador com TTL (regra 11); cada sessão revogada
+  grava `auth:revoked:<sessionId>` com TTL de 900 segundos (regra 2); o job repetível da regra 17 é uma
+  chave da fila `auth-maintenance`.
 - **Concorrência:**
-  - dois cadastros simultâneos com o mesmo e-mail — o índice único de `user.email` reprova o segundo,
-    que responde `422 FAILED_TO_CREATE_USER`;
-  - dois usos simultâneos do mesmo token de reset — o token é consumido antes da troca, e o segundo
-    responde `400 INVALID_TOKEN`;
+  - dois cadastros simultâneos com o mesmo e-mail — o índice único de `user.email` reprova o segundo, o
+    repository traduz para `Conflict` e o service responde `202` igual (regra 8);
+  - dois usos simultâneos do mesmo refresh token — a transação serializa, o segundo cai na detecção de
+    reuso e a sessão morre (regra 3);
+  - dois usos simultâneos do mesmo token de reset ou de verificação — o token é consumido dentro da
+    transação, e o segundo responde `400 INVALID_TOKEN`;
   - dois pedidos simultâneos de e-mail para o mesmo endereço dentro da janela — a checagem e a gravação
-    em `emailDispatch` acontecem num único `$transaction` no repository, com o índice composto; o
-    segundo é barrado;
+    em `emailDispatch` acontecem numa transação só, e o segundo é barrado;
   - dois logins simultâneos do mesmo usuário — regra 16.
-- **Transação:**
-  - cadastro por senha — `user`, `account` e o envio do e-mail de verificação numa transação
-    (regra 12); a linha de `emailDispatch` é gravada fora dela e fica mesmo se o cadastro for desfeito;
-  - cadastro por Google — `user` e `account` numa transação (regra 12);
-  - `keepNewestSessions` e a checagem-e-gravação de `emailDispatch` — um `$transaction` cada, nos
-    repositories desta entrega.
+- **Transação:** cadastro por senha (`user`, `account`, `emailDispatch`, `verification`), cadastro por
+  Google (`user`, `account`), rotação do refresh, criação de sessão com o corte do teto, consumo de
+  token com troca de senha, consumo de token com verificação de e-mail, e a checagem-e-gravação de
+  `emailDispatch`. **O envio de e-mail nunca está dentro de uma transação** (regra 13).
 
 ---
 
 ## Cenários de Aceite (Gherkin)
 
-Todos os cenários batem na API real com o Postgres real, no padrão da spec `002`: subprocesso do
-`server.ts` e `fetch`, como em `apps/api/src/__tests__/boot.test.ts`. Não se faz mock de Prisma nem do
-Better Auth. Duas fronteiras externas são substituídas, e nenhuma outra: o transport de e-mail, para
-que o teste conte os envios, e a chamada HTTP ao token endpoint do Google,
-`https://oauth2.googleapis.com/token`, trocada no processo da API por um `--preload` do teste que
-responde com um `id_token` montado pelo próprio teste. No callback, o Better Auth lê esse `id_token`
-com `decodeJwt`, sem verificar assinatura — a confiança é o TLS da troca do `code` —, e a chamada sai
-pelo `globalThis.fetch`. Os dois comportamentos foram verificados no código do Better Auth 1.7.5.
+Todos os cenários sobem o módulo com `Test.createTestingModule` e batem na rota com `supertest`,
+contra o **Postgres real e o Redis real** do `compose.yaml` da API, no padrão do contrato do repo. Não
+se faz mock de repository nem de `DataSource`. O e2e que sobe o `AppModule` inteiro fica em `test/`.
 
-### Cenário 1 — Cadastro cria o usuário e envia o link (caminho feliz)
+Duas fronteiras externas são substituídas, e nenhuma outra:
+
+- **o transport do Nodemailer**, por um duplo que enfileira as mensagens em memória, para que o teste
+  conte os envios e leia o token do link;
+- **os endpoints do Google** — `https://oauth2.googleapis.com/token` e
+  `https://www.googleapis.com/oauth2/v3/userinfo` —, por `nock`, porque o `passport-oauth2` faz essa
+  troca pelo módulo `https` do Node e não pelo `fetch` global.
+
+### Cenário 1 — Cadastro cria o usuário e envia o link (caminho feliz, regras 5 e 12)
 
 ```gherkin
 Dado que o e-mail `ana@exemplo.com` não existe na tabela `user`
-Quando é enviado `POST /api/auth/sign-up/email` com nome, e-mail e a senha `Clinica#2026`
-Então o sistema responde `200` com `token` nulo
+Quando é enviado `POST /auth/sign-up` com nome, e-mail e a senha `Clinica#2026`
+Então o sistema responde `202` com corpo vazio
 E existe uma linha em `user` com `email = "ana@exemplo.com"` e `emailVerified = false`
-E existe uma linha em `account` com `providerId = "credential"` e `password` preenchida
+E existe uma linha em `account` com `provider = "credential"` e `passwordHash` preenchida
 E `user.id` e `account.userId` são o mesmo UUID, gerado pelo banco
+E existe uma linha em `verification` com `purpose = "email_verification"` e `consumedAt` nulo
 E um e-mail com o assunto `Confirme seu e-mail no Clinicore` foi entregue ao transport
 E existe exatamente uma linha em `emailDispatch` para esse endereço, com `kind = "verification"`
-E nenhum cookie de sessão é devolvido
+E nenhum `Set-Cookie` é devolvido
 ```
 
 ### Cenário 2 — Cadastro repetido não grava, não envia e não revela a conta (exceção, regra 8)
 
 ```gherkin
 Dado um usuário cadastrado com `email = "ana@exemplo.com"`
-Quando é enviado `POST /api/auth/sign-up/email` com o mesmo e-mail, repetido 3 vezes
-Então as 3 respostas são `200` com `token` nulo
-E o formato do corpo é o mesmo do Cenário 1
+Quando é enviado `POST /auth/sign-up` com o mesmo e-mail, repetido 3 vezes
+Então as 3 respostas são `202` com corpo vazio, idênticas à do Cenário 1
 E continua existindo exatamente uma linha em `user` e uma em `account` para esse e-mail
 E nenhum e-mail foi entregue ao transport
+E dois `POST /auth/sign-up` disparados ao mesmo tempo com o mesmo e-mail novo respondem os dois `202`
+E resta exatamente uma linha em `user` para esse e-mail
 ```
 
 ### Cenário 3 — Login antes de verificar é bloqueado e reenvia o link (exceção, regra 5)
 
 ```gherkin
 Dado um usuário cadastrado com `emailVerified = false` e sem pedido de e-mail nos últimos 60 segundos
-Quando é enviado `POST /api/auth/sign-in/email` com a senha correta
+Quando é enviado `POST /auth/sign-in` com a senha correta
 Então o sistema responde `403` com o código `EMAIL_NOT_VERIFIED`
 E nenhuma linha é criada em `session`
 E um e-mail de confirmação foi entregue ao transport
-E com a senha errada a resposta é `401 INVALID_EMAIL_OR_PASSWORD` e nenhum e-mail é entregue
+E com a senha errada a resposta é `401 INVALID_CREDENTIALS` e nenhum e-mail é entregue
 ```
 
 ### Cenário 4 — Verificar o e-mail loga o usuário, e repetir não cria outra sessão (caminho feliz, regra 5)
 
 ```gherkin
-Dado um usuário cadastrado com `emailVerified = false` e um link de verificação válido
-Quando é feita a requisição `GET /api/auth/verify-email` com o token e `callbackURL` igual a `http://localhost:3000/verify-email`
+Dado um usuário cadastrado com `emailVerified = false` e dois links de verificação válidos
+Quando é feita a requisição `GET /auth/verify-email` com o token do primeiro link
 Então o sistema responde `302` para `http://localhost:3000/verify-email`
+E a resposta traz os cookies `clinicore_access` e `clinicore_refresh`
 E `user.emailVerified` passa a ser `true`
 E existe exatamente uma linha em `session` para esse usuário
-E repetir a mesma requisição responde `302` para o mesmo destino
+E as duas linhas em `verification` desse endereço têm `consumedAt` preenchido
+E repetir a requisição com qualquer um dos dois tokens responde `302` para `http://localhost:3000/verify-email?error=INVALID_TOKEN`
 E continua existindo exatamente uma linha em `session`
 ```
 
-### Cenário 5 — Link de verificação inválido redireciona com o código (exceção, regra 5)
+### Cenário 5 — Link de verificação inválido ou expirado redireciona com o código (exceção, regra 5)
 
 ```gherkin
-Dado o `callbackURL` igual a `http://localhost:3000/verify-email`
-Quando `GET /api/auth/verify-email` é chamado com um token adulterado
+Dado um usuário cadastrado com `emailVerified = false`
+Quando `GET /auth/verify-email` é chamado com um token que não existe
 Então o sistema responde `302` para `http://localhost:3000/verify-email?error=INVALID_TOKEN`
-E quando é chamado com um token expirado
-Então responde `302` para `http://localhost:3000/verify-email?error=TOKEN_EXPIRED`
+E com um token de `expiresAt` no passado responde `302` para `http://localhost:3000/verify-email?error=TOKEN_EXPIRED`
+E nenhuma das duas respostas traz `Set-Cookie`
 E nenhuma linha em `user` ou em `session` é alterada
 ```
 
-### Cenário 6 — Login com senha correta abre sessão de 24 horas (caminho feliz, regras 2 e 3)
+### Cenário 6 — Login abre a sessão com os dois cookies (caminho feliz, regras 2 e 3)
 
 ```gherkin
 Dado um usuário com `emailVerified = true`
-Quando é enviado `POST /api/auth/sign-in/email` com a senha correta
-Então o sistema responde `200`
-E o header `Set-Cookie` traz o cookie de sessão com `HttpOnly`
+Quando é enviado `POST /auth/sign-in` com a senha correta
+Então o sistema responde `200` com o corpo `{ "user": { ... } }` e sem senha nem hash no corpo
+E o `Set-Cookie` de `clinicore_access` traz `HttpOnly`, `Path=/` e `Max-Age=900`
+E o `Set-Cookie` de `clinicore_refresh` traz `HttpOnly`, `Path=/auth/refresh` e `Max-Age=86400`
 E a linha criada em `session` tem `expiresAt` 24 horas à frente de `createdAt`, com tolerância de 60 segundos
-E `GET /api/auth/get-session` com esse cookie devolve o usuário
+E `session.refreshTokenHash` não contém o valor que veio no cookie
+E `GET /auth/session` com o cookie de acesso devolve `200` com o mesmo usuário
 ```
 
 ### Cenário 7 — Senha errada não distingue de e-mail inexistente (exceção, regra 8)
 
 ```gherkin
 Dado um usuário verificado com o e-mail `ana@exemplo.com`
-Quando é enviado `POST /api/auth/sign-in/email` com a senha errada
-Então o sistema responde `401` com o código `INVALID_EMAIL_OR_PASSWORD`
+Quando é enviado `POST /auth/sign-in` com a senha errada
+Então o sistema responde `401` com o código `INVALID_CREDENTIALS`
 E a mesma requisição para o e-mail inexistente `ninguem@exemplo.com` responde `401` com o mesmo código
 E os dois corpos de resposta são iguais
+E a diferença entre as medianas de 20 respostas de cada caso fica abaixo de 50 milissegundos
 ```
 
-### Cenário 8 — Logout apaga a sessão, e repetir não muda nada (caminho feliz)
+### Cenário 8 — O refresh rotaciona e devolve cookies novos (caminho feliz, regra 3)
+
+```gherkin
+Dado um usuário logado, com o cookie `clinicore_refresh` da resposta do login
+Quando é enviado `POST /auth/refresh` com esse cookie
+Então o sistema responde `204`
+E os dois `Set-Cookie` trazem valores diferentes dos anteriores
+E `session.refreshTokenHash` mudou e `session.id` continua o mesmo
+E `session.expiresAt` foi empurrado para 24 horas à frente
+E o cookie de acesso novo autentica `GET /auth/session`
+```
+
+### Cenário 9 — Reusar o refresh antigo derruba a sessão inteira (exceção, regra 3)
+
+```gherkin
+Dado um usuário logado e um `POST /auth/refresh` já executado com sucesso
+Quando é enviado `POST /auth/refresh` de novo com o cookie de refresh **antigo**
+Então o sistema responde `401` com o código `SESSION_REUSED`
+E a linha em `session` deixa de existir
+E a chave `auth:revoked:<sessionId>` existe no Redis com TTL menor ou igual a 900
+E o cookie de acesso emitido na rotação, ainda dentro dos 15 minutos, passa a responder `401 INVALID_SESSION` em `GET /auth/session`
+E o cookie de refresh da rotação também responde `401 INVALID_SESSION`
+```
+
+### Cenário 10 — Logout derruba a sessão na hora, mesmo com o access token vivo (caminho feliz, regra 2)
 
 ```gherkin
 Dado um usuário logado com uma linha em `session`
-Quando é enviado `POST /api/auth/sign-out` com o cookie de sessão
-Então o sistema responde `200`
+Quando é enviado `POST /auth/sign-out` com o cookie de acesso
+Então o sistema responde `204`
+E os dois `Set-Cookie` de expiração são devolvidos, com `Max-Age=0`
 E a linha em `session` deixa de existir
-E `GET /api/auth/get-session` com o mesmo cookie devolve corpo `null`
-E repetir `POST /api/auth/sign-out` com o mesmo cookie não altera nenhuma tabela
+E a chave `auth:revoked:<sessionId>` existe no Redis
+E `GET /auth/session` com o mesmo cookie de acesso responde `401` com o código `INVALID_SESSION`
+E repetir `POST /auth/sign-out` com o mesmo cookie responde `401` e não altera nenhuma tabela
 ```
 
-### Cenário 9 — Senha fraca é recusada nas três rotas (exceção, regra 4)
+### Cenário 11 — Senha fraca é recusada nas três rotas (exceção, regra 4)
 
 ```gherkin
-Dado o hook de política de senha ativo
+Dado o decorator de política de senha ativo nos DTOs
 Quando `sem_maiuscula#1`, `SEM_DIGITO#a`, `SemEspecial1` ou `Aa#1` são enviados como senha
-Então cada um responde `400` com o código `WEAK_PASSWORD`
-E o mesmo vale nas rotas `/sign-up/email`, `/reset-password` e `/change-password`
+Então cada um responde `400` com o código `VALIDATION_FAILED`
+E `fields` traz o campo da senha com o valor `WEAK_PASSWORD`
+E o mesmo vale nas rotas `/auth/sign-up`, `/auth/reset-password` e `/auth/change-password`
 E nenhuma linha é gravada em `user`, `account` ou `verification`
 E `Clinica#2026` é aceita nas três
 ```
 
-### Cenário 10 — Google vincula à conta existente em vez de duplicar (caminho alternativo, regra 6)
+### Cenário 12 — Campo desconhecido no corpo é recusado (exceção, regras 1 e 10)
 
 ```gherkin
-Dado um usuário verificado com `email = "ana@exemplo.com"` e uma linha em `account` com `providerId = "credential"`
-E o token endpoint do Google substituído, respondendo com um `id_token` de `sub = "google-ana"`, `email = "ana@exemplo.com"` e `email_verified = true`
-Quando é enviado `POST /api/auth/sign-in/social` com `provider` igual a `google` e `callbackURL` igual a `http://localhost:3000/app`
-E é feita a requisição `GET /api/auth/callback/google` com o `state` da URL de autorização, um `code` qualquer e o cookie do `state`
-Então o sistema responde `302` para `http://localhost:3000/app`, com o cookie de sessão
+Dado o `ValidationPipe` global com `forbidNonWhitelisted`
+Quando é enviado `POST /auth/sign-up` com um campo `callbackURL` igual a `http://evil.example/x`
+Então o sistema responde `400` com o código `VALIDATION_FAILED`
+E nenhuma linha é gravada em `user`
+E o mesmo vale para `redirectTo` em `POST /auth/request-password-reset`
+```
+
+### Cenário 13 — Google vincula à conta existente em vez de duplicar (caminho alternativo, regra 6)
+
+```gherkin
+Dado um usuário verificado com `email = "ana@exemplo.com"` e uma linha em `account` com `provider = "credential"`
+E os endpoints do Google substituídos, devolvendo `sub = "google-ana"`, `email = "ana@exemplo.com"` e `email_verified = true`
+Quando é feita a requisição `GET /auth/google` e guardado o cookie `clinicore_oauth_state`
+E é feita a requisição `GET /auth/google/callback` com o `state` da URL de autorização, um `code` qualquer e esse cookie
+Então o sistema responde `302` para `http://localhost:3000/app`, com os dois cookies de sessão
 E continua existindo exatamente uma linha em `user` com esse e-mail
-E passa a existir uma segunda linha em `account` com `providerId = "google"`, `accountId = "google-ana"` e o mesmo `userId`
+E passa a existir uma segunda linha em `account` com `provider = "google"`, `providerAccountId = "google-ana"` e o mesmo `userId`
+E nenhuma coluna de `account` guarda token do Google
 E entrar com a senha original continua funcionando
 ```
 
-### Cenário 11 — Iniciar o login com Google não grava no banco (caminho alternativo, regra 6)
+### Cenário 14 — Iniciar o login com Google não grava no banco (caminho alternativo, regra 6)
 
 ```gherkin
 Dado a contagem de linhas de todas as tabelas do schema público
-Quando é enviado `POST /api/auth/sign-in/social` com `provider` igual a `google`, 3 vezes
-Então cada resposta traz a URL de autorização do Google
-E cada resposta traz o cookie do `state`
-E nenhuma tabela ganhou linha, exceto `rateLimit`
+Quando é feita a requisição `GET /auth/google` 3 vezes
+Então cada resposta é `302` para `accounts.google.com`, com `prompt=select_account`
+E cada resposta traz o cookie `clinicore_oauth_state` com `HttpOnly`, `Path=/auth/google` e `Max-Age=600`
+E nenhuma tabela ganhou linha
 ```
 
-### Cenário 12 — Recuperação de senha não revela quem tem conta (exceção, regras 7 e 8)
+### Cenário 15 — `state` adulterado e e-mail não verificado pelo Google são recusados (exceção, regra 6)
+
+```gherkin
+Dado os endpoints do Google substituídos
+Quando `GET /auth/google/callback` é chamado com um `state` diferente do cookie
+Então o sistema responde `302` para `http://localhost:3000/login?error=INVALID_STATE`
+E chamado sem o cookie `clinicore_oauth_state` responde o mesmo
+E com o `state` correto mas `email_verified` falso responde `302` para `http://localhost:3000/login?error=UNVERIFIED_PROVIDER_EMAIL`
+E nenhuma linha é gravada em `user`, `account` ou `session`
+```
+
+### Cenário 16 — Recuperação de senha não revela quem tem conta (exceção, regras 7 e 8)
 
 ```gherkin
 Dado um usuário verificado com o e-mail `ana@exemplo.com` e sem pedidos de e-mail nas últimas 24 horas
-Quando é enviado `POST /api/auth/request-password-reset` para `ana@exemplo.com` e depois para `ninguem@exemplo.com`
-Então as duas requisições respondem `200` com corpos iguais
+Quando é enviado `POST /auth/request-password-reset` para `ana@exemplo.com` e depois para `ninguem@exemplo.com`
+Então as duas requisições respondem `202` com corpo vazio
 E um e-mail com o assunto `Redefinir sua senha do Clinicore` foi entregue apenas para `ana@exemplo.com`
-E existe exatamente uma linha em `verification` com `identifier` iniciado por `reset-password:`
+E o link do e-mail aponta para `http://localhost:3000/reset-password?token=<token>`
+E existe exatamente uma linha em `verification` com `purpose = "password_reset"`
 ```
 
-### Cenário 13 — Pedidos repetidos para o mesmo endereço não gravam nem enviam (exceção, regra 15)
+### Cenário 17 — Pedidos repetidos para o mesmo endereço não gravam nem enviam (exceção, regra 15)
 
 ```gherkin
 Dado um usuário verificado com o e-mail `ana@exemplo.com` e sem pedidos de e-mail nas últimas 24 horas
-Quando `POST /api/auth/request-password-reset` para `ana@exemplo.com` é enviado 4 vezes em 10 segundos, cada vez com um IP de proxy confiável diferente
-Então as 4 respostas são `200` com corpos iguais
+Quando `POST /auth/request-password-reset` para `ana@exemplo.com` é enviado 4 vezes em 10 segundos, cada vez de um IP de cliente diferente
+Então as 4 respostas são `202` com corpo vazio
 E exatamente 1 e-mail foi entregue ao transport
-E existe exatamente 1 linha em `verification` com `identifier` iniciado por `reset-password:`
+E existe exatamente 1 linha em `verification` com `purpose = "password_reset"`
 E existe exatamente 1 linha em `emailDispatch` para esse endereço com `kind = "password_reset"`
 ```
 
-### Cenário 14 — O teto diário por endereço segura o sexto pedido (exceção, regra 15)
+### Cenário 18 — O teto diário por endereço segura o sexto pedido (exceção, regra 15)
 
 ```gherkin
 Dado o e-mail `ana@exemplo.com` com 5 linhas em `emailDispatch` de `kind = "verification"` nas últimas 24 horas, a mais recente há 2 minutos
-Quando é enviado `POST /api/auth/send-verification-email` para esse endereço
-Então o sistema responde `200` com o mesmo corpo de um pedido aceito
+Quando é enviado `POST /auth/send-verification-email` para esse endereço
+Então o sistema responde `202` com o mesmo corpo vazio de um pedido aceito
 E nenhum e-mail é entregue ao transport
 E continua havendo 5 linhas em `emailDispatch` para esse endereço
 E o mesmo pedido de `kind = "password_reset"` para o mesmo endereço continua sendo aceito
 ```
 
-### Cenário 15 — O limite por endereço vale também para e-mail sem cadastro (exceção, regra 15)
+### Cenário 19 — O limite por endereço vale também para e-mail sem cadastro (exceção, regra 15)
 
 ```gherkin
 Dado o e-mail `ninguem@exemplo.com`, que não existe em `user`
-Quando `POST /api/auth/request-password-reset` para esse endereço é enviado 2 vezes em 10 segundos
+Quando `POST /auth/request-password-reset` para esse endereço é enviado 2 vezes em 10 segundos
 Então existe exatamente 1 linha em `emailDispatch` para esse endereço
-E as 2 respostas são iguais às de um endereço cadastrado no Cenário 13
+E as 2 respostas são iguais às de um endereço cadastrado no Cenário 17
 ```
 
-### Cenário 16 — Redefinir a senha derruba todas as sessões e não aceita o token de novo (caminho feliz, regra 7)
+### Cenário 20 — Redefinir a senha derruba todas as sessões na hora (caminho feliz, regras 2 e 7)
 
 ```gherkin
-Dado um usuário verificado com duas linhas em `session` e um token de reset válido
-Quando é enviado `POST /api/auth/reset-password` com a nova senha `Outra#Senha9`
-Então o sistema responde `200`
+Dado um usuário verificado logado em dois dispositivos, com duas linhas em `session`, e um token de reset válido
+Quando é enviado `POST /auth/reset-password` com a nova senha `Outra#Senha9`
+Então o sistema responde `204`
 E nenhuma linha em `session` resta para esse usuário
+E existe uma chave `auth:revoked:<sessionId>` no Redis para cada uma das duas sessões
+E `GET /auth/session` com qualquer um dos dois cookies de acesso responde `401 INVALID_SESSION`
 E entrar com `Outra#Senha9` funciona
 E entrar com a senha antiga responde `401`
 E repetir a mesma requisição responde `400` com o código `INVALID_TOKEN`
 ```
 
-### Cenário 17 — Link de reset leva o token ao web, ou o erro (caminho alternativo, regra 7)
-
-```gherkin
-Dado um token de reset válido
-Quando `GET /api/auth/reset-password/<token>` é chamado com `callbackURL` igual a `http://localhost:3000/reset-password`
-Então o sistema responde `302` para `http://localhost:3000/reset-password?token=<token>`
-E com um token inexistente responde `302` para `http://localhost:3000/reset-password?error=INVALID_TOKEN`
-E nenhuma das duas chamadas altera a tabela `verification`
-```
-
-### Cenário 18 — Quem entrou só com Google ganha login por senha pelo reset (caminho alternativo, regra 7)
+### Cenário 21 — Quem entrou só com Google ganha login por senha pelo reset (caminho alternativo, regra 7)
 
 ```gherkin
 Dado uma linha em `user` com `email = "ana@exemplo.com"` e `emailVerified = true`
-E uma única linha em `account` para ela, com `providerId = "google"`
+E uma única linha em `account` para ela, com `provider = "google"`
 Quando é pedido o reset de senha e o token recebido é usado com a senha `Clinica#2026`
-Então passa a existir uma linha em `account` com `providerId = "credential"` para esse usuário
-E a linha com `providerId = "google"` continua existindo
+Então passa a existir uma linha em `account` com `provider = "credential"` e `passwordHash` preenchida
+E a linha com `provider = "google"` continua existindo
 E entrar com `ana@exemplo.com` e `Clinica#2026` responde `200`
 ```
 
-### Cenário 19 — Trocar a senha mantém a sessão atual e derruba as outras (caminho feliz, regra 7)
+### Cenário 22 — Trocar a senha mantém a sessão atual e derruba as outras (caminho feliz, regra 7)
 
 ```gherkin
 Dado um usuário logado em dois dispositivos, com duas linhas em `session`
-Quando é enviado `POST /api/auth/change-password` com a senha atual correta, a nova senha e `revokeOtherSessions: true`
-Então o sistema responde `200`
+Quando é enviado `POST /auth/change-password` com a senha atual correta e a nova senha, usando o cookie do primeiro dispositivo
+Então o sistema responde `204`
 E resta exatamente uma linha em `session`, a do cookie usado na requisição
+E `GET /auth/session` com o cookie do primeiro dispositivo continua respondendo `200`
+E `GET /auth/session` com o cookie do segundo responde `401 INVALID_SESSION`
 E repetir a mesma requisição responde `400` com o código `INVALID_PASSWORD`
 E a senha continua a da primeira chamada
 ```
 
-### Cenário 20 — O sexto login derruba a sessão mais antiga (exceção, regra 16)
+### Cenário 23 — O sexto login derruba a sessão mais antiga (exceção, regra 16)
 
 ```gherkin
 Dado um usuário verificado com 5 linhas em `session`
-Quando é enviado `POST /api/auth/sign-in/email` com a senha correta
+Quando é enviado `POST /auth/sign-in` com a senha correta
 Então o sistema responde `200`
 E o usuário continua com exatamente 5 linhas em `session`
 E a linha de `createdAt` mais antiga deixou de existir
-E `GET /api/auth/get-session` com o cookie dessa sessão devolve corpo `null`
+E `GET /auth/session` com o cookie de acesso dessa sessão responde `401 INVALID_SESSION`
 E 20 logins seguidos, respeitando a regra 11, deixam o usuário com exatamente 5 linhas em `session`
 ```
 
-### Cenário 21 — CORS libera a origem exata e nenhuma outra (exceção, regra 1)
+### Cenário 24 — CORS libera a origem exata, e a guarda de `Origin` barra o resto (exceção, regra 1)
 
 ```gherkin
 Dado a API rodando com `WEB_ORIGIN` igual a `http://localhost:3000`
-Quando chega um preflight `OPTIONS /api/auth/sign-in/email` com `Origin: http://localhost:3000`
+Quando chega um preflight `OPTIONS /auth/sign-in` com `Origin: http://localhost:3000`
 Então a resposta traz `Access-Control-Allow-Origin: http://localhost:3000`
 E traz `Access-Control-Allow-Credentials: true`
 E nunca traz `Access-Control-Allow-Origin: *`
-E o mesmo preflight com `Origin: http://evil.example` não recebe `Access-Control-Allow-Origin`
+E `POST /auth/refresh` com `Origin: http://evil.example` responde `403 INVALID_ORIGIN`
+E `POST /auth/refresh` sem o header `Origin` responde `403 INVALID_ORIGIN`
+E `GET /auth/session` sem o header `Origin` responde normalmente
 ```
 
-### Cenário 22 — O limite do login barra a sexta tentativa (exceção, regra 11)
+### Cenário 25 — O limite do login barra a sexta tentativa (exceção, regra 11)
 
 ```gherkin
-Dado a API com `rateLimit` habilitado e a tabela `rateLimit` vazia
-Quando seis requisições `POST /api/auth/sign-in/email` com senha errada chegam do mesmo IP confiável dentro de 60 segundos
+Dado a API com o Redis limpo
+Quando seis requisições `POST /auth/sign-in` com senha errada chegam do mesmo IP dentro de 60 segundos
 Então as cinco primeiras respondem `401`
-E a sexta responde `429`
+E a sexta responde `429` com o código `RATE_LIMITED`
+E `GET /health` chamado 200 vezes seguidas nunca responde `429`
 ```
 
-### Cenário 23 — Forjar `x-forwarded-for` não escapa do limite (exceção, regra 11)
+### Cenário 26 — Forjar `x-forwarded-for` não escapa do limite (exceção, regra 11)
 
 ```gherkin
-Dado a API com `TRUSTED_PROXIES` igual a `10.0.0.0/8` e a tabela `rateLimit` vazia
-Quando seis requisições `POST /api/auth/sign-in/email` com senha errada são enviadas dentro de 60 segundos
+Dado a API com `TRUSTED_PROXIES` igual a `10.0.0.0/8` e o Redis limpo
+Quando seis requisições `POST /auth/sign-in` com senha errada são enviadas dentro de 60 segundos
 E cada uma traz `x-forwarded-for: <forjado>, 203.0.113.7, 10.0.0.1`, com um `<forjado>` diferente a cada chamada
 Então as cinco primeiras respondem `401`
 E a sexta responde `429`
-E a tabela `rateLimit` tem uma única linha para `/sign-in/email`, com a chave de `203.0.113.7`
+E existe uma única chave de contagem no Redis para `/auth/sign-in`, a de `203.0.113.7`
 ```
 
-### Cenário 24 — O log registra a requisição sem vazar segredo (caminho feliz, regra 9)
+### Cenário 27 — O log registra a requisição sem vazar segredo (caminho feliz, regra 9)
 
 ```gherkin
 Dado a API com `LOG_LEVEL` igual a `info`
-Quando é enviado `POST /api/auth/sign-in/email` com senha correta
+Quando é enviado `POST /auth/sign-in` com senha correta
 Então a saída em `stdout` contém uma linha JSON com o método, o caminho, o status `200` e a duração
 E essa linha não contém a senha enviada
 E não contém o valor do header `cookie` nem do `set-cookie`
 E uma requisição `GET /health` não produz nenhuma linha de log
 ```
 
-### Cenário 25 — Erro desconhecido vira 500 sem detalhe (exceção, regra 10)
+### Cenário 28 — Erro desconhecido vira 500 sem detalhe (exceção, regra 10)
 
 ```gherkin
-Dado uma rota própria da API que lança um erro não tratado
+Dado uma rota de teste que lança um erro não tratado
 Quando ela é chamada
 Então o sistema responde `500`
-E o corpo é exatamente `{"code":"INTERNAL_ERROR","message":"Internal server error"}`
+E o corpo é exatamente `{"code":"INTERNAL_ERROR","message":"Internal server error","fields":{}}`
 E a stack completa aparece no log do Pino
 E a stack não aparece na resposta
 ```
 
-### Cenário 26 — Ambiente incompleto derruba o boot listando o que falta (exceção, regra 14)
+### Cenário 29 — Ambiente incompleto derruba o boot listando o que falta (exceção, regra 14)
 
 ```gherkin
-Dado o ambiente sem `BETTER_AUTH_SECRET` e sem `TRUSTED_PROXIES`
+Dado o ambiente sem `JWT_SECRET` e sem `TRUSTED_PROXIES`
 Quando a API é inicializada
 Então o processo escreve em `stderr` a linha `Invalid environment:`
-E escreve a linha `  BETTER_AUTH_SECRET: expected a string with at least 32 characters`
+E escreve a linha `  JWT_SECRET: expected a string with at least 32 characters`
 E escreve a linha `  TRUSTED_PROXIES: expected a comma-separated list of CIDR blocks (10.0.0.0/8,…)`
 E sai com código `1`
 E não abre a porta HTTP
+E com `MAIL_FROM` diferente de `SMTP_USER` escreve `  MAIL_FROM: expected an email address equal to SMTP_USER`
 E o worker, inicializado com o mesmo ambiente, falha da mesma forma
 ```
 
-### Cenário 27 — O cookie é `Secure` e `SameSite=None` em produção (caminho alternativo, regra 2)
+### Cenário 30 — Os cookies são `Secure` e `SameSite=None` em produção (caminho alternativo, regra 2)
 
 ```gherkin
 Dado a API inicializada com `NODE_ENV` igual a `production`
-Quando um login bem-sucedido devolve o cookie de sessão
-Então o `Set-Cookie` traz `Secure`, `HttpOnly` e `SameSite=None`
+Quando um login bem-sucedido devolve os cookies de sessão
+Então os dois `Set-Cookie` trazem `Secure`, `HttpOnly` e `SameSite=None`
+E nenhum dos dois traz `Domain`
 E com `NODE_ENV` igual a `development` o mesmo login devolve `HttpOnly` e `SameSite=Lax`, sem `Secure`
 ```
 
-### Cenário 28 — O job apaga o que venceu e nada mais, e repetir não apaga de novo (caminho feliz, regra 17)
+### Cenário 31 — Redis fora do ar fecha a porta em vez de abrir (exceção, regra 2)
 
 ```gherkin
-Dado uma `session` vencida e uma válida
-E uma `verification` vencida e uma válida
-E uma linha de `rateLimit` com `lastRequest` de 25 horas atrás e uma de 1 hora atrás
-E uma linha de `emailDispatch` de 25 horas atrás e uma de 1 hora atrás
-Quando o job `purge-expired-auth-records` é executado
-Então só as quatro linhas vencidas deixam de existir
-E o log registra 1 linha apagada por tabela
-E executar o job de novo apaga 0 linhas
+Dado um usuário logado e o Redis inalcançável
+Quando é feita a requisição `GET /auth/session` com o cookie de acesso válido
+Então o sistema responde `503` com o código `SERVICE_UNAVAILABLE`
+E `POST /auth/sign-out` responde `500` e a linha em `session` continua existindo
+E `GET /health` continua respondendo `200`
 ```
 
-### Cenário 29 — O worker agenda o job uma única vez por dia (caminho feliz, regra 17)
-
-```gherkin
-Dado o worker iniciado com o `TestClock` do pg-boss
-Quando o relógio avança até 03:00 de `America/Sao_Paulo`
-Então exatamente um job `purge-expired-auth-records` é criado
-E iniciar uma segunda instância do worker não cria um segundo job para o mesmo horário
-```
-
-### Cenário 30 — SMTP fora do ar desfaz o cadastro (exceção, regras 12 e 13)
+### Cenário 32 — SMTP fora do ar não desfaz o cadastro nem muda a resposta (exceção, regra 13)
 
 ```gherkin
 Dado que o e-mail `ana@exemplo.com` não existe na tabela `user`
 E o transport de e-mail falha ao enviar
-Quando é enviado `POST /api/auth/sign-up/email` com nome, e-mail e a senha `Clinica#2026`
-Então o sistema responde `500` com corpo vazio
-E não existe linha em `user` nem em `account` para esse e-mail
+Quando é enviado `POST /auth/sign-up` com nome, e-mail e a senha `Clinica#2026`
+Então o sistema responde `202` com corpo vazio
+E existe uma linha em `user` e uma em `account` para esse e-mail
+E existe uma linha em `emailDispatch` para esse endereço
+E o log do Pino tem uma linha de nível `error` com o endereço e o motivo da falha
 ```
 
-### Cenário 31 — URL de redirecionamento de outra origem é recusada (exceção, regra 1)
+### Cenário 33 — O job apaga o que venceu e nada mais, e repetir não apaga de novo (caminho feliz, regra 17)
 
 ```gherkin
-Dado um usuário verificado com o e-mail `ana@exemplo.com`
-Quando é enviado `POST /api/auth/request-password-reset` com `redirectTo` igual a `http://evil.example/reset-password`
-Então o sistema responde `403` com o código `INVALID_REDIRECT_URL`
-E nenhuma linha é criada em `verification`
-E nenhum e-mail é entregue ao transport
-E `POST /api/auth/sign-up/email` com `callbackURL` igual a `http://evil.example/verify-email` responde `403` com o código `INVALID_CALLBACK_URL`
-E `redirectTo` igual ao caminho relativo `/reset-password` é aceito
+Dado uma `session` vencida e uma válida
+E uma `verification` vencida e uma válida
+E uma linha de `emailDispatch` de 25 horas atrás e uma de 1 hora atrás
+Quando o job `purge-expired-auth-records` é executado
+Então só as três linhas vencidas deixam de existir
+E o log registra 1 linha apagada por tabela
+E nenhuma chave `auth:revoked:` foi criada no Redis
+E executar o job de novo apaga 0 linhas
+```
+
+### Cenário 34 — O worker agenda o job uma única vez por dia (caminho feliz, regra 17)
+
+```gherkin
+Dado o worker iniciado contra o Redis de teste
+Quando o worker é iniciado uma segunda vez com a mesma configuração
+Então existe exatamente um job repetível `purge-expired-auth-records` na fila `auth-maintenance`
+E o padrão do agendamento é `0 3 * * *` no fuso `America/Sao_Paulo`
+```
+
+### Cenário 35 — A entity e a migration não divergem (caminho feliz, regra 12)
+
+```gherkin
+Dado o banco com todas as migrations aplicadas
+Quando `typeorm migration:generate` é executado apontando para um caminho temporário
+Então esse caminho continua não existindo
+E o step do CI falha se ele passar a existir
 ```
 
 ---
 
 ## Fora de Escopo
 
+- **A spec irmã `003-autenticacao-web.md` está desatualizada e não é tocada nesta entrega.** Ela
+  descreve o cliente do Better Auth e as 13 rotas sob `/api/auth`, que deixaram de existir. Ela é
+  reescrita quando o `apps/web` migrar para Next, junto da própria migração — decisão registrada em
+  `docs/decisions/0001-api-em-nestjs-typeorm-e-redis.md`. Até lá, o contrato válido é esta spec.
 - **Organização, clínica, rede, papéis e permissões** — issues #6 e #7.
-- **`BusinessError` e o formato `{ code, message, fields }`** — issue #6, com o primeiro service que
-  tenha regra de negócio própria respondendo por uma rota. O `onError` global nasce aqui, porque o
-  logger precisa do hook e o erro desconhecido precisa virar `500`.
 - **Convite de usuário** — decidido que não existe: o cadastro é público. A issue #8 precisa ser
   reescrita como gestão de usuários já cadastrados.
 - **E-mail pela fila** — a fila desta entrega serve só ao job de limpeza (regra 13).
+- **Remetente próprio no e-mail transacional** — fica no Gmail da conta de `SMTP_USER` até o
+  lançamento público (regra 13).
 - **Trilha de auditoria de acesso ao prontuário** — issue #9.
 - **2FA, sessões ativas por dispositivo, revogar sessão específica, excluir conta, trocar e-mail e
   editar perfil** — não pedidos.
 - **Outros provedores sociais além do Google** — não pedidos.
-- **Limite de requisições em `/health`** — decidido deixar de fora.
+- **Teto absoluto de duração de sessão**, além das 24 horas de inatividade — decidido deixar de fora.
+- **Limite de requisições em `/health`** — decidido deixar de fora (regra 11).
 - **Dockerfile, `compose.yaml` da raiz, container do worker e deploy de homolog** — issue #4, que
   também define o valor de `TRUSTED_PROXIES` em homolog e garante que a API só é alcançável pelo proxy
   que acrescenta o hop em `x-forwarded-for` (regra 11).
+
+## Onde moram as strategies e os guards
+
+A `JwtStrategy` e a `GoogleStrategy` do `@nestjs/passport` são providers da feature `auth` e ficam em
+`features/auth/strategy/`: elas declaram como um credencial vira usuário, e isso é regra desta
+feature. Os guards que delas dependem — `JwtAuthGuard` e `OriginGuard` — ficam em `common/guards/`,
+porque são registrados como `APP_GUARD` e valem para toda feature futura, junto dos decorators
+`@Public()` e `@CurrentUser()` em `common/decorators/`.
+
+Essa divisão está no contrato do repo, na seção **`api` — camadas**.
 
 ## Quebra em Tasks
 
 | # | Issue | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- | --- |
-| 1 | #65 | Add the authentication environment, the logger and the global error handler to apps/api | `core/config/env-schema.ts` e `env.ts` com as 12 variáveis, `core/logger/` com o plugin de Pino, `onError` global em `core/`, `src/__tests__/boot.test.ts` atualizado, `.github/workflows/ci.yml` com as variáveis novas | Cenários 25 e 26 verdes, sem a linha do worker no 26; os quatro gates da API saem com código 0 | — |
-| 2 | #66 | Authenticate with email and password through Better Auth | `core/auth/` com `prismaAdapter` em `transaction: true`, `features/auth/password-policy.ts` e o `hooks.before` de senha, CORS em `server.ts`, migration `add_better_auth`, `features/auth/repository/session.repository.ts` e o `databaseHooks` de sessão, step `prisma migrate deploy` no CI | Cenários 6, 7, 8, 9, 20, 21, 24 e 27 verdes | #65 |
-| 3 | #67 | Send the verification and the reset emails with a per-address limit | `core/mail/` e os dois templates, `requireEmailVerification`, `sendOnSignIn`, `sendResetPassword`, migration `add_email_dispatch`, `features/auth/repository/email-dispatch.repository.ts` e as duas guardas da regra 15, separadas pelo caminho do request | Cenários 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 18, 30 e 31 verdes | #66 |
-| 4 | #68 | Sign in with Google and link it to the existing account | `socialProviders.google`, `account.accountLinking` e `storeStateStrategy: "cookie"` em `core/auth/`, e o `--preload` de teste que substitui o token endpoint do Google | Cenários 10 e 11 verdes | #66 |
-| 5 | #69 | Rate-limit the authentication routes by trusted client IP | `rateLimit` com `customRules` e `advanced.ipAddress.trustedProxies` em `core/auth/` | Cenários 22 e 23 verdes | #66 |
-| 6 | #70 | Change the password of the signed-in user | `change-password` com `revokeOtherSessions`, coberto pelo hook de política da task 2 | Cenário 19 verde | #66 |
-| 7 | #71 | Purge expired authentication records daily in a worker | `core/queue/` com pg-boss, `src/worker.ts`, script `worker`, `features/auth/job/purge-expired-auth-records.job.ts`, service e repositories da limpeza | Cenários 28 e 29 verdes; linha do worker no Cenário 26 verde | #67, #69 |
+| 1 | #65 | Add the authentication environment, the logger and the error contract to apps/api | As 12 variáveis em `core/config/`, com o decorator de CIDR e o de `MAIL_FROM`; `core/logger/` com o Pino atrás do `LoggerService` e o interceptor; `common/exceptions/business-error.ts`; `common/filters/business-error.filter.ts`; o `ValidationPipe` global e o `exceptionFactory` de `fields`; `common/guards/origin.guard.ts`; `app.set("trust proxy", …)`; `.github/workflows/ci.yml` com as variáveis novas e o serviço `redis:8` | Cenários 27, 28 e 29 verdes, sem a linha do worker no 29; a parte de `Origin` do Cenário 24 verde; os quatro gates da API saem com código 0 | — |
+| 2 | #69 | Add Redis and rate-limit the authentication routes by trusted client IP | `core/redis/` com o cliente `ioredis` único sobre `REDIS_URL`, `@nestjs/throttler` com `@nest-lab/throttler-storage-redis`, o `ThrottlerGuard` global com `getTracker` sobre `req.ip`, o `@SkipThrottle()` de `/health` e a tabela de limites da regra 11 | Cenários 25 e 26 verdes | #65 |
+| 3 | #66 | Authenticate with email and password and issue the session cookies | Entities e a migration `AddAuth`; `@node-rs/argon2`; `sign-up`, `sign-in`, `refresh`, `sign-out` e `session`; `features/auth/strategy/jwt.strategy.ts` e `common/guards/jwt-auth.guard.ts` com `@Public()`; a denylist no Redis; a rotação com detecção de reuso; o teto de 5 sessões; o step de migration no CI | Cenários 2, 6, 7, 8, 9, 10, 11, 12, 23, 24, 30, 31 e 35 verdes | #69 |
+| 4 | #67 | Send the verification and the reset emails with a per-address limit | `core/mail/` com o transport do Gmail e os dois templates; a migration `AddEmailDispatch`; `email-dispatch.repository.ts` com `registerDispatch`; o fluxo de verificação de e-mail e o de reset de senha; o reenvio no login não verificado | Cenários 1, 3, 4, 5, 16, 17, 18, 19, 20, 21 e 32 verdes | #66 |
+| 5 | #68 | Sign in with Google and link it to the existing account | `features/auth/strategy/google.strategy.ts` com `passport-google-oauth20` e o `store` de `state` em cookie; as duas rotas; a vinculação à conta existente; a recusa de `email_verified` falso; o `nock` dos endpoints do Google nos testes | Cenários 13, 14 e 15 verdes | #66 |
+| 6 | #70 | Change the password of the signed-in user | `POST /auth/change-password`, a conferência de `currentPassword` com argon2 e a derrubada das outras sessões com denylist | Cenário 22 verde | #66 |
+| 7 | #71 | Purge expired authentication records daily in a worker | `core/queue/` com `@nestjs/bullmq` sobre o cliente de #69; `src/worker.ts` e o script `worker`; o job repetível `purge-expired-auth-records`; o `@Processor`, o service e os repositories da limpeza | Cenários 33 e 34 verdes; a linha do worker no Cenário 29 verde | #67, #69 |
 
-As tasks 8, 9 e 10, do `apps/web`, estão na spec irmã `docs/specs/autenticacao/003-autenticacao-web.md`.
+As tasks do `apps/web` ficam na spec irmã, que será reescrita com a migração para Next.

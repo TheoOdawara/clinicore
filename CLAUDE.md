@@ -24,8 +24,9 @@ estado transitório declarado, não descuido.
 | Dados | PostgreSQL 18 · TypeORM 1.1 com `@nestjs/typeorm` e `pg` | TanStack Query 5.102 · `fetch` nativo · Zod 4.6 |
 | Formulário | — | TanStack Form 1.33 com schema Zod |
 | Estilo | — | Tailwind 4.3 |
-| Auth | `@nestjs/passport`, `@nestjs/jwt` e `@node-rs/argon2` | `fetch` próprio contra as rotas da API |
-| Fila e agendamento | Redis 8 · `@nestjs/bullmq` · `@nestjs/schedule` | — |
+| Auth | `@nestjs/passport`, `@nestjs/jwt` e `@node-rs/argon2`; access token curto e refresh na tabela `session` | `fetch` próprio contra as rotas da API |
+| Fila e agendamento | `@nestjs/bullmq` · `@nestjs/schedule` | — |
+| Redis 8 | fila, contagem do limite por IP e denylist de revogação de sessão | — |
 | HTTP de saída | `@nestjs/axios` sobre axios 1 | — |
 | Configuração | `@nestjs/config`, validada por `class-validator` no boot | — |
 | E-mail | Nodemailer pelo SMTP do Gmail (`smtp.gmail.com:587`), em todos os ambientes | — |
@@ -63,8 +64,8 @@ apps/
 │       ├── main.ts          entrada HTTP, só boot
 │       ├── worker.ts        entrada do worker da fila, só boot
 │       ├── app.module.ts    só fiação
-│       ├── common/          exceptions, filters, pipes, decorators, types
-│       ├── core/            config, db, logger, mail, queue
+│       ├── common/          exceptions, filters, guards, pipes, decorators, types
+│       ├── core/            config, db, logger, mail, queue, redis
 │       │   ├── core.module.ts       agrega; só o AppModule alcança
 │       │   └── db/
 │       │       ├── migrations/
@@ -76,7 +77,7 @@ apps/
 │           ├── repository/
 │           ├── dto/
 │           ├── entities/
-│           ├── enums/ constants/ utils/ job/   só quando houver conteúdo
+│           ├── enums/ constants/ utils/ job/ strategy/   só quando houver conteúdo
 │           └── __tests__/
 └── web/                     Vite · :3000
     └── src/
@@ -106,8 +107,11 @@ o container de DI, não convenção: o que não está nos `providers` do módulo
   controller, service e repository, registra as entities com `TypeOrmModule.forFeature()`, e
   exporta só o service quando outra feature precisa dele. `core.module.ts` é alcançado apenas pelo
   `AppModule`.
-- **Subpasta existe quando tem conteúdo.** `enums/`, `constants/`, `utils/` e `job/` só nascem com
-  o primeiro arquivo; pasta vazia não é reservada.
+- **Subpasta existe quando tem conteúdo.** `enums/`, `constants/`, `utils/`, `job/` e `strategy/` só
+  nascem com o primeiro arquivo; pasta vazia não é reservada.
+- **Strategy do Passport é da feature, guard é de `common/`.** A `strategy/` da feature declara como um
+  credencial vira usuário; o guard que a consome vale para toda feature, é registrado como `APP_GUARD`
+  e mora em `common/guards/`, junto dos decorators que o acompanham.
 - **Controller** é a classe `@Controller()` em `controller/`: rota, DTO de entrada e saída, chamada
   ao service. Não tem regra.
 - **Service** é a regra de negócio, em `service/`. **Não importa `typeorm`, não usa
@@ -133,7 +137,7 @@ o container de DI, não convenção: o que não está nos `providers` do módulo
   chamadas separadas ao repository.
 - **Relação vem por `relations`, e lote vem por `In()`.**
 - **Erro:** o service lança `BusinessError` com um tipo (`NotFound`, `Conflict`, `Forbidden`,
-  `Invalid`) e um código; o repository traduz o erro conhecido do TypeORM — `QueryFailedError` com o
+  `Invalid`, `Unauthorized`) e um código; o repository traduz o erro conhecido do TypeORM — `QueryFailedError` com o
   código do Postgres, `EntityNotFoundError` — para esses tipos. Só o `ExceptionFilter` global em
   `common/filters/` conhece HTTP: converte o tipo em status e responde `{ code, message, fields }`.
   Erro desconhecido vira 500 sem detalhe.
@@ -151,7 +155,7 @@ o container de DI, não convenção: o que não está nos `providers` do módulo
 - **Fila:** `core/queue/` registra o `@nestjs/bullmq` contra o Redis; o service enfileira pela fila
   injetada com `@InjectQueue`; o job é um `@Processor` em `features/<feature>/job/` e chama o service,
   como o controller faz. **O worker é um processo separado** (`worker.ts`), com o seu próprio
-  container. **O Redis serve só à fila** — não é cache.
+  container.
 - **Testes** ficam em `__tests__/` da feature. O teste padrão é um por comportamento, subindo o módulo
   com `Test.createTestingModule` e batendo na rota com `supertest` contra o Postgres real. O e2e que
   sobe o `AppModule` inteiro fica em `test/`. Teste unitário existe só para cálculo puro (parcelamento,
