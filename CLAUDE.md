@@ -54,6 +54,7 @@ Cada comando roda de dentro do diretório do seu app.
 | Tipos | `npm run typecheck` | `npm run typecheck` | `npm run typecheck` |
 | Build | `npm run build` | `npm run build` | `npm run build` |
 | Testes | `npm run test` | `npm run test` | — enquanto não houver lógica a testar |
+| Testes e2e | `npm run test:e2e` | — | — |
 
 Instalação: `npm ci` nos três apps.
 

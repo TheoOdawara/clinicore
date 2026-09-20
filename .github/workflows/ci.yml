@@ -22,7 +22,19 @@ jobs:
       PORT: "3333"
       NODE_ENV: test
       APP_ORIGIN: http://localhost:3000
+      API_URL: http://localhost:3333
       ALLOWED_ORIGINS: http://localhost:3000
+      TRUSTED_PROXIES: 10.0.0.0/8
+      LOG_LEVEL: silent
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: a-ci-jwt-secret-with-at-least-32-characters
+      GOOGLE_CLIENT_ID: ci-client-id.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: ci-google-client-secret
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: "587"
+      SMTP_USER: ci@clinicore.com.br
+      SMTP_PASSWORD: ci-smtp-password
+      MAIL_FROM: ci@clinicore.com.br
     services:
       postgres:
         image: postgres:18
@@ -34,6 +46,15 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U clinicore -d clinicore"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
@@ -49,6 +70,7 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm run test
+      - run: npm run test:e2e
 
   web:
     runs-on: ubuntu-latest

@@ -46,25 +46,38 @@ o container de DI, não convenção: o que não está nos `providers` do módulo
   `Invalid`, `Unauthorized`) e um código; o repository traduz o erro conhecido do TypeORM — `QueryFailedError` com o
   código do Postgres, `EntityNotFoundError` — para esses tipos. Só o `ExceptionFilter` global em
   `common/filters/` conhece HTTP: converte o tipo em status e responde `{ code, message, fields }`.
-  Erro desconhecido vira 500 sem detalhe.
+  **`HttpException` do próprio framework mantém o status**, com o `code` sendo o nome do status em
+  maiúsculas com sublinhado (`NOT_FOUND`), e só o que não é `BusinessError` nem `HttpException` vira
+  500 sem detalhe, com a stack no Pino.
 - **A `message` da API é inglês e é texto de desenvolvedor**, para log e depuração. O que o usuário lê
   é escrito no web, a partir do `code`.
 - **Log:** `core/logger/` cria a instância do Pino e o `LoggerService` registrado por
-  `app.useLogger()`, mais o interceptor que registra a requisição. **Nenhum wrapper de terceiro.** O
+  `app.useLogger()`, mais o **middleware** que registra a requisição. **Nenhum wrapper de terceiro.** O
   nível vem de `LOG_LEVEL`, obrigatória como toda variável. **O `/health` não é logado**, porque quem o
   chama é o orquestrador, a cada poucos segundos. **Nada de segredo sai no log:** header de
   autorização, cookie, senha e connection string passam pelo `redact` do Pino. O Pino escreve em
   `stdout`; o erro de ambiente do boot continua indo cru para `stderr`, antes de existir logger.
+  **É middleware, não interceptor**: o guard roda antes do interceptor, então um interceptor não veria
+  o `403` da `OriginGuard` nem o `404` de rota inexistente. O middleware registra o `res.on("finish")`
+  e enxerga o status final, venha ele do controller, do guard ou do filtro. **O destino sai do
+  `NODE_ENV`**: em `development` é o `pino-pretty`, colorido; em `test` e `production` é `stdout` cru.
+  O `pino-pretty` é `devDependency` e é o formatador do próprio projeto Pino, não um wrapper de log.
 - **Ambiente:** `core/config/` registra o `@nestjs/config` com uma classe validada por
   `class-validator` no boot. Toda variável é obrigatória, **sem default no ponto de leitura**. A
-  leitura acontece por um acessor tipado, nunca por `ConfigService.get` direto.
+  leitura acontece por um acessor tipado, nunca por `ConfigService.get` direto. **O `class-validator`
+  não reexporta `isIPRange`** — só `isIP` —, então o decorator de CIDR importa de `validator`, que é
+  dependência direta da API por causa disso, ao lado de `@types/validator`.
 - **Fila:** `core/queue/` registra o `@nestjs/bullmq` contra o Redis; o service enfileira pela fila
   injetada com `@InjectQueue`; o job é um `@Processor` em `features/<feature>/job/` e chama o service,
   como o controller faz. **O worker é um processo separado** (`worker.ts`), com o seu próprio
   container.
 - **Testes** ficam em `__tests__/` da feature. O teste padrão é um por comportamento, subindo o módulo
   com `Test.createTestingModule` e batendo na rota com `supertest` contra o Postgres real. O e2e que
-  sobe o `AppModule` inteiro fica em `test/`. Teste unitário existe só para cálculo puro (parcelamento,
+  sobe o `AppModule` inteiro fica em `test/`, com `<name>.e2e-spec.ts`, o `test/jest-e2e.json` e o
+  gate `npm run test:e2e`. O `test/e2e-setup.ts` fixa o ambiente que os cenários de `Origin` e de log
+  exigem, antes de o `AppModule` ser importado — o `ConfigModule.forRoot` lê o `process.env` no
+  `require`, e mexer nele depois não muda nada. O destino do Pino é trocado por
+  `overrideProvider(LOGGER)`, que é como o teste lê a linha emitida. Teste unitário existe só para cálculo puro (parcelamento,
   repasse). Não se faz mock de repository nem de `DataSource`.
 
 ## Pegadinhas da stack
