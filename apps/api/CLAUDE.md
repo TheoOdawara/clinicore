@@ -69,25 +69,51 @@ o container de DI, não convenção: o que não está nos `providers` do módulo
 
 ## Pegadinhas da stack
 
-Verificadas em 2026-09-19, contra as versões desta stack e antes de existir código em NestJS.
+Verificadas em 2026-09-19 contra as versões desta stack; as de `@nestjs/config`, `@nestjs/terminus`,
+TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de pé.
 
 - **O NestJS 12 é ESM-only** — o `@nestjs/common@12` publica `"type": "module"` e o 11 não. Um Jest em
   CommonJS não carrega ESM do `node_modules` e morre com `Must use import to load ES Module`. A saída
   seria `--experimental-vm-modules`, e o `vm.SourceTextModule` ainda é Stability 1 na documentação do
   Node 26, sem release alvo para sair. **O repo fica no Nest 11 por causa disso.**
-- **O TypeScript 7.0 está fora da API por duas vias.** O `@nestjs/cli@11.0.24` carrega
-  `typescript 5.9.3` como dependência direta, e o `ts-jest@29` declara peer `typescript >=4.3 <7`. O
-  `apps/web` segue no 7.0 porque usa `@swc/jest` e não passa por nenhum dos dois.
+- **Quem barra o TypeScript 7.0 na API é o `ts-jest@29`**, com peer `typescript >=4.3 <7`. O
+  `@nestjs/cli@11.0.24` também carrega `typescript 5.9.3`, mas como dependência aninhada em
+  `node_modules/@nestjs/cli/node_modules/`, e por isso não disputa com o `typescript` da raiz: o
+  `6.0.3` instala e o `nest build` roda sobre ele. O `apps/web` segue no 7.0 porque usa `@swc/jest`.
+- **O TypeScript 6.0 reprova `moduleResolution: "node"` e `baseUrl`** com `TS5107` e `TS5101`, a menos
+  que se declare `ignoreDeprecations`. O jeito de continuar em CommonJS sem isso é
+  `module` e `moduleResolution` em `node16`: o formato do emit vem do `type` do `package.json`, que
+  não é `module`, e o `node16` é só o algoritmo de resolução moderno. **Trocar isso por ESM desfaz a
+  razão de o repo estar no Nest 11.**
 - **`ConfigService.get` devolve `any` sem `{ infer: true }`.** A sobrecarga que casa com
   `config.get('CHAVE')` tem `T = any`, e tipar o serviço como `ConfigService<Env, true>` não ajuda —
   `K` restringe só o nome da chave. `const port: number = config.get('PORT')` compila com `PORT`
   string. Por isso a leitura passa por um acessor tipado sobre `getOrThrow`, nunca por `get` direto.
-- **Os pacotes-satélite do Nest saltaram a numeração para acompanhar o core.** O `@nestjs/config` foi
-  de `4.0.4` para `12.0.0` sem nada entre os dois, e o mesmo vale para `@nestjs/schedule` e
-  `@nestjs/event-emitter`. O peer deles é `@nestjs/common: ^11.0.0 || ^12.0.0`, então a versão 12
-  desses pacotes roda sobre o Nest 11. **O `@nestjs/swagger` é a exceção e não generaliza:** o
-  `@nestjs/swagger@12` exige `@nestjs/common: ^12.0.0` e o npm recusa a instalação sobre o Nest 11 —
-  o pin é `@nestjs/swagger@11.4.7`. O `@nestjs/terminus@12` aceita as duas linhas e entra normal.
+- **Os pacotes-satélite do Nest saltaram a numeração para acompanhar o core**, e **nenhum deles entra
+  na versão 12 enquanto o Jest for CommonJS.** O peer é `@nestjs/common: ^11.0.0 || ^12.0.0`, e é ele
+  que engana: o peer aceita, o Jest não. O `@nestjs/config@12` e o `@nestjs/terminus@12` publicam
+  `"type": "module"`, exatamente como o `@nestjs/common@12`. Os pins que rodam sobre o Nest 11 são
+  `@nestjs/config@4.0.4` e `@nestjs/terminus@11.1.1`. O `@nestjs/swagger` não é exceção, é o mesmo
+  caso por outra porta: o `@nestjs/swagger@12` exige `@nestjs/common: ^12.0.0` e o npm recusa a
+  instalação — o pin é `@nestjs/swagger@11.4.7`. **A conferência antes de subir um satélite é o
+  `"type"` do `package.json` publicado, nunca o peer.**
+- **O `ConfigModule.forRoot` do `@nestjs/config` é `async`** e devolve `Promise<DynamicModule>`. Um
+  `validate` que lança rejeita essa promise no `require` do módulo que a chama, muito antes do
+  `NestFactory`, e o erro sai como unhandled rejection ou como `[Nest] ERROR [ExceptionHandler]` com
+  stack — nunca como a mensagem limpa que a spec exige. O boot que entrega
+  `Invalid environment:` e as linhas de formato em `stderr` é
+  `NestFactory.create(AppModule, { abortOnError: false, bufferLogs: true, autoFlushLogs: false })`
+  com `try/catch` em volta: o `abortOnError: false` troca o `process.abort()` por um rethrow que
+  chega ao `catch`, e o buffer sem flush automático retém o log que o `ExceptionsZone` escreve antes
+  do teardown. No caminho feliz, `app.flushLogs()` solta os logs de boot do Nest.
+- **O `ConfigModule.forRoot` lê o `.env` do diretório de trabalho por padrão**, então subir o binário
+  de dentro de `apps/api` com uma variável faltando na linha de comando não falha: o `.env` do dev
+  completa o que falta. Teste e verificação manual de ambiente inválido rodam com `cwd` fora do app.
+- **O Swagger só é montado fora de produção**, pelo `NODE_ENV` do schema. A UI em `/api` e o
+  documento em `/api-json` publicam o mapa de rotas, o formato dos DTO e as regras de validação.
+- **O `app.enableShutdownHooks()` re-emite o sinal depois de fechar a aplicação**
+  (`process.kill(process.pid, signal)`), então `SIGTERM` sai com **143**, nunca com 0. Fechamento
+  limpo se confere pela ausência de `ERROR_DURING_SHUTDOWN` e pela porta liberada, não pelo código.
 - **O `latest` do TypeORM é o 1.1.1, e o 0.3.x virou o dist-tag `legacy`.** Tutorial e resposta de
   fórum anteriores a isso descrevem a API do 0.3.
 - **A DI do Nest depende de `reflect-metadata` e de `emitDecoratorMetadata`.** Faltando qualquer um

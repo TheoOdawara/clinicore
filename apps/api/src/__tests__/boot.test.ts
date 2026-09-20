@@ -1,105 +1,143 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
-const SERVER_ENTRY = Bun.fileURLToPath(
-	new URL("../server.ts", import.meta.url),
-);
-const WEB_ORIGIN = "http://localhost:3000";
-const DATABASE_URL = "postgresql://clinicore:local@localhost:5432/clinicore";
+const ENTRY = resolve(__dirname, "../../dist/main.js");
 
-type Server = ReturnType<typeof startServer>;
+const VALID_ENVIRONMENT = {
+  ALLOWED_ORIGINS: "http://localhost:3000",
+  APP_ORIGIN: "http://localhost:3000",
+  DATABASE_URL: "postgresql://clinicore:local@localhost:5432/clinicore",
+  NODE_ENV: "development",
+  PORT: "3333",
+};
 
-function startServer(env: Record<string, string>) {
-	return Bun.spawn([process.execPath, "--no-env-file", SERVER_ENTRY], {
-		env,
-		stdout: "pipe",
-		stderr: "pipe",
-	});
+const BOOT_TIMEOUT_MS = 30_000;
+const POLL_INTERVAL_MS = 50;
+
+interface BootFailure {
+  code: number | null;
+  stderr: string;
+  stdout: string;
 }
 
-async function takeFreePort(): Promise<string> {
-	const probe = Bun.serve({ port: 0, fetch: () => new Response("") });
-	const port = String(probe.port);
-	await probe.stop(true);
-	return port;
+function spawnApi(environment: Record<string, string>): ChildProcess {
+  return spawn(process.execPath, [ENTRY], {
+    cwd: tmpdir(),
+    env: { PATH: process.env.PATH ?? "", ...environment },
+  });
 }
 
-async function waitForServer(server: Server, port: string): Promise<void> {
-	for (let attempt = 0; attempt < 50; attempt += 1) {
-		if (server.exitCode !== null) {
-			throw new Error(
-				`the server exited with code ${server.exitCode} instead of listening`,
-			);
-		}
-		try {
-			await fetch(`http://localhost:${port}/health`);
-			return;
-		} catch {
-			await Bun.sleep(40);
-		}
-	}
-	throw new Error(`the server never answered on port ${port}`);
+function bootWithout(
+  name: keyof typeof VALID_ENVIRONMENT,
+): Promise<BootFailure> {
+  const environment = Object.fromEntries(
+    Object.entries(VALID_ENVIRONMENT).filter(([variable]) => variable !== name),
+  );
+
+  const child = spawnApi(environment);
+
+  let stderr = "";
+  let stdout = "";
+  child.stderr?.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
+  child.stdout?.on("data", (chunk: Buffer) => (stdout += chunk.toString()));
+
+  return new Promise((settle, fail) => {
+    child.on("error", fail);
+    child.on("close", (code) => {
+      settle({ code, stderr, stdout });
+    });
+  });
 }
 
-describe("a server booted with a valid environment", () => {
-	let server: Server;
-	let port: string;
+function freePort(): Promise<number> {
+  const probe = createServer();
 
-	beforeAll(async () => {
-		port = await takeFreePort();
-		server = startServer({ DATABASE_URL, PORT: port, WEB_ORIGIN });
-		await waitForServer(server, port);
-	});
+  return new Promise((settle, fail) => {
+    probe.on("error", fail);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      if (address === null || typeof address === "string") {
+        fail(new Error("the probe server reported no port"));
+        return;
+      }
+      probe.close(() => {
+        settle(address.port);
+      });
+    });
+  });
+}
 
-	afterAll(async () => {
-		server.kill();
-		await server.exited;
-	});
+async function untilListening(origin: string, child: ChildProcess) {
+  const deadline = Date.now() + BOOT_TIMEOUT_MS;
 
-	it("answers the health check on the configured port", async () => {
-		const response = await fetch(`http://localhost:${port}/health`);
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`the api exited with ${String(child.exitCode)} on boot`);
+    }
+    const reached = await fetch(`${origin}/health`).catch(() => null);
+    if (reached !== null) {
+      return;
+    }
+    await delay(POLL_INTERVAL_MS);
+  }
 
-		expect(server.exitCode).toBeNull();
-		expect(response.status).toBe(200);
-		expect(await response.text()).toBe('{"status":"ok"}');
-	});
+  throw new Error(`the api did not listen on ${origin} in time`);
+}
 
-	it("publishes the health check response schema in the OpenAPI document", async () => {
-		const response = await fetch(`http://localhost:${port}/openapi/json`);
+async function documentationStatus(nodeEnvironment: string): Promise<number> {
+  const port = await freePort();
+  const child = spawnApi({
+    ...VALID_ENVIRONMENT,
+    NODE_ENV: nodeEnvironment,
+    PORT: String(port),
+  });
+  const origin = `http://127.0.0.1:${String(port)}`;
 
-		expect(response.status).toBe(200);
-		expect(await response.json()).toMatchObject({
-			paths: {
-				"/health": {
-					get: {
-						responses: {
-							"200": {
-								content: {
-									"application/json": {
-										schema: { properties: { status: { const: "ok" } } },
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		});
-	});
+  try {
+    await untilListening(origin, child);
+    const response = await fetch(`${origin}/api`);
+    return response.status;
+  } finally {
+    child.kill("SIGKILL");
+  }
+}
+
+describe("boot with an invalid environment", () => {
+  it("has a build to boot", () => {
+    expect(existsSync(ENTRY)).toBe(true);
+  });
+
+  it("writes only the rejection to stderr and exits 1", async () => {
+    const failure = await bootWithout("DATABASE_URL");
+
+    expect(failure.stderr.split("\n")).toEqual([
+      "Invalid environment:",
+      "  DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)",
+      "",
+    ]);
+    expect(failure.stdout).toBe("");
+    expect(failure.code).toBe(1);
+  });
 });
 
-describe("a server booted without DATABASE_URL", () => {
-	it("writes the two prescribed lines, exits 1 and leaves the port closed", async () => {
-		const port = await takeFreePort();
-		const server = startServer({ PORT: port, WEB_ORIGIN });
+describe("the api documentation", () => {
+  it(
+    "is mounted outside production",
+    async () => {
+      await expect(documentationStatus("development")).resolves.toBe(200);
+    },
+    BOOT_TIMEOUT_MS,
+  );
 
-		const stderr = await new Response(server.stderr).text();
-		const exitCode = await server.exited;
-
-		expect(stderr.trimEnd().split("\n")).toEqual([
-			"Invalid environment:",
-			"  DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)",
-		]);
-		expect(exitCode).toBe(1);
-		await expect(fetch(`http://localhost:${port}/health`)).rejects.toThrow();
-	});
+  it(
+    "is absent in production",
+    async () => {
+      await expect(documentationStatus("production")).resolves.toBe(404);
+    },
+    BOOT_TIMEOUT_MS,
+  );
 });
