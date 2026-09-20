@@ -106,6 +106,11 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
   com `try/catch` em volta: o `abortOnError: false` troca o `process.abort()` por um rethrow que
   chega ao `catch`, e o buffer sem flush automático retém o log que o `ExceptionsZone` escreve antes
   do teardown. No caminho feliz, `app.flushLogs()` solta os logs de boot do Nest.
+- **O `ConfigModule.forRoot` lê o `.env` do diretório de trabalho por padrão**, então subir o binário
+  de dentro de `apps/api` com uma variável faltando na linha de comando não falha: o `.env` do dev
+  completa o que falta. Teste e verificação manual de ambiente inválido rodam com `cwd` fora do app.
+- **O Swagger só é montado fora de produção**, pelo `NODE_ENV` do schema. A UI em `/api` e o
+  documento em `/api-json` publicam o mapa de rotas, o formato dos DTO e as regras de validação.
 - **O `app.enableShutdownHooks()` re-emite o sinal depois de fechar a aplicação**
   (`process.kill(process.pid, signal)`), então `SIGTERM` sai com **143**, nunca com 0. Fechamento
   limpo se confere pela ausência de `ERROR_DURING_SHUTDOWN` e pela porta liberada, não pelo código.

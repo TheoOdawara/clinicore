@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { writeSync } from "node:fs";
 import type { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
@@ -10,7 +11,7 @@ const INVALID_ENVIRONMENT = "Invalid environment:";
 async function createApplication(): Promise<INestApplication> {
   try {
     return await NestFactory.create(AppModule, {
-      abortOnError: true,
+      abortOnError: false,
       bufferLogs: true,
       autoFlushLogs: false,
     });
@@ -19,11 +20,19 @@ async function createApplication(): Promise<INestApplication> {
       error instanceof Error &&
       error.message.startsWith(INVALID_ENVIRONMENT)
     ) {
-      process.stderr.write(`${error.message}\n`);
+      writeSync(2, `${error.message}\n`);
       process.exit(1);
     }
     throw error;
   }
+}
+
+function mountDocumentation(app: INestApplication): void {
+  const document = SwaggerModule.createDocument(
+    app,
+    new DocumentBuilder().setTitle("Clinicore API").setVersion("0.1.0").build(),
+  );
+  SwaggerModule.setup("api", app, document);
 }
 
 async function bootstrap(): Promise<void> {
@@ -31,13 +40,12 @@ async function bootstrap(): Promise<void> {
   app.flushLogs();
   app.enableShutdownHooks();
 
-  const document = SwaggerModule.createDocument(
-    app,
-    new DocumentBuilder().setTitle("Clinicore API").setVersion("0.1.0").build(),
-  );
-  SwaggerModule.setup("api", app, document);
+  const environment = app.get(EnvironmentService);
+  if (environment.get("NODE_ENV") !== "production") {
+    mountDocumentation(app);
+  }
 
-  await app.listen(app.get(EnvironmentService).get("PORT"));
+  await app.listen(environment.get("PORT"));
 }
 
 void bootstrap();

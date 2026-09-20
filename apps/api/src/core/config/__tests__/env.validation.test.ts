@@ -4,6 +4,7 @@ const VALID = {
   ALLOWED_ORIGINS: "http://localhost:3000",
   APP_ORIGIN: "http://localhost:3000",
   DATABASE_URL: "postgresql://clinicore:local@localhost:5432/clinicore",
+  NODE_ENV: "test",
   PORT: "3333",
 };
 
@@ -53,13 +54,14 @@ describe("validateEnv", () => {
   it("lists every failing variable in alphabetical order", () => {
     expect(
       rejectionOf(
-        without("APP_ORIGIN", "DATABASE_URL", "ALLOWED_ORIGINS"),
+        without("APP_ORIGIN", "DATABASE_URL", "ALLOWED_ORIGINS", "NODE_ENV"),
       ).split("\n"),
     ).toEqual([
       "Invalid environment:",
       "  ALLOWED_ORIGINS: expected a comma-separated list of absolute URLs with no trailing slash (https://…)",
       "  APP_ORIGIN: expected an absolute URL with no trailing slash (https://…)",
       "  DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)",
+      "  NODE_ENV: expected one of development, production, test",
     ]);
   });
 
@@ -153,6 +155,31 @@ describe("validateEnv", () => {
     expect(rejectionOf({ ...VALID, ALLOWED_ORIGINS: origins })).toContain(
       "  ALLOWED_ORIGINS: expected a comma-separated list of absolute URLs with no trailing slash (https://…)",
     );
+  });
+
+  it.each(["development", "production", "test"])(
+    "accepts NODE_ENV %p",
+    (nodeEnvironment) => {
+      expect(
+        validateEnv({ ...VALID, NODE_ENV: nodeEnvironment }).NODE_ENV,
+      ).toBe(nodeEnvironment);
+    },
+  );
+
+  it.each(["", "prod", "Production", "staging", "development,test"])(
+    "rejects NODE_ENV %p",
+    (nodeEnvironment) => {
+      expect(rejectionOf({ ...VALID, NODE_ENV: nodeEnvironment })).toContain(
+        "  NODE_ENV: expected one of development, production, test",
+      );
+    },
+  );
+
+  it("rejects a missing NODE_ENV instead of assuming one", () => {
+    expect(rejectionOf(without("NODE_ENV")).split("\n")).toEqual([
+      "Invalid environment:",
+      "  NODE_ENV: expected one of development, production, test",
+    ]);
   });
 
   it.each([

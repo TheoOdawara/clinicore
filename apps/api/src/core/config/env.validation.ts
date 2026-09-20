@@ -1,5 +1,6 @@
 import { plainToInstance } from "class-transformer";
 import {
+  IsIn,
   IsInt,
   Max,
   Min,
@@ -8,11 +9,14 @@ import {
   validateSync,
 } from "class-validator";
 
+const NODE_ENVIRONMENTS = ["development", "production", "test"] as const;
+
 const EXPECTED_FORMAT = {
   ALLOWED_ORIGINS:
     "expected a comma-separated list of absolute URLs with no trailing slash (https://…)",
   APP_ORIGIN: "expected an absolute URL with no trailing slash (https://…)",
   DATABASE_URL: "expected a PostgreSQL connection string (postgresql://…)",
+  NODE_ENV: `expected one of ${NODE_ENVIRONMENTS.join(", ")}`,
   PORT: "expected an integer between 1 and 65535",
 } as const;
 
@@ -78,6 +82,9 @@ export class Environment {
   @validatedBy("isPostgresUrl", isPostgresUrl)
   DATABASE_URL!: string;
 
+  @IsIn(NODE_ENVIRONMENTS)
+  NODE_ENV!: (typeof NODE_ENVIRONMENTS)[number];
+
   @IsInt()
   @Min(1)
   @Max(65535)
@@ -112,6 +119,7 @@ export function validateEnv(source: Record<string, unknown>): Environment {
     ALLOWED_ORIGINS: toOriginList(source.ALLOWED_ORIGINS),
     APP_ORIGIN: source.APP_ORIGIN,
     DATABASE_URL: source.DATABASE_URL,
+    NODE_ENV: source.NODE_ENV,
     PORT: toPort(source.PORT),
   });
 
