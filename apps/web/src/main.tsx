@@ -7,19 +7,19 @@ import "./styles/globals.css";
 const router = createRouter({ routeTree });
 
 declare module "@tanstack/react-router" {
-	interface Register {
-		router: typeof router;
-	}
+  interface Register {
+    router: typeof router;
+  }
 }
 
 const container = document.getElementById("root");
 
 if (container === null) {
-	throw new Error("The #root container is missing from index.html");
+  throw new Error("The #root container is missing from index.html");
 }
 
 createRoot(container).render(
-	<StrictMode>
-		<RouterProvider router={router} />
-	</StrictMode>,
+  <StrictMode>
+    <RouterProvider router={router} />
+  </StrictMode>,
 );

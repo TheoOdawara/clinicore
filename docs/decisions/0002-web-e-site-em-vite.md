@@ -1,6 +1,6 @@
 # 0002. Web e site em Vite, com prerender no site
 
-- Status: accepted
+- Status: accepted, emendada pela 0004 no ferramental de lint e na versão do TypeScript
 - Date: 2026-09-20
 
 ## Context
