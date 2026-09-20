@@ -37,19 +37,15 @@ arquitetura, as branches e o idioma.
 
 ## Pegadinhas da stack
 
-Verificadas em 2026-09-15, contra as versões desta stack.
+Verificadas em 2026-09-15 e reconfirmadas em 2026-09-20, já com o ESLint e o TypeScript 6.0 da
+ADR 0004.
 
-- **O Vite não checa tipo.** Um arquivo com erro de tipo roda e sai com código 0; só o `tsc` pega.
-- **O TypeScript 7.0 não tem a API programática do compilador** (prevista para a 7.1). Por isso o
-  `ts-jest` e os geradores de tipo a partir de OpenAPI quebram
-  (`Cannot read properties of undefined (reading 'createKeywordTypeNode')`). O web usa `@swc/jest`.
-  Ferramenta que exija essa API roda com `typescript` apontado para `@typescript/typescript6`, e o
-  `tsc` 7 continua em `@typescript/native`.
+- **Nem o Vite nem o `@swc/jest` checam tipo.** Os dois apagam o tipo e seguem: um arquivo com erro
+  de tipo roda, o teste passa e o build sai com código 0. Só o `tsc` pega, e por isso o
+  `bun run typecheck` é um gate separado.
 - **`import.meta.env` do Vite não existe no Jest.** No modo CommonJS, o arquivo que o lê derruba a
   suíte com `Must use import to load ES Module`; no modo ESM, carrega e o valor chega `undefined`.
 - **O binário do Jest é `#!/usr/bin/env node`**: mesmo com Bun, o web precisa de Node instalado.
-- **O Biome com `vcs.useIgnoreFile` procura o `.gitignore` na pasta onde está o `biome.json`**, não na
-  raiz do repositório, e aborta a execução inteira se não achar. Cada app que usa Biome precisa do seu.
 - **O `shadcn add` e o `jsrepo` geram arquivo comentado**, e o repo só admite o marcador `ponytail:`. A
   limpeza é parte de adicionar o componente, não uma passada depois.
 - **Parte dos componentes do React Bits ignora `prefers-reduced-motion`.** Conferir e corrigir no

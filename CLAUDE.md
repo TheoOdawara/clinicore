@@ -22,8 +22,8 @@ cookie de sessão em `SameSite=Lax`.
 |---|---|---|---|
 | Papel | o contrato HTTP | sistema da clínica, PWA instalável, só usuário autenticado | landing pública e indexável |
 | Runtime e pacotes | Node 26 · npm | Bun 1.4 · Node 26 só para rodar o Jest | Bun 1.4 |
-| Tipos | TypeScript 6.0 | TypeScript 7.0 | TypeScript 7.0 |
-| Lint e formato | ESLint 10 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | Biome 2.5 | Biome 2.5 |
+| Tipos | TypeScript 6.0 | TypeScript 6.0 | TypeScript 6.0 |
+| Lint e formato | ESLint 10 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 |
 | Framework | NestJS 11 sobre Express, validação e DTO em `class-validator` e `class-transformer`, OpenAPI por `@nestjs/swagger`, health check por `@nestjs/terminus` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Vite 8.3 · TanStack Router 1.170, com `vite-prerender-plugin` 0.5 e `vite-imagetools` 12 no build |
 | Dados | PostgreSQL 18 · TypeORM 1.1 com `@nestjs/typeorm` e `pg` | TanStack Query 5.102 · axios 1 · Zod 4.6 | — |
 | Formulário | — | TanStack Form 1.33 com schema Zod | — |
@@ -39,8 +39,9 @@ cookie de sessão em `SameSite=Lax`.
 
 As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0001-api-em-nestjs-typeorm-e-redis.md`,
-`docs/decisions/0002-web-e-site-em-vite.md` e
-`docs/decisions/0003-design-system-com-shadcn-ui-e-react-bits.md`.
+`docs/decisions/0002-web-e-site-em-vite.md`,
+`docs/decisions/0003-design-system-com-shadcn-ui-e-react-bits.md` e
+`docs/decisions/0004-lint-do-front-em-eslint.md`.
 
 ## Comandos
 

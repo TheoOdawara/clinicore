@@ -59,15 +59,16 @@ Análise estática e formato → tipos → build → testes. Cada um sai com có
 
 | Gate | `apps/api` | `apps/web` |
 | --- | --- | --- |
-| Análise estática e formato | `eslint . --max-warnings 0` e `prettier --check` | `biome check .` |
+| Análise estática e formato | `eslint . --max-warnings 0` e `prettier --check` | `eslint . --max-warnings 0` e `prettier --check` |
 | Tipos | `tsc --noEmit` | `tsc --noEmit` |
 | Build | `nest build` | `vite build` |
 | Testes | `jest` | `jest` |
 
-- **O ESLint da API roda com regras type-aware**, o que exige `parserOptions.projectService` apontando
-  para o `tsconfig.json`. Sem isso, `no-unsafe-assignment` não existe — e é a única regra que denuncia
-  o `any` que escapa de decorator e de injeção.
-- **`routeTree.gen.ts` é commitado e excluído do Biome.** É gerado pelo plugin do TanStack Router, mas a
+- **O ESLint dos três apps roda com regras type-aware**, o que exige `parserOptions.projectService`
+  apontando para o `tsconfig.json`. Sem isso, `no-unsafe-assignment` não existe — e é a única regra que
+  denuncia o `any` que escapa de decorator e de injeção — nem `no-deprecated`, que é o que reprova o
+  **uso** de símbolo obsoleto, e não só o import dele. Ver a ADR 0004.
+- **`routeTree.gen.ts` é commitado e excluído do ESLint e do Prettier.** É gerado pelo plugin do TanStack Router, mas a
   documentação oficial o trata como parte do runtime da aplicação, não como artefato de build.
 - **A API não tem passo de geração antes do gate de tipos.** Entity do TypeORM é classe escrita à mão;
   não há client gerado, então `tsc --noEmit` roda sozinho.
@@ -280,8 +281,9 @@ E o `h1` está com as classes utilitárias do Tailwind aplicadas, não com o est
 Dado um pull request de uma branch `feature/*` para `develop`
 Quando o workflow `CI` roda
 Então o job `api` executa ESLint e Prettier, tipos, build e testes, todos com código 0
-E o job `web` executa Biome, tipos, build e testes, todos com código 0
-E o job `site` executa Biome, tipos, build e a conferência do HTML prerenderizado, todos com código 0
+E o job `web` executa ESLint e Prettier, tipos, build e testes, todos com código 0
+E o job `site` executa ESLint e Prettier, tipos, build e a conferência do HTML prerenderizado, todos com
+código 0
 E o pull request aparece com o check verde
 ```
 
@@ -363,6 +365,6 @@ web, já entregue em #59, e **não muda**. A task 5 nasce com a ADR 0002.
 | --- | --- | --- | --- | --- | --- |
 | 1 | #73 | Recreate apps/api on NestJS with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `nest-cli.json`, `eslint.config.mjs`, `.prettierrc`, `jest` no `package.json`, `src/main.ts`, `src/app.module.ts`, `src/core/config/` com `env.validation.ts` validando `APP_ORIGIN` e `ALLOWED_ORIGINS` no lugar de `WEB_ORIGIN`, `environment.service.ts` e `config.module.ts`, `src/features/health/` com módulo, controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
 | 2 | #74 | Add the development Postgres and the TypeORM DataSource to apps/api | `apps/api/compose.yaml`, `src/core/db/` com `data-source.ts`, `db.module.ts`, `migrations/` e `__tests__` | Cenário 4 verde; `tsc --noEmit` sai com código 0 | task 1 |
-| 3 | #59 — entregue | Create apps/web with green gates and the root route | `apps/web`: inalterado. O web fica em Bun, Vite, Biome e TypeScript 7, por decisão da ADR 0002 | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
+| 3 | #59 — entregue | Create apps/web with green gates and the root route | `apps/web`: entregue em Bun, Vite e TanStack Router pela ADR 0002; o lint e o TypeScript foram trocados depois pela ADR 0004 | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
 | 4 | #75 | Update the CI workflow for the API toolchain | `.github/workflows/ci.yml`: job `api` com `setup-node` e `npm ci`, sem Bun; job `web` inalterado; `WEB_ORIGIN` trocada por `APP_ORIGIN` e `ALLOWED_ORIGINS` no ambiente do job `api` | Cenários 6, 7 e 8 verdes, observados em um pull request real | tasks 1 e 2 |
-| 5 | #76 | Create apps/site with green gates and the prerendered landing shell | `apps/site`: `package.json`, `tsconfig.json`, `vite.config.ts` com `vite-prerender-plugin` e `vite-imagetools`, `biome.json`, TypeScript 7, `src/main.tsx`, `src/prerender.tsx`, `src/routes/index.tsx` e `src/styles/`; `.github/workflows/ci.yml` com o job `site` e a conferência do HTML | Cenários 6 a 10 verdes; os gates do site saem com código 0 e o `dist/index.html` tem conteúdo | task 4 |
+| 5 | #76 | Create apps/site with green gates and the prerendered landing shell | `apps/site`: `package.json`, `tsconfig.json`, `vite.config.ts` com `vite-prerender-plugin` e `vite-imagetools`, `eslint.config.mjs`, `.prettierrc`, TypeScript 6, `src/main.tsx`, `src/prerender.tsx`, `src/routes/index.tsx` e `src/styles/`; `.github/workflows/ci.yml` com o job `site` e a conferência do HTML | Cenários 6 a 10 verdes; os gates do site saem com código 0 e o `dist/index.html` tem conteúdo | task 4 |
