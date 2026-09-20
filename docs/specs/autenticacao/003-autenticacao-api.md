@@ -54,7 +54,7 @@ vive no Redis e é o mecanismo que limita as chamadas.
 
 Todo corpo é JSON e é uma classe DTO com decorators de `class-validator` em
 `features/auth/dto/`. **A API não aceita URL de redirecionamento do cliente em nenhuma rota**: todo
-destino é montado no servidor a partir de `WEB_ORIGIN` (regra 1). Campo desconhecido no corpo é
+destino é montado no servidor a partir de `APP_ORIGIN` (regra 1). Campo desconhecido no corpo é
 recusado.
 
 **`POST /auth/sign-up`**
@@ -140,11 +140,12 @@ possa ser dito sem revelar o estado da conta (regra 8).
 `POST /auth/change-password`. Em `refresh` vêm os dois `Set-Cookie` novos; em `sign-out`, os dois
 `Set-Cookie` de expiração.
 
-**`302 Found`** — `GET /auth/verify-email` redireciona para `${WEB_ORIGIN}/verify-email`, com
+**`302 Found`** — `GET /auth/verify-email` redireciona para `${APP_ORIGIN}/verify-email`, com
 `?error=<code>` em caso de erro. `GET /auth/google` redireciona para a URL de autorização do Google, e
-`GET /auth/google/callback` redireciona para `${WEB_ORIGIN}/app` com os dois cookies de sessão, ou para
-`${WEB_ORIGIN}/login?error=<code>`. **Os três destinos são montados a partir de `WEB_ORIGIN`**, nunca
-recebidos do cliente.
+`GET /auth/google/callback` redireciona para `${APP_ORIGIN}/app` com os dois cookies de sessão, ou para
+`${APP_ORIGIN}/login?error=<code>`. **Os três destinos são montados a partir de `APP_ORIGIN`**, nunca
+recebidos do cliente, e nunca a partir de `ALLOWED_ORIGINS` — a landing não é destino de
+autenticação.
 
 **Corpo de erro**, em toda rota, vindo do `ExceptionFilter` global:
 
@@ -160,7 +161,7 @@ recebidos do cliente.
 | `302` | Verificação de e-mail e as duas pontas do fluxo do Google |
 | `400` | Corpo ou query inválidos, senha fora da política, token inválido ou consumido, senha atual incorreta |
 | `401` | Credenciais incorretas, cookie de acesso ausente, expirado ou revogado, refresh inválido |
-| `403` | E-mail ainda não verificado, ou `Origin` diferente de `WEB_ORIGIN` |
+| `403` | E-mail ainda não verificado, ou `Origin` fora de `ALLOWED_ORIGINS` |
 | `429` | Limite de requisições da rota excedido (regra 11) |
 | `500` | Erro desconhecido, sem detalhe no corpo (regra 10) |
 | `503` | Redis inalcançável (regra 2) |
@@ -182,21 +183,32 @@ função. Papéis, permissões e tenancy são as issues #6 e #7.
 
 ### 1. O browser fala com a API em origem cruzada, com credenciais, e o `Origin` é conferido
 
-- `main.ts` chama `app.enableCors({ origin: env.WEB_ORIGIN, credentials: true, methods: ["GET", "POST", "OPTIONS"], allowedHeaders: ["Content-Type"] })`
-  — a **origem exata**, nunca `*` e nunca um curinga.
+- **Duas variáveis, dois papéis.** `APP_ORIGIN` é o sistema, `https://app.clinicore.com.br`, e é a única
+  origem a partir da qual a API monta destino de redirecionamento. `ALLOWED_ORIGINS` é a lista de
+  origens que podem falar com a API pelo browser: o sistema, e a landing `https://clinicore.com.br`
+  quando ela passar a chamar alguma rota pública. Em desenvolvimento as duas valem
+  `http://localhost:3000`.
+- `main.ts` chama `app.enableCors({ origin: env.ALLOWED_ORIGINS, credentials: true, methods: ["GET", "POST", "OPTIONS"], allowedHeaders: ["Content-Type"] })`
+  — a **lista de origens exatas**, nunca `*` e nunca um curinga. O Express responde com a origem que
+  pediu, quando ela está na lista.
 - **O CORS não é a guarda.** Ele instrui o browser; não impede requisição alguma de chegar. A guarda é
   `common/guards/origin.guard.ts`, registrada como `APP_GUARD`: **todo `POST` precisa do header
-  `Origin` exatamente igual a `WEB_ORIGIN`**, e qualquer outro valor, ou a ausência do header, responde
-  `403 INVALID_ORIGIN` antes de o controller rodar.
-- **Por que a guarda existe:** o cookie de acesso é `SameSite=None` em produção (regra 2), então um
-  formulário de outro site carregaria o cookie num `POST`. `/auth/refresh` e `/auth/sign-out` não têm
-  corpo, então nem a validação de DTO os protegeria. O browser sempre envia `Origin` num `POST`
-  cross-site, e é sobre isso que a guarda decide.
+  `Origin` pertencente a `ALLOWED_ORIGINS`**, comparado por igualdade exata contra cada item da lista, e
+  qualquer outro valor, ou a ausência do header, responde `403 INVALID_ORIGIN` antes de o controller
+  rodar. **Comparação é de origem inteira, nunca de sufixo** — casar o fim da string aceitaria
+  `https://clinicore.com.br.evil.example`.
+- **Por que a guarda existe, mesmo com o cookie em `SameSite=Lax`:** `Lax` já não acompanha um `POST`
+  vindo de outro site, então ela deixou de ser a única linha contra CSRF e passou a ser a segunda. Ela
+  continua porque `/auth/refresh` e `/auth/sign-out` não têm corpo — nem a validação de DTO os
+  protegeria — e porque é ela que faz a API recusar cedo, no lugar de depender de o browser ter se
+  comportado.
 - `GET` é isento: `/health`, `/auth/session`, `/auth/verify-email` e as duas rotas do Google não mudam
   estado a partir de um corpo, e a navegação de volta do Google chega sem `Origin`.
 - **Não existe redirecionamento aberto porque não existe parâmetro de redirecionamento.** Nenhuma rota
   lê `callbackURL`, `redirectTo` ou `errorCallbackURL`; o DTO recusa campo desconhecido, e os três
-  destinos da API são montados no servidor a partir de `WEB_ORIGIN`.
+  destinos da API são montados no servidor a partir de `APP_ORIGIN`. **Um destino nunca sai de
+  `ALLOWED_ORIGINS`:** a lista existe para autorizar quem chama, não para escolher para onde mandar o
+  usuário — e é isso que impede que incluir a landing um dia vire um redirecionamento aberto.
 - `app.set("trust proxy", env.TRUSTED_PROXIES)` é aplicado no adapter do Express antes do listen, e é o
   que faz `req.ip` valer (regra 11).
 
@@ -211,15 +223,22 @@ A sessão não é um token único. São dois, com tempos de vida e caminhos dife
 
 - Os dois são **`HttpOnly: true` sempre**. O JavaScript do web nunca lê nenhum dos dois; quem carrega o
   usuário é `GET /auth/session` com `credentials: "include"`.
-- Em `NODE_ENV === "production"` (homolog e produção): `sameSite: "none"` e `secure: true`, porque o
-  web e a API ficam em subdomínios distintos e o cookie viaja entre sites.
-- Em `NODE_ENV === "development"`: `sameSite: "lax"` e `secure: false`, porque `http://localhost` não
-  aceita `Secure`, e `localhost:3000` e `localhost:3333` são o mesmo site — a porta não conta para
-  `SameSite`.
+- **`sameSite: "lax"` em todo ambiente.** `app.clinicore.com.br` e `api.clinicore.com.br` têm o mesmo
+  domínio registrável, `clinicore.com.br`, e `SameSite` é calculado por **domínio registrável, não por
+  origem**: são o mesmo site, e o cookie `Lax` acompanha tanto a chamada do sistema quanto a navegação de
+  volta do Google, que é um `GET` de topo. Em desenvolvimento vale o mesmo raciocínio por outro caminho —
+  `localhost:3000` e `localhost:3333` são o mesmo site, porque a porta não conta para `SameSite`.
+- **`secure: true` quando `NODE_ENV === "production"`**, e `false` em desenvolvimento, porque
+  `http://localhost` não aceita `Secure`.
+- **`SameSite=None` seria um erro, não uma necessidade.** Ele é o que faria o cookie acompanhar um `POST`
+  disparado de qualquer outro site; com `Lax` essa porta está fechada no browser, e a guarda de `Origin`
+  da regra 1 passa a ser a segunda linha em vez da única. Hospedar a API fora de `clinicore.com.br` — num
+  domínio de plataforma, por exemplo — quebraria essa premissa e obrigaria a rever esta regra inteira.
 - **O `Path` do refresh é `/auth/refresh`, e isso é o ponto.** O refresh token não acompanha nenhuma
   outra requisição. `POST /auth/sign-out` não precisa dele: o `sessionId` está no JWT de acesso.
 - **Nenhum `Domain`.** Os cookies pertencem ao host da API e não são compartilhados com subdomínio
-  nenhum.
+  nenhum. É o que impede a landing, que é pública e fica no ápice do domínio, de receber cookie de
+  sessão.
 - O JWT de acesso carrega `sub` (o `user.id`), `sid` (o `session.id`) e `exp`. Nada mais — nome,
   e-mail e `emailVerified` saem de `GET /auth/session`, para que uma mudança neles não fique presa no
   token por 15 minutos.
@@ -289,7 +308,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
   responde `401 INVALID_CREDENTIALS` antes desse ponto, sem enviar nada.
 - O token de verificação é uma linha em `verification` com `purpose = "email_verification"`, 32 bytes
   aleatórios em base64url, gravados como SHA-256, com `expiresAt` 1 hora à frente.
-- `GET /auth/verify-email?token=…` consome o token e redireciona para `${WEB_ORIGIN}/verify-email`:
+- `GET /auth/verify-email?token=…` consome o token e redireciona para `${APP_ORIGIN}/verify-email`:
   - válido → marca `user.emailVerified = true`, grava `verification.consumedAt`, **cria a sessão** e
     redireciona com os dois cookies;
   - inválido, consumido ou inexistente → `?error=INVALID_TOKEN`, sem cookie;
@@ -308,13 +327,13 @@ Uma senha é aceita quando cumpre **todas** as condições:
   base64url, `HttpOnly`, `Path=/auth/google`, `Max-Age=600`, `SameSite=Lax`, e `Secure` em produção.
   `Lax` basta porque a volta do Google é uma navegação `GET` de topo, que carrega cookie `Lax`. O
   `state` da query é comparado com o do cookie em `crypto.timingSafeEqual`; diferente ou ausente,
-  `302` para `${WEB_ORIGIN}/login?error=INVALID_STATE`.
+  `302` para `${APP_ORIGIN}/login?error=INVALID_STATE`.
 - A implementação é `@nestjs/passport` com `passport-google-oauth20`, e o `state` é guardado por um
   `store` próprio sobre o cookie — `passport-oauth2` aceita um `store` e é isso que dispensa
   `express-session`. A URL de callback registrada no Google Cloud Console é
   `${API_URL}/auth/google/callback`.
 - **O perfil do Google só é aceito com `email_verified = true`.** Falso, a resposta é `302` para
-  `${WEB_ORIGIN}/login?error=UNVERIFIED_PROVIDER_EMAIL`, e nada é gravado. Sem isso, um provedor que
+  `${APP_ORIGIN}/login?error=UNVERIFIED_PROVIDER_EMAIL`, e nada é gravado. Sem isso, um provedor que
   devolvesse um e-mail não verificado sequestraria a conta de quem tem esse endereço.
 - Entrar com Google num e-mail que já tem cadastro por senha **vincula** o provedor à conta existente:
   nasce uma linha em `account` com `provider = "google"` apontando para o mesmo `userId`, e nenhum
@@ -324,7 +343,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - **Nenhum token do Google é guardado.** O `access_token` e o `refresh_token` da troca são descartados
   depois de lido o perfil; a API não chama API nenhuma do Google depois do login. Por isso a tabela
   `account` não tem coluna de token.
-- O callback cria a sessão, aplica a regra 16 e responde `302` para `${WEB_ORIGIN}/app` com os dois
+- O callback cria a sessão, aplica a regra 16 e responde `302` para `${APP_ORIGIN}/app` com os dois
   cookies.
 
 ### 7. Recuperar e trocar senha
@@ -332,7 +351,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - `POST /auth/request-password-reset` grava uma linha em `verification` com
   `purpose = "password_reset"`, token de 32 bytes aleatórios em base64url gravado como SHA-256 e
   `expiresAt` 1 hora à frente, e envia o link, sujeito à regra 15. Responde `202` sempre (regra 8).
-- **O link aponta direto para o web**, `${WEB_ORIGIN}/reset-password?token=<token>`. Não existe rota de
+- **O link aponta direto para o web**, `${APP_ORIGIN}/reset-password?token=<token>`. Não existe rota de
   API que apenas redirecione: ela só ampliaria a superfície de redirecionamento sem fazer nada.
 - `POST /auth/reset-password` faz, numa única transação de repository: consome o token, grava o hash da
   nova senha em `account` e **apaga todas as sessões do usuário**. Fora da transação, cada `sessionId`
@@ -530,8 +549,8 @@ variável em `core/config/env.validation.ts`, `validateEnv` puro e testado, `mai
 | `SMTP_USER` | string | `expected an email address` |
 | `TRUSTED_PROXIES` | lista de string | `expected a comma-separated list of CIDR blocks (10.0.0.0/8,…)` |
 
-- `NODE_ENV`, `DATABASE_URL`, `PORT` e `WEB_ORIGIN` já nascem na `002` e não mudam. `LOG_LEVEL` é
-  declarada lá como pertencente a esta entrega, e é aqui que ela nasce.
+- `NODE_ENV`, `DATABASE_URL`, `PORT`, `APP_ORIGIN` e `ALLOWED_ORIGINS` já nascem na `002` e não mudam.
+  `LOG_LEVEL` é declarada lá como pertencente a esta entrega, e é aqui que ela nasce.
 - **`TRUSTED_PROXIES` precisa de um decorator próprio.** O `class-validator` não tem decorador de CIDR:
   ele sai de um `registerDecorator` de poucas linhas sobre `isIPRange` do `validator` 13, que o próprio
   `class-validator` já traz como dependência. Nunca de regex à mão.
@@ -625,7 +644,7 @@ escrito no web a partir do `code` (regra 10).
 | `INVALID_SESSION` | `401` | Cookie de acesso ausente, malformado, expirado ou na denylist; refresh de sessão inexistente ou vencida | "Invalid session" |
 | `SESSION_REUSED` | `401` | Refresh token que não bate com o gravado; a sessão é derrubada (regra 3) | "Refresh token reuse detected" |
 | `EMAIL_NOT_VERIFIED` | `403` | Login com a senha correta e o e-mail ainda não verificado | "Email not verified" |
-| `INVALID_ORIGIN` | `403` | `POST` com `Origin` diferente de `WEB_ORIGIN`, ou sem o header | "Invalid origin" |
+| `INVALID_ORIGIN` | `403` | `POST` com `Origin` fora de `ALLOWED_ORIGINS`, ou sem o header | "Invalid origin" |
 | `RATE_LIMITED` | `429` | Limite da rota excedido (regra 11) | "Too many requests" |
 | `INTERNAL_ERROR` | `500` | Erro desconhecido | "Internal server error" |
 | `SERVICE_UNAVAILABLE` | `503` | Redis inalcançável numa requisição autenticada (regra 2) | "Service temporarily unavailable" |
@@ -958,15 +977,17 @@ E `GET /auth/session` com o cookie de acesso dessa sessão responde `401 INVALID
 E 20 logins seguidos, respeitando a regra 11, deixam o usuário com exatamente 5 linhas em `session`
 ```
 
-### Cenário 24 — CORS libera a origem exata, e a guarda de `Origin` barra o resto (exceção, regra 1)
+### Cenário 24 — CORS libera só quem está na lista, e a guarda de `Origin` barra o resto (exceção, regra 1)
 
 ```gherkin
-Dado a API rodando com `WEB_ORIGIN` igual a `http://localhost:3000`
-Quando chega um preflight `OPTIONS /auth/sign-in` com `Origin: http://localhost:3000`
-Então a resposta traz `Access-Control-Allow-Origin: http://localhost:3000`
+Dado a API rodando com `ALLOWED_ORIGINS` igual a `https://app.clinicore.com.br,https://clinicore.com.br`
+Quando chega um preflight `OPTIONS /auth/sign-in` com `Origin: https://app.clinicore.com.br`
+Então a resposta traz `Access-Control-Allow-Origin: https://app.clinicore.com.br`
 E traz `Access-Control-Allow-Credentials: true`
 E nunca traz `Access-Control-Allow-Origin: *`
+E o mesmo preflight com `Origin: https://clinicore.com.br` é liberado com essa origem
 E `POST /auth/refresh` com `Origin: http://evil.example` responde `403 INVALID_ORIGIN`
+E `POST /auth/refresh` com `Origin: https://clinicore.com.br.evil.example` responde `403 INVALID_ORIGIN`
 E `POST /auth/refresh` sem o header `Origin` responde `403 INVALID_ORIGIN`
 E `GET /auth/session` sem o header `Origin` responde normalmente
 ```
@@ -1028,12 +1049,13 @@ E com `MAIL_FROM` diferente de `SMTP_USER` escreve `  MAIL_FROM: expected an ema
 E o worker, inicializado com o mesmo ambiente, falha da mesma forma
 ```
 
-### Cenário 30 — Os cookies são `Secure` e `SameSite=None` em produção (caminho alternativo, regra 2)
+### Cenário 30 — Os cookies são `HttpOnly`, `SameSite=Lax` e `Secure` em produção (caminho alternativo, regra 2)
 
 ```gherkin
 Dado a API inicializada com `NODE_ENV` igual a `production`
 Quando um login bem-sucedido devolve os cookies de sessão
-Então os dois `Set-Cookie` trazem `Secure`, `HttpOnly` e `SameSite=None`
+Então os dois `Set-Cookie` trazem `Secure`, `HttpOnly` e `SameSite=Lax`
+E nenhum dos dois traz `SameSite=None`
 E nenhum dos dois traz `Domain`
 E com `NODE_ENV` igual a `development` o mesmo login devolve `HttpOnly` e `SameSite=Lax`, sem `Secure`
 ```
@@ -1095,10 +1117,9 @@ E o step do CI falha se ele passar a existir
 
 ## Fora de Escopo
 
-- **A spec irmã `003-autenticacao-web.md` está desatualizada e não é tocada nesta entrega.** Ela
-  descreve o cliente do Better Auth e as 13 rotas sob `/api/auth`, que deixaram de existir. Ela é
-  reescrita quando o `apps/web` migrar para Next, junto da própria migração — decisão registrada em
-  `docs/decisions/0001-api-em-nestjs-typeorm-e-redis.md`. Até lá, o contrato válido é esta spec.
+- **As telas do `apps/web`** — elas estão na spec irmã `003-autenticacao-web.md`, já reescrita contra
+  as rotas desta spec pela ADR 0002. As duas descrevem a mesma entrega por perfis diferentes: aqui o
+  contrato HTTP, lá a tela. Em divergência entre as duas, **esta é a autoridade**.
 - **Organização, clínica, rede, papéis e permissões** — issues #6 e #7.
 - **Convite de usuário** — decidido que não existe: o cadastro é público. A issue #8 precisa ser
   reescrita como gestão de usuários já cadastrados.
@@ -1137,4 +1158,4 @@ Essa divisão está no contrato do repo, na seção **`api` — camadas**.
 | 6 | #70 | Change the password of the signed-in user | `POST /auth/change-password`, a conferência de `currentPassword` com argon2 e a derrubada das outras sessões com denylist | Cenário 22 verde | #66 |
 | 7 | #71 | Purge expired authentication records daily in a worker | `core/queue/` com `@nestjs/bullmq` sobre o cliente de #69; `src/worker.ts` e o script `worker`; o job repetível `purge-expired-auth-records`; o `@Processor`, o service e os repositories da limpeza | Cenários 33 e 34 verdes; a linha do worker no Cenário 29 verde | #67, #69 |
 
-As tasks do `apps/web` ficam na spec irmã, que será reescrita com a migração para Next.
+As tasks do `apps/web` ficam na spec irmã, reescrita pela ADR 0002 — o web permanece em Vite e TanStack Router, e passa a falar com estas rotas por axios.

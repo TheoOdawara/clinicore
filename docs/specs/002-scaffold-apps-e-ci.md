@@ -1,8 +1,8 @@
-# 002 — Criar os dois apps com gates verdes e CI
+# 002 — Criar os apps com gates verdes e CI
 
 > **Status:** publicada
 > **Perfil:** API
-> **Módulo:** `apps/api`, `apps/web`, `.github/workflows`
+> **Módulo:** `apps/api`, `apps/web`, `apps/site`, `.github/workflows`
 > **Epic:** #1 — Plataforma
 > **Issue:** #2, reescrita para a stack de #72
 
@@ -136,10 +136,16 @@ Análise estática e formato → tipos → build → testes. Cada um sai com có
 | --- | --- | --- | --- | --- | --- |
 | `api` | `DATABASE_URL` | string | Sim | `expected a PostgreSQL connection string (postgresql://…)` | dev: `.env` local a partir do `.env.example` · CI: serviço `postgres:18` do próprio job · homolog: #4 |
 | `api` | `PORT` | inteiro | Sim | `expected an integer between 1 and 65535` | dev: `3333` · CI: `3333` · homolog: #4 |
-| `api` | `WEB_ORIGIN` | string | Sim | `expected an absolute URL with no trailing slash (https://…)` | dev: `http://localhost:3000` · CI: `http://localhost:3000` · homolog: #4 |
+| `api` | `APP_ORIGIN` | string | Sim | `expected an absolute URL with no trailing slash (https://…)` | dev: `http://localhost:3000` · CI: `http://localhost:3000` · homolog: #4 |
+| `api` | `ALLOWED_ORIGINS` | lista separada por vírgula | Sim | `expected a comma-separated list of absolute URLs with no trailing slash (https://…)` | dev: `http://localhost:3000` · CI: `http://localhost:3000` · homolog: #4 |
 | `web` | `VITE_API_URL` | string | Sim | `expected an absolute URL with no trailing slash (https://…)` | dev: `http://localhost:3333` · CI: não usada (o gate do web não sobe a API) · homolog: #4 |
 
-`WEB_ORIGIN` nasce aqui, mas quem a consome é o CORS, na #3. Nesta entrega ela é validada e não usada.
+**As duas origens são papéis diferentes, e por isso são duas variáveis.** `APP_ORIGIN` é o sistema, e só
+ele: é a partir dela que a API monta os redirecionamentos de autenticação, que nunca podem cair na
+landing. `ALLOWED_ORIGINS` é a lista que o CORS e a guarda de `Origin` conferem por pertencimento, e
+inclui o `apps/site` quando ele passar a chamar a API. Em desenvolvimento e no CI as duas têm o mesmo
+valor, porque só o sistema existe. Ambas nascem aqui, mas quem as consome é a #3; nesta entrega são
+validadas e não usadas.
 
 `LOG_LEVEL` **não** nasce aqui: o logger é a #3, junto do `ExceptionFilter` global, e uma variável
 validada sem consumidor nem destino é dívida, não preparação.
@@ -166,15 +172,20 @@ validada sem consumidor nem destino é dívida, não preparação.
 ### 7. O CI roda os gates em pull request para `develop` e para `main`
 
 - Arquivo único: `.github/workflows/ci.yml`.
-- Dois jobs, `api` e `web`, em paralelo. Cada um roda os quatro gates do seu app, em ordem, parando no
-  primeiro que falhar.
+- Um job por app — `api`, `web` e `site` — em paralelo. Cada um roda os gates do seu app, em ordem,
+  parando no primeiro que falhar. O `site` não tem gate de testes enquanto não houver lógica a testar, e
+  a ausência é declarada no job, não omitida em silêncio.
+- **O job `site` tem um gate a mais que os outros dois: a conferência do HTML prerenderizado.** Depois
+  do build, ele procura um texto conhecido da landing dentro do `dist/index.html` e falha se não achar.
+  Sem isso, uma `prerender()` que parou de rodar deixa o job verde e a landing sai do índice do
+  buscador sem ninguém perceber.
 - O job `api` sobe um serviço `postgres:18` com healthcheck `pg_isready`; as variáveis do job apontam
   para esse serviço efêmero.
 - O job `api` usa **apenas `actions/setup-node` com Node 26**; o Bun não entra nele.
 - O job `web` instala **Node 26 além do Bun**: o binário do Jest é `#!/usr/bin/env node` e não roda sem
-  ele.
-- Ambos instalam com lockfile congelado — `npm ci` na API, `bun install --frozen-lockfile` no web. Um
-  lockfile desatualizado reprova o PR.
+  ele. O job `site` precisa só do Bun, porque não roda Jest.
+- Todos instalam com lockfile congelado — `npm ci` na API, `bun install --frozen-lockfile` no web e no
+  site. Um lockfile desatualizado reprova o PR.
 - **Um job por app, não um job por gate**: a quota do GitHub Actions cobra por job arredondado ao minuto
   inteiro, e este é um repositório privado.
 
@@ -270,6 +281,7 @@ Dado um pull request de uma branch `feature/*` para `develop`
 Quando o workflow `CI` roda
 Então o job `api` executa ESLint e Prettier, tipos, build e testes, todos com código 0
 E o job `web` executa Biome, tipos, build e testes, todos com código 0
+E o job `site` executa Biome, tipos, build e a conferência do HTML prerenderizado, todos com código 0
 E o pull request aparece com o check verde
 ```
 
@@ -280,7 +292,7 @@ Dado um pull request cujo código tem um erro de tipo em `apps/api`
 Quando o workflow `CI` roda
 Então o job `api` falha no gate de tipos
 E os gates de build e de testes do job `api` não chegam a rodar
-E o job `web` continua e conclui de forma independente
+E os jobs `web` e `site` continuam e concluem de forma independente
 E o pull request aparece com o check vermelho
 ```
 
@@ -290,14 +302,34 @@ E o pull request aparece com o check vermelho
 Dado o diretório `apps/web` removido da árvore de trabalho
 Quando os quatro gates de `apps/api` são executados
 Então todos saem com código 0
-E o mesmo vale na direção inversa, removendo `apps/api`
+E o mesmo vale para qualquer par entre `apps/api`, `apps/web` e `apps/site`
+```
+
+### Cenário 9 — O site entrega HTML com conteúdo (caminho feliz)
+
+```gherkin
+Dado o `apps/site` construído
+Quando o arquivo `dist/index.html` é lido
+Então ele contém o texto `Clinicore` fora de qualquer atributo
+E ele não é apenas o elemento de montagem vazio do Vite
+```
+
+### Cenário 10 — O prerender quebrado reprova o build (exceção)
+
+```gherkin
+Dado um componente da landing que lê `window` fora de um efeito
+Quando o job `site` roda
+Então o build pode sair com código 0
+E a conferência do HTML prerenderizado falha por não achar o texto esperado
+E o job `site` termina vermelho
 ```
 
 ---
 
 ## Fora de Escopo
 
-- **CORS e `credentials: "include"`** — issue #3. `WEB_ORIGIN` nasce aqui apenas validada.
+- **CORS e `credentials: "include"`** — issue #3. `APP_ORIGIN` e `ALLOWED_ORIGINS` nascem aqui apenas
+  validadas.
 - **`ExceptionFilter` global, `BusinessError` e o formato `{ code, message, fields }`** — issue #3. Nesta
   entrega não existe uma única rota que valide entrada ou que lance erro de negócio, então o filtro
   nasceria sem um caso testável.
@@ -316,18 +348,21 @@ E o mesmo vale na direção inversa, removendo `apps/api`
 - **Rota `(app)` protegida por sessão e layout da aplicação** — issue #3.
 - **Git hooks, Storybook, matriz de versões no CI, cache de dependências no CI, badge de cobertura** —
   não pedidos por ninguém; entram quando houver dor medida.
-- **Tema visual, tipografia e design system do web** — a rota `/` desta entrega existe só para provar que
-  o build e o Tailwind funcionam.
+- **Tema visual e tipografia** — a rota `/` desta entrega existe só para provar que o build e o Tailwind
+  funcionam. A adoção do shadcn/ui como design system do `apps/web` é a ADR 0003 e tem issue própria.
+- **O conteúdo, o layout e o SEO da landing** — esta entrega cria o `apps/site` com os gates verdes e uma
+  página que prova o build, nada além disso. O que a landing diz é spec própria.
 
 ## Quebra em Tasks
 
 As tasks 1, 2 e 4 são refeitas na stack de #72 e viraram as sub-issues #73, #74 e #75; as issues originais
 (#57, #58, #60) ficam fechadas como histórico do que foi entregue na stack anterior. A task 3 é do
-web, já entregue em #59, e **não muda**.
+web, já entregue em #59, e **não muda**. A task 5 nasce com a ADR 0002.
 
 | # | Issue | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- | --- |
-| 1 | #73 | Recreate apps/api on NestJS with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `nest-cli.json`, `eslint.config.mjs`, `.prettierrc`, `jest` no `package.json`, `src/main.ts`, `src/app.module.ts`, `src/core/config/` com `env.validation.ts`, `environment.service.ts` e `config.module.ts`, `src/features/health/` com módulo, controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
+| 1 | #73 | Recreate apps/api on NestJS with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `nest-cli.json`, `eslint.config.mjs`, `.prettierrc`, `jest` no `package.json`, `src/main.ts`, `src/app.module.ts`, `src/core/config/` com `env.validation.ts` validando `APP_ORIGIN` e `ALLOWED_ORIGINS` no lugar de `WEB_ORIGIN`, `environment.service.ts` e `config.module.ts`, `src/features/health/` com módulo, controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
 | 2 | #74 | Add the development Postgres and the TypeORM DataSource to apps/api | `apps/api/compose.yaml`, `src/core/db/` com `data-source.ts`, `db.module.ts`, `migrations/` e `__tests__` | Cenário 4 verde; `tsc --noEmit` sai com código 0 | task 1 |
-| 3 | #59 — entregue | Create apps/web with green gates and the root route | `apps/web`: inalterado. O web fica em Bun, Vite, Biome e TypeScript 7 até migrar para Next | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
-| 4 | #75 | Update the CI workflow for the API toolchain | `.github/workflows/ci.yml`: job `api` com `setup-node` e `npm ci`, sem Bun; job `web` inalterado | Cenários 6, 7 e 8 verdes, observados em um pull request real | tasks 1 e 2 |
+| 3 | #59 — entregue | Create apps/web with green gates and the root route | `apps/web`: inalterado. O web fica em Bun, Vite, Biome e TypeScript 7, por decisão da ADR 0002 | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
+| 4 | #75 | Update the CI workflow for the API toolchain | `.github/workflows/ci.yml`: job `api` com `setup-node` e `npm ci`, sem Bun; job `web` inalterado; `WEB_ORIGIN` trocada por `APP_ORIGIN` e `ALLOWED_ORIGINS` no ambiente do job `api` | Cenários 6, 7 e 8 verdes, observados em um pull request real | tasks 1 e 2 |
+| 5 | #76 | Create apps/site with green gates and the prerendered landing shell | `apps/site`: `package.json`, `tsconfig.json`, `vite.config.ts` com `vite-prerender-plugin` e `vite-imagetools`, `biome.json`, TypeScript 7, `src/main.tsx`, `src/prerender.tsx`, `src/routes/index.tsx` e `src/styles/`; `.github/workflows/ci.yml` com o job `site` e a conferência do HTML | Cenários 6 a 10 verdes; os gates do site saem com código 0 e o `dist/index.html` tem conteúdo | task 4 |
