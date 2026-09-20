@@ -20,10 +20,10 @@ Sem parâmetros de rota, de query ou de corpo.
 
 ### Response
 
-**`200 OK`**
+**`200 OK`** — o corpo é o do `@HealthCheck()` do Terminus, que com zero indicador sai assim:
 
 ```json
-{ "status": "ok" }
+{ "status": "ok", "info": {}, "error": {}, "details": {} }
 ```
 
 | Status | Quando |
@@ -31,7 +31,8 @@ Sem parâmetros de rota, de query ou de corpo.
 | `200` | O processo da API está de pé e respondendo |
 
 Não há resposta de erro: a rota não depende de banco, de fila nem de sessão. Se o processo estiver fora,
-não há resposta — é exatamente essa a informação que o endpoint carrega.
+não há resposta — é exatamente essa a informação que o endpoint carrega. O `503` que o Terminus sabe
+responder só passa a ser alcançável quando existir um indicador, na #4.
 
 ### Perfis e privilégios
 
@@ -75,16 +76,24 @@ Análise estática e formato → tipos → build → testes. Cada um sai com có
 
 - `apps/api/src/main.ts` cria a aplicação a partir do `AppModule`, aplica o que é global e escuta.
   Não tem handler, não tem regra e não declara provider.
+- **`app.enableShutdownHooks()` no `main.ts`.** Sem ele, o `SIGTERM` do orquestrador mata o processo
+  com a conexão do TypeORM aberta. Ele substitui o `core/shutdown.ts` da stack anterior, que fazia o
+  mesmo à mão.
 - `apps/api/src/app.module.ts` só importa: o `CoreModule` e os módulos de feature. Nada mais.
 - O handler do health check vive em `apps/api/src/features/health/controller/health.controller.ts`,
-  declarado pelo `health.module.ts`. Não tem service nem repository, porque não tem regra.
+  declarado pelo `health.module.ts`, que importa o `TerminusModule`. Não tem service nem repository,
+  porque não tem regra.
+- **O `/health` é liveness e roda com zero indicador.** Ele responde `200` enquanto o processo
+  responder, e só isso. Um indicador de banco ou de Redis aqui faria o orquestrador reiniciar uma API
+  saudável toda vez que uma dependência caísse. A rota de readiness, com os indicadores, é a #4.
 - **A documentação da API é o `@nestjs/swagger`**, montada no `main.ts` com `SwaggerModule.setup()`. O
   documento sai dos decorators das classes de DTO. O plugin de CLI do `@nestjs/swagger` fica ligado no
   `nest-cli.json`, para que o schema saia do tipo sem `@ApiProperty` repetido em cada campo.
 - `apps/web/src/main.tsx` monta o React e o router. Não tem rota inline.
 - **Verificação:** revisão do pull request, não cenário automatizado. É uma regra de organização de
   arquivos, sem resultado observável em runtime — o Cenário 1 prova que o health check responde, não
-  onde ele mora.
+  onde ele mora. A exceção é o `enableShutdownHooks()`, conferido à mão: um `SIGTERM` no processo sai
+  com código `0` e sem erro de conexão pendente.
 
 ### 4. Toda variável de ambiente é obrigatória e validada no boot
 
@@ -205,7 +214,7 @@ O único erro desta entrega é de **inicialização**, não de request: ambiente
 Dado que a API está inicializada com o ambiente válido
 Quando é feita a requisição `GET /health`
 Então o sistema responde `200`
-E o corpo é exatamente `{"status":"ok"}`
+E o corpo é exatamente `{"status":"ok","info":{},"error":{},"details":{}}`
 E nenhuma consulta é feita ao banco
 ```
 
@@ -295,6 +304,9 @@ E o mesmo vale na direção inversa, removendo `apps/api`
 - **Logger Pino, `LoggerService` e a variável `LOG_LEVEL`** — issue #3, pelo mesmo motivo: não há erro
   nem requisição com conteúdo para registrar.
 - **Dockerfile dos apps, `compose.yaml` da raiz e deploy de homolog** — issue #4.
+- **Rota de readiness e os indicadores do Terminus** — `TypeOrmHealthIndicator` e o do Redis — issue
+  #4, que é onde as probes do orquestrador são configuradas e onde a distinção entre liveness e
+  readiness passa a ter consequência.
 - **`worker.ts`, `@nestjs/bullmq` e `core/queue/`** — não há job nesta entrega; nascem com o primeiro,
   a issue #71.
 - **Redis** — não há consumidor nesta entrega. Ele sobe no compose na issue #69, que é o primeiro uso:
@@ -309,13 +321,13 @@ E o mesmo vale na direção inversa, removendo `apps/api`
 
 ## Quebra em Tasks
 
-As tasks 1, 2 e 4 são refeitas na stack de #72 e viram sub-issues dela; as issues originais
+As tasks 1, 2 e 4 são refeitas na stack de #72 e viraram as sub-issues #73, #74 e #75; as issues originais
 (#57, #58, #60) ficam fechadas como histórico do que foi entregue na stack anterior. A task 3 é do
 web, já entregue em #59, e **não muda**.
 
 | # | Issue | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- | --- |
-| 1 | sub-issue de #72 | Recreate apps/api on NestJS with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `nest-cli.json`, `eslint.config.mjs`, `.prettierrc`, `jest` no `package.json`, `src/main.ts`, `src/app.module.ts`, `src/core/config/` com `env.validation.ts`, `environment.service.ts` e `config.module.ts`, `src/features/health/` com módulo, controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
-| 2 | sub-issue de #72 | Add the development Postgres and the TypeORM DataSource to apps/api | `apps/api/compose.yaml`, `src/core/db/` com `data-source.ts`, `db.module.ts`, `migrations/` e `__tests__` | Cenário 4 verde; `tsc --noEmit` sai com código 0 | task 1 |
+| 1 | #73 | Recreate apps/api on NestJS with green gates and a health check | `apps/api`: `package.json`, `tsconfig.json`, `nest-cli.json`, `eslint.config.mjs`, `.prettierrc`, `jest` no `package.json`, `src/main.ts`, `src/app.module.ts`, `src/core/config/` com `env.validation.ts`, `environment.service.ts` e `config.module.ts`, `src/features/health/` com módulo, controller e `__tests__` | Cenários 1 e 2 verdes; os quatro gates da API saem com código 0 | — |
+| 2 | #74 | Add the development Postgres and the TypeORM DataSource to apps/api | `apps/api/compose.yaml`, `src/core/db/` com `data-source.ts`, `db.module.ts`, `migrations/` e `__tests__` | Cenário 4 verde; `tsc --noEmit` sai com código 0 | task 1 |
 | 3 | #59 — entregue | Create apps/web with green gates and the root route | `apps/web`: inalterado. O web fica em Bun, Vite, Biome e TypeScript 7 até migrar para Next | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
-| 4 | sub-issue de #72 | Update the CI workflow for the API toolchain | `.github/workflows/ci.yml`: job `api` com `setup-node` e `npm ci`, sem Bun; job `web` inalterado | Cenários 6, 7 e 8 verdes, observados em um pull request real | tasks 1 e 2 |
+| 4 | #75 | Update the CI workflow for the API toolchain | `.github/workflows/ci.yml`: job `api` com `setup-node` e `npm ci`, sem Bun; job `web` inalterado | Cenários 6, 7 e 8 verdes, observados em um pull request real | tasks 1 e 2 |

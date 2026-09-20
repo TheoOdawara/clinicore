@@ -20,7 +20,7 @@ estado transitório declarado, não descuido.
 | Runtime e pacotes | Node 26 · npm | Bun 1.4 · Node 26 só para rodar o Jest |
 | Tipos | TypeScript 6.0 | TypeScript 7.0 |
 | Lint e formato | ESLint 10 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | Biome 2.5 |
-| Framework | NestJS 11 sobre Express, validação e DTO em `class-validator` e `class-transformer`, OpenAPI por `@nestjs/swagger` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) |
+| Framework | NestJS 11 sobre Express, validação e DTO em `class-validator` e `class-transformer`, OpenAPI por `@nestjs/swagger`, health check por `@nestjs/terminus` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) |
 | Dados | PostgreSQL 18 · TypeORM 1.1 com `@nestjs/typeorm` e `pg` | TanStack Query 5.102 · `fetch` nativo · Zod 4.6 |
 | Formulário | — | TanStack Form 1.33 com schema Zod |
 | Estilo | — | Tailwind 4.3 |
