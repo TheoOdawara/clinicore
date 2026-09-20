@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { configureApplication } from "./configure-application";
 import { EnvironmentService } from "./core/config/environment.service";
 import { PinoLoggerService } from "./core/logger/pino-logger.service";
 
@@ -47,7 +48,7 @@ async function bootstrap(): Promise<void> {
     mountDocumentation(app);
   }
 
-  app.set("trust proxy", environment.get("TRUSTED_PROXIES"));
+  configureApplication(app, environment);
 
   await app.listen(environment.get("PORT"));
 }

@@ -22,6 +22,8 @@ const STATUS_BY_TYPE: Record<BusinessErrorType, HttpStatus> = {
   Conflict: HttpStatus.CONFLICT,
 };
 
+const INTERNAL_SERVER_ERROR: number = HttpStatus.INTERNAL_SERVER_ERROR;
+
 @Catch()
 export class BusinessErrorFilter implements ExceptionFilter {
   constructor(@Inject(LOGGER) private readonly logger: Logger) {}
@@ -38,6 +40,14 @@ export class BusinessErrorFilter implements ExceptionFilter {
       return;
     }
 
+    if (
+      exception instanceof HttpException &&
+      exception.getStatus() >= INTERNAL_SERVER_ERROR
+    ) {
+      this.respondServerError(exception, exception.getStatus(), response);
+      return;
+    }
+
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       response.status(status).json({
@@ -48,10 +58,26 @@ export class BusinessErrorFilter implements ExceptionFilter {
       return;
     }
 
+    this.respondServerError(exception, INTERNAL_SERVER_ERROR, response);
+  }
+
+  private respondServerError(
+    exception: unknown,
+    status: number,
+    response: Response,
+  ): void {
     this.logger.error({ err: exception }, "unhandled error");
-    response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      code: "INTERNAL_ERROR",
-      message: "Internal server error",
+    if (status === INTERNAL_SERVER_ERROR) {
+      response.status(status).json({
+        code: "INTERNAL_ERROR",
+        message: "Internal server error",
+        fields: {},
+      });
+      return;
+    }
+    response.status(status).json({
+      code: HttpStatus[status] ?? "INTERNAL_ERROR",
+      message: "Server error",
       fields: {},
     });
   }

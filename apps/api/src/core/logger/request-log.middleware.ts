@@ -29,16 +29,18 @@ export class RequestLogMiddleware implements NestMiddleware {
     }
 
     const startedAt = process.hrtime.bigint();
-    response.on("finish", () => {
-      this.logger.info(
-        {
-          method: request.method,
-          path,
-          statusCode: response.statusCode,
-          durationMs: millisecondsSince(startedAt),
-        },
-        "request",
-      );
+    response.on("close", () => {
+      const line = {
+        method: request.method,
+        path,
+        statusCode: response.statusCode,
+        durationMs: millisecondsSince(startedAt),
+      };
+      if (!response.writableFinished) {
+        this.logger.info({ ...line, aborted: true }, "request");
+        return;
+      }
+      this.logger.info(line, "request");
     });
 
     next();

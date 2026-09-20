@@ -1,3 +1,10 @@
+import { once } from "node:events";
+import {
+  request as httpRequest,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
+import type { AddressInfo } from "node:net";
 import request from "supertest";
 import {
   createProbeApp,
@@ -64,6 +71,24 @@ describe("request log", () => {
       .filter((line) => line.statusCode === 403);
 
     expect(rejected).toMatchObject([{ method: "POST", statusCode: 403 }]);
+  });
+
+  it("logs the request the client aborted", async () => {
+    await probe.app.listen(0);
+    const { port } = probe.server.address() as AddressInfo;
+    const pending = httpRequest({ port, path: "/probe/hang" });
+    pending.on("error", () => undefined);
+    pending.end();
+    const [, response] = (await once(probe.server, "request")) as [
+      IncomingMessage,
+      ServerResponse,
+    ];
+    pending.destroy();
+    await once(response, "close");
+
+    expect(probe.linesFor("/probe/hang")).toMatchObject([
+      { method: "GET", aborted: true },
+    ]);
   });
 
   it("writes nothing for GET /health", async () => {

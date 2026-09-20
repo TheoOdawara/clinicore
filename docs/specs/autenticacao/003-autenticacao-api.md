@@ -393,7 +393,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
   `app.useLogger()`, mais o **middleware** que registra a requisição. **Nenhum wrapper de terceiro.**
 - **É middleware, e não interceptor, porque o guard roda antes do interceptor.** Um interceptor não
   veria o `403 INVALID_ORIGIN` da guarda da regra 1 nem o `404` de rota inexistente, e a regra
-  valeria só para o request que alcança um controller. O middleware registra o `res.on("finish")`,
+  valeria só para o request que alcança um controller. O middleware registra o `res.on("close")`,
   então enxerga o status final venha ele do controller, do guard ou do filtro.
 - O nível vem de `LOG_LEVEL`.
 - Cada requisição registra método, caminho, status e duração em milissegundos.
@@ -427,6 +427,9 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - **Um `HttpException` do próprio Nest mantém o status.** Rota inexistente continua `404`, método
   errado continua `405`, e o `code` é o nome do status em maiúsculas com sublinhado — `NOT_FOUND`,
   `METHOD_NOT_ALLOWED` —, com `fields` vazio. É regra geral, não uma tabela por caso.
+- **Um `HttpException` 5xx mantém o status, mas nunca o texto.** Ele é registrado no Pino com a stack, e
+  a resposta leva `code` igual ao nome do status — `INTERNAL_ERROR` no `500`, `SERVICE_UNAVAILABLE` no
+  `503` — com `message` fixa: `"Internal server error"` no `500`, `"Server error"` nos demais.
 - Um erro que não é `BusinessError` nem `HttpException` é registrado no Pino com a stack completa e
   respondido como `500` com corpo
   `{ "code": "INTERNAL_ERROR", "message": "Internal server error", "fields": {} }`.

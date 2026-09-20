@@ -8,14 +8,16 @@ function toConstraintCode(constraint: string): string {
   return constraint.replace(CAMEL_CASE_BOUNDARY, "$1_$2").toUpperCase();
 }
 
-function toFields(errors: ValidationError[]): ErrorFields {
+function toFields(errors: ValidationError[], prefix = ""): ErrorFields {
   const fields: ErrorFields = {};
   for (const error of errors) {
+    const path = `${prefix}${error.property}`;
+    Object.assign(fields, toFields(error.children ?? [], `${path}.`));
     const violated = Object.keys(error.constraints ?? {})[0];
     if (violated === undefined) {
       continue;
     }
-    fields[error.property] = toConstraintCode(violated);
+    fields[path] = toConstraintCode(violated);
   }
   return fields;
 }

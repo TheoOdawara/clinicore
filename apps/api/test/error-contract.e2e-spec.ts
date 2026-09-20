@@ -32,6 +32,34 @@ describe("error contract", () => {
     expect(probe.written()).toContain("probe-app.ts");
   });
 
+  it("hides the text of a 500 HttpException and logs it", async () => {
+    const response = await request(probe.server)
+      .get("/probe/internal")
+      .expect(500);
+
+    expect(response.body).toEqual({
+      code: "INTERNAL_ERROR",
+      message: "Internal server error",
+      fields: {},
+    });
+    expect(response.text).not.toContain("db-prod");
+    expect(probe.written()).toContain("db-prod:5432 refused");
+  });
+
+  it("keeps the status of a 503 HttpException and hides its text", async () => {
+    const response = await request(probe.server)
+      .get("/probe/unavailable")
+      .expect(503);
+
+    expect(response.body).toEqual({
+      code: "SERVICE_UNAVAILABLE",
+      message: "Server error",
+      fields: {},
+    });
+    expect(response.text).not.toContain("cache-prod");
+    expect(probe.written()).toContain("cache-prod:6379 is down");
+  });
+
   it("keeps the status of an exception the framework raised", async () => {
     const response = await request(probe.server)
       .get("/probe/does-not-exist")
@@ -51,6 +79,20 @@ describe("error contract", () => {
       code: "VALIDATION_FAILED",
       message: "Validation failed",
       fields: { email: "IS_EMAIL", password: "MIN_LENGTH" },
+    });
+  });
+
+  it("names the violated constraint of a nested field by its path", async () => {
+    const response = await request(probe.server)
+      .post("/probe/profile")
+      .set("Origin", ORIGIN)
+      .send({ address: { zip: 1 } })
+      .expect(400);
+
+    expect(response.body).toEqual({
+      code: "VALIDATION_FAILED",
+      message: "Validation failed",
+      fields: { "address.zip": "IS_STRING" },
     });
   });
 
