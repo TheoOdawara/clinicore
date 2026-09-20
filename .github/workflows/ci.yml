@@ -20,7 +20,9 @@ jobs:
     env:
       DATABASE_URL: postgresql://clinicore:local@localhost:5432/clinicore
       PORT: "3333"
-      WEB_ORIGIN: http://localhost:3000
+      NODE_ENV: test
+      APP_ORIGIN: http://localhost:3000
+      ALLOWED_ORIGINS: http://localhost:3000
     services:
       postgres:
         image: postgres:18
@@ -37,14 +39,17 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v6
         with:
-          bun-version: 1.4.2
-      - run: bun install --frozen-lockfile
-      - run: bun run check
-      - run: bun run typecheck
-      - run: bun run build
-      - run: bun run test
+          node-version: 26
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test
 
   web:
     runs-on: ubuntu-latest
@@ -53,14 +58,14 @@ jobs:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.4.2
       - uses: actions/setup-node@v6
         with:
           node-version: 26
-      - run: bun install --frozen-lockfile
-      - run: bun run check
-      - run: bun run typecheck
-      - run: bun run build
-      - run: bun run test
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test
