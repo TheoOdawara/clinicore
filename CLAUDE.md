@@ -278,7 +278,9 @@ antes de existir código em NestJS.
 - **Os pacotes-satélite do Nest saltaram a numeração para acompanhar o core.** O `@nestjs/config` foi
   de `4.0.4` para `12.0.0` sem nada entre os dois, e o mesmo vale para `@nestjs/schedule` e
   `@nestjs/event-emitter`. O peer deles é `@nestjs/common: ^11.0.0 || ^12.0.0`, então a versão 12
-  desses pacotes roda sobre o Nest 11.
+  desses pacotes roda sobre o Nest 11. **O `@nestjs/swagger` é a exceção e não generaliza:** o
+  `@nestjs/swagger@12` exige `@nestjs/common: ^12.0.0` e o npm recusa a instalação sobre o Nest 11 —
+  o pin é `@nestjs/swagger@11.4.7`. O `@nestjs/terminus@12` aceita as duas linhas e entra normal.
 - **O `latest` do TypeORM é o 1.1.1, e o 0.3.x virou o dist-tag `legacy`.** Tutorial e resposta de
   fórum anteriores a isso descrevem a API do 0.3.
 - **A DI do Nest depende de `reflect-metadata` e de `emitDecoratorMetadata`.** Faltando qualquer um
