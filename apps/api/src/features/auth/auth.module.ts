@@ -15,6 +15,7 @@ import {
   DUMMY_PASSWORD_HASH,
   createDummyPasswordHash,
 } from "./service/dummy-password-hash";
+import { RefreshSessionService } from "./service/refresh-session.service";
 import { SessionService } from "./service/session.service";
 import { SignInService } from "./service/sign-in.service";
 import { SignUpService } from "./service/sign-up.service";
@@ -40,6 +41,7 @@ import { ACCESS_MAX_AGE_IN_SECONDS } from "./utils/session-cookies";
     RevokedSessionRepository,
     SignUpService,
     SignInService,
+    RefreshSessionService,
     SessionService,
     JwtStrategy,
     { provide: DUMMY_PASSWORD_HASH, useFactory: createDummyPasswordHash },

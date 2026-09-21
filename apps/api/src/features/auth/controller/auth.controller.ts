@@ -12,6 +12,7 @@ import {
   ApiAcceptedResponse,
   ApiBadRequestResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiServiceUnavailableResponse,
@@ -29,10 +30,11 @@ import { ErrorResponse } from "../../../common/dto/error.response";
 import { SessionResponse } from "../dto/session.response";
 import { SignInDto } from "../dto/sign-in.dto";
 import { SignUpDto } from "../dto/sign-up.dto";
+import { RefreshSessionService } from "../service/refresh-session.service";
 import { SessionService } from "../service/session.service";
 import { SignInService } from "../service/sign-in.service";
 import { SignUpService } from "../service/sign-up.service";
-import { setSessionCookies } from "../utils/session-cookies";
+import { REFRESH_COOKIE, setSessionCookies } from "../utils/session-cookies";
 
 const USER_AGENT_LIMIT = 512;
 const SESSION_COOKIES = {
@@ -53,12 +55,19 @@ function userAgentOf(request: Request): string | null {
   return userAgent.slice(0, USER_AGENT_LIMIT);
 }
 
+function refreshTokenOf(request: Request): string | undefined {
+  const cookies = request.cookies as Record<string, string> | undefined;
+
+  return cookies?.[REFRESH_COOKIE];
+}
+
 @ApiTags("Auth")
 @Controller("auth")
 export class AuthController {
   constructor(
     private readonly signUpService: SignUpService,
     private readonly signInService: SignInService,
+    private readonly refreshSessionService: RefreshSessionService,
     private readonly sessionService: SessionService,
     private readonly environment: EnvironmentService,
   ) {}
@@ -118,6 +127,35 @@ export class AuthController {
     setSessionCookies(response, this.environment.get("NODE_ENV"), opened);
 
     return { user: opened.user };
+  }
+
+  @Public()
+  @Post("refresh")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Rotate the refresh token",
+    description:
+      "Authenticated by the clinicore_refresh cookie. Presenting a token that was already rotated drops the whole session.",
+  })
+  @ApiNoContentResponse({
+    description: "Rotated, with both cookies replaced",
+    headers: SESSION_COOKIES,
+  })
+  @ApiUnauthorizedResponse({
+    description:
+      "INVALID_SESSION, or SESSION_REUSED when the old token comes back",
+    type: ErrorResponse,
+  })
+  @ApiForbiddenResponse({ description: "INVALID_ORIGIN", type: ErrorResponse })
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    const rotated = await this.refreshSessionService.refresh(
+      refreshTokenOf(request),
+    );
+
+    setSessionCookies(response, this.environment.get("NODE_ENV"), rotated);
   }
 
   @Get("session")

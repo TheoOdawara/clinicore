@@ -10,6 +10,11 @@ export interface CreatedSession {
   revokedIds: string[];
 }
 
+export type RotationOutcome =
+  | { status: "rotated"; session: Session }
+  | { status: "reused" }
+  | { status: "invalid" };
+
 @Injectable()
 export class SessionRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
@@ -45,6 +50,34 @@ export class SessionRepository {
       }
 
       return { session, revokedIds };
+    });
+  }
+
+  rotate(
+    sessionId: string,
+    matchesStoredHash: (storedHash: string) => boolean,
+    refreshTokenHash: string,
+    expiresAt: Date,
+  ): Promise<RotationOutcome> {
+    return this.dataSource.transaction(async (manager) => {
+      const session = await manager.findOne(Session, {
+        where: { id: sessionId },
+        lock: { mode: "pessimistic_write" },
+      });
+
+      if (session === null || session.expiresAt.getTime() <= Date.now()) {
+        return { status: "invalid" };
+      }
+
+      if (!matchesStoredHash(session.refreshTokenHash)) {
+        await manager.delete(Session, { id: sessionId });
+        return { status: "reused" };
+      }
+
+      session.refreshTokenHash = refreshTokenHash;
+      session.expiresAt = expiresAt;
+
+      return { status: "rotated", session: await manager.save(session) };
     });
   }
 

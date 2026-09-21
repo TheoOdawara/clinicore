@@ -23,6 +23,15 @@ describe("auth routes on the whole application", () => {
     expect(response.body).toMatchObject({ code: "INVALID_ORIGIN" });
   });
 
+  it("refuses a refresh from an origin outside the list", async () => {
+    const response = await request(probe.server)
+      .post("/auth/refresh")
+      .set("Origin", "http://evil.example")
+      .expect(403);
+
+    expect(response.body).toMatchObject({ code: "INVALID_ORIGIN" });
+  });
+
   it("refuses the session route without the access cookie", async () => {
     const response = await request(probe.server)
       .get("/auth/session")
