@@ -35,10 +35,19 @@ o container de DI, não convenção: o que não está nos `providers` do módulo
   `dto/` com trinta arquivos é o alarme, não a regra.
 - **DTO** é a classe com decorators de `class-validator` em `dto/`; o OpenAPI sai dela pelo plugin de
   CLI do `@nestjs/swagger`, sem `interface` paralela.
+- **A URL é um recurso, nunca um verbo** (ADR 0006). Substantivo no plural e em kebab-case, e o método
+  HTTP diz a operação: `GET` lê, `POST` cria, `PUT` substitui, `PATCH` altera em parte, `DELETE`
+  remove. Operação sem nome natural vira sub-recurso substantivo (`POST /sessions/current/tokens`,
+  `POST /password-resets/confirmation`). Token nunca vai no path, porque o logger registra o path. A
+  única exceção é o OAuth, em `/oauth/<provedor>`.
+- **Todo erro é Problem Details da RFC 9457** (ADR 0006), em `application/problem+json`, montado só
+  pelo `business-error.filter.ts`: `type` é `tag:clinicore.com.br,2026:<código-em-kebab>` para o
+  catálogo e `about:blank` para o resto, `title` fixo por `type`, `status`, e `errors` com
+  `{ pointer, code }` só na validação.
 - **Rota entregue é rota documentada.** O plugin cobre só o corpo da requisição; o resto é escrito no
   controller e faz parte da entrega, nunca de um passe depois: `@ApiOperation` com o resumo,
   `@ApiOkResponse` e companhia com o `type` da classe de resposta, **cada código de erro do catálogo
-  que a rota pode devolver** apontando para `common/dto/error.response.ts`, e `headers` nas rotas que
+  que a rota pode devolver** por `@ApiProblemResponse`, que aponta para `common/dto/problem.response.ts`, e `headers` nas rotas que
   devolvem `Set-Cookie`. **A resposta é uma classe em `dto/`** — um `type` ou uma `interface` não
   chega ao documento, e é por isso que `SessionUserResponse` é classe.
 - **`@ApiProperty` existe para o que o `class-validator` não conta**: regra de um decorator próprio

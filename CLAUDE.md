@@ -28,7 +28,7 @@ cookie de sessão em `SameSite=Lax`.
 | Dados | PostgreSQL 18 · TypeORM 1.1 com `@nestjs/typeorm` e `pg` | TanStack Query 5.102 · axios 1 · Zod 4.6 | — |
 | Formulário | — | TanStack Form 1.33 com schema Zod | — |
 | Estilo | — | Tailwind 4.3 · shadcn/ui sobre Radix e CVA · `tw-animate-css` | Tailwind 4.3 · shadcn/ui, com cópia própria |
-| Auth | `@nestjs/passport`, `@nestjs/jwt` e `@node-rs/argon2`; access token curto e refresh na tabela `session` | axios contra as rotas `/auth/*` da API, com o refresh no interceptor | — |
+| Auth | `@nestjs/passport`, `@nestjs/jwt` e `@node-rs/argon2`; access token curto e refresh na tabela `session` | axios contra `/users` e `/sessions` da API, com o refresh no interceptor | — |
 | Fila e agendamento | `@nestjs/bullmq` · `@nestjs/schedule` | — | — |
 | Redis 8 | fila, contagem do limite por IP e denylist de revogação de sessão | — | — |
 | HTTP de saída | `@nestjs/axios` sobre axios 1 | — | — |
@@ -41,8 +41,9 @@ As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0001-api-em-nestjs-typeorm-e-redis.md`,
 `docs/decisions/0002-web-e-site-em-vite.md`,
 `docs/decisions/0003-design-system-com-shadcn-ui-e-react-bits.md`,
-`docs/decisions/0004-lint-do-front-em-eslint.md` e
-`docs/decisions/0005-front-em-npm-sobre-node.md`.
+`docs/decisions/0004-lint-do-front-em-eslint.md`,
+`docs/decisions/0005-front-em-npm-sobre-node.md` e
+`docs/decisions/0006-api-rest-e-problem-details.md`.
 
 ## Comandos
 

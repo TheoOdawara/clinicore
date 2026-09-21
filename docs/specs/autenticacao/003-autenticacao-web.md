@@ -7,7 +7,8 @@
 > **Issue:** #3
 > **Spec irmã:** `docs/specs/autenticacao/003-autenticacao-api.md` (perfil API)
 > **Decisões:** `docs/decisions/0002-web-e-site-em-vite.md` ·
-> `docs/decisions/0003-design-system-com-shadcn-ui-e-react-bits.md`
+> `docs/decisions/0003-design-system-com-shadcn-ui-e-react-bits.md` ·
+> `docs/decisions/0006-api-rest-e-problem-details.md`
 
 ## Acceptance Criteria
 
@@ -40,12 +41,13 @@ Sete telas. Cinco públicas, duas dentro da área logada.
 - **`/signup`** — mesma estrutura, com os campos Nome, E-mail e Senha, o botão `Criar conta`, o botão
   `Entrar com Google` e o link `Já tenho conta`. Abaixo do campo Senha, a regra de senha fica sempre
   visível como texto auxiliar.
-- **`/verify-email`** — é para onde o cadastro redireciona e para onde o link de confirmação volta.
-  Três estados, decididos na abertura:
-  - **com sessão válida** — a confirmação deu certo e a API já criou a sessão; redireciona para `/app`;
-  - **com `error` na query** (`INVALID_TOKEN` ou `TOKEN_EXPIRED`, colocado pela API) — mostra a
-    mensagem de link expirado, o campo E-mail e o botão `Reenviar link`;
-  - **sem sessão e sem `error`** — mostra a instrução, o e-mail para onde o link foi enviado, quando
+- **`/verify-email`** — é para onde o cadastro redireciona e para onde o link de confirmação aponta,
+  com `?token=` (ADR 0006). Três estados, decididos na abertura:
+  - **com `token` na query** — chama `POST /email-verifications/confirmation` com `{ token }`. O `204`
+    traz a sessão nos cookies e leva para `/app`; o `400` com `type` `invalid-token` ou `token-expired`
+    mostra a mensagem de link expirado, o campo E-mail e o botão `Reenviar link`;
+  - **com sessão válida e sem `token`** — redireciona para `/app`;
+  - **sem sessão e sem `token`** — mostra a instrução, o e-mail para onde o link foi enviado, quando
     ele veio no estado da navegação, e o botão `Reenviar link`. Sem e-mail no estado da navegação,
     mostra o campo E-mail.
 - **`/forgot-password`** — um campo E-mail, o botão `Enviar link` e o link `Voltar para entrar`.
@@ -105,26 +107,26 @@ da guarda ao tentar abrir uma tela da aplicação sem sessão.
 
   | Ação da tela | Rota |
   | --- | --- |
-  | Entrar | `POST /auth/sign-in` |
-  | Criar conta | `POST /auth/sign-up` |
-  | Carregar a sessão | `GET /auth/session` |
-  | Renovar a sessão | `POST /auth/refresh` (regra 11) |
-  | Sair | `POST /auth/sign-out` |
-  | Reenviar link de confirmação | `POST /auth/send-verification-email` |
-  | Enviar link de recuperação | `POST /auth/request-password-reset` |
-  | Redefinir a senha | `POST /auth/reset-password` |
-  | Trocar a senha | `POST /auth/change-password` |
-  | Entrar com Google | navegação de topo para `GET /auth/google` |
+  | Entrar | `POST /sessions` |
+  | Criar conta | `POST /users` |
+  | Carregar a sessão | `GET /sessions/current` |
+  | Renovar a sessão | `POST /sessions/current/tokens` (regra 11) |
+  | Sair | `DELETE /sessions/current` |
+  | Reenviar link de confirmação | `POST /email-verifications` |
+  | Enviar link de recuperação | `POST /password-resets` |
+  | Redefinir a senha | `POST /password-resets/confirmation` |
+  | Trocar a senha | `PUT /users/me/password` |
+  | Entrar com Google | navegação de topo para `GET /oauth/google` |
 
 - **O web não envia URL de redirecionamento em nenhuma chamada.** `callbackURL`, `errorCallbackURL` e
   `redirectTo` deixaram de existir: a API monta todo destino no servidor a partir de `APP_ORIGIN`, e o
   DTO recusa campo desconhecido. Mandar qualquer um deles faz a requisição ser recusada.
 - **`Entrar com Google` é navegação de topo, não requisição.** O botão leva o browser para
-  `<VITE_API_URL>/auth/google` com `window.location.assign`, porque o fluxo termina em `302` para o
+  `<VITE_API_URL>/oauth/google` com `window.location.assign`, porque o fluxo termina em `302` para o
   Google e volta por navegação. Chamar essa rota por axios não funcionaria: o `XHR` segue o
   redirecionamento dentro da própria requisição, e o usuário nunca sairia da página.
 - **O JavaScript nunca lê o cookie de sessão** — ele é `HttpOnly`. Quem diz se há sessão é
-  `GET /auth/session`, e o resultado é cacheado pelo TanStack Query.
+  `GET /sessions/current`, e o resultado é cacheado pelo TanStack Query.
 - `sessionQueryOptions` vive em `features/auth/api/` e é o que rota e componentes consomem.
 
 ### 3. Toda resposta da API passa por um schema Zod
@@ -146,41 +148,43 @@ da guarda ao tentar abrir uma tela da aplicação sem sessão.
   de novo o que passar daqui. O web valida para dar resposta imediata, nunca como única defesa.
 - O campo `Confirmar nova senha` é validado só no web: ele não existe na API.
 
-### 5. O texto que o usuário lê é pt-BR e nasce do `code`
+### 5. O texto que o usuário lê é pt-BR e nasce do `type`
 
-`features/auth/api/messages.ts` traduz o `code` da resposta. Um `code` sem tradução cai na mensagem
-genérica, e a resposta original é registrada no console para depuração.
+Todo erro da API é Problem Details da RFC 9457 (ADR 0006). `features/auth/api/messages.ts` traduz o
+`type` da resposta, identificado pelo código depois do prefixo `tag:clinicore.com.br,2026:`, e o
+`error` que o fluxo do Google devolve na query. Um código sem tradução cai na mensagem genérica, e a
+resposta original é registrada no console para depuração.
 
-| `code` ou situação | Mensagem exibida |
+| Código do `type`, `error` da query ou situação | Mensagem exibida |
 | --- | --- |
-| `INVALID_CREDENTIALS` | "E-mail ou senha incorretos." |
-| `EMAIL_NOT_VERIFIED` | "Confirme seu e-mail antes de entrar. Confira sua caixa de entrada ou peça um novo link." |
-| `INVALID_TOKEN` | "Este link expirou ou já foi usado. Peça um novo." |
-| `TOKEN_EXPIRED` | "Este link expirou ou já foi usado. Peça um novo." |
-| `INVALID_PASSWORD` | "Senha atual incorreta." |
-| `INVALID_SESSION` | "Sua sessão expirou. Entre de novo." |
-| `SESSION_REUSED` | "Sua sessão expirou. Entre de novo." |
-| `INVALID_STATE` | "Não foi possível entrar com o Google. Tente de novo." |
-| `UNVERIFIED_PROVIDER_EMAIL` | "A sua conta do Google ainda não tem o e-mail confirmado. Confirme no Google e tente de novo." |
-| `PROVIDER_ERROR` | "Não foi possível entrar com o Google. Tente de novo." |
-| `SERVICE_UNAVAILABLE` | "O sistema está indisponível no momento. Tente de novo em instantes." |
-| `RATE_LIMITED`, ou HTTP `429` | "Muitas tentativas. Tente de novo em um minuto." |
-| `VALIDATION_FAILED` | "Não foi possível completar a ação. Tente de novo." |
-| `INTERNAL_ERROR` | "Não foi possível completar a ação. Tente de novo." |
-| `INVALID_ORIGIN` | "Não foi possível completar a ação. Tente de novo." |
+| `invalid-credentials` | "E-mail ou senha incorretos." |
+| `email-not-verified` | "Confirme seu e-mail antes de entrar. Confira sua caixa de entrada ou peça um novo link." |
+| `invalid-token` | "Este link expirou ou já foi usado. Peça um novo." |
+| `token-expired` | "Este link expirou ou já foi usado. Peça um novo." |
+| `invalid-password` | "Senha atual incorreta." |
+| `invalid-session` | "Sua sessão expirou. Entre de novo." |
+| `session-reused` | "Sua sessão expirou. Entre de novo." |
+| `INVALID_STATE`, na query | "Não foi possível entrar com o Google. Tente de novo." |
+| `UNVERIFIED_PROVIDER_EMAIL`, na query | "A sua conta do Google ainda não tem o e-mail confirmado. Confirme no Google e tente de novo." |
+| `PROVIDER_ERROR`, na query | "Não foi possível entrar com o Google. Tente de novo." |
+| `service-unavailable` | "O sistema está indisponível no momento. Tente de novo em instantes." |
+| `rate-limited`, ou HTTP `429` | "Muitas tentativas. Tente de novo em um minuto." |
+| `validation-failed` | "Não foi possível completar a ação. Tente de novo." |
+| `about:blank`, qualquer status | "Não foi possível completar a ação. Tente de novo." |
+| `invalid-origin` | "Não foi possível completar a ação. Tente de novo." |
 | resposta que não passa no `.parse()` do Zod | "Não foi possível completar a ação. Tente de novo." |
 | qualquer outro, ou falha de rede | "Não foi possível completar a ação. Tente de novo." |
 
-**`VALIDATION_FAILED` e `INVALID_ORIGIN` não ganham texto próprio de propósito.** O web valida todo campo
+**`validation-failed` e `invalid-origin` não ganham texto próprio de propósito.** O web valida todo campo
 antes de enviar (regras 3 e 4), e a origem é configuração — se qualquer um dos dois chegar, é defeito
 nosso, não algo que o usuário possa corrigir. Os dois caem na mensagem genérica e a resposta inteira vai
 para o console, como manda o parágrafo acima.
 
-**Não existe `WEAK_PASSWORD` na API.** Senha fora da política volta como `VALIDATION_FAILED` com o campo
-em `fields`. A mensagem de senha fraca que o usuário lê é escrita no navegador, pela regra 4, antes de
-qualquer requisição sair.
+**Não existe `type` de senha fraca na API.** Senha fora da política volta como `validation-failed`, com
+`{ "pointer": "#/password", "code": "WEAK_PASSWORD" }` em `errors`. A mensagem de senha fraca que o
+usuário lê é escrita no navegador, pela regra 4, antes de qualquer requisição sair.
 
-Mensagens validadas apenas no navegador, sem `code` correspondente na API:
+Mensagens validadas apenas no navegador, sem `type` correspondente na API:
 
 | Situação | Mensagem exibida |
 | --- | --- |
@@ -278,7 +282,7 @@ O access token vive 15 minutos e o refresh vive 24 horas (regra 2 da spec irmã)
 essa renovação; agora ela é código nosso, e mora inteira no interceptor de resposta da instância de
 `shared/http/`.
 
-- **Um `401` dispara uma única chamada a `POST /auth/refresh`.** Enquanto ela está em curso, toda
+- **Um `401` dispara uma única chamada a `POST /sessions/current/tokens`.** Enquanto ela está em curso, toda
   requisição que também tomar `401` **espera essa mesma chamada** em vez de disparar a sua. Sem isso,
   uma tela que carrega três recursos de uma vez dispara três refreshes, e a rotação da regra 3 da spec
   irmã trata o segundo como reúso e **derruba a sessão do usuário**.
@@ -287,7 +291,7 @@ essa renovação; agora ela é código nosso, e mora inteira no interceptor de r
 - **Falha:** o cache do TanStack Query é invalidado, o usuário vai para `/login` com o destino atual em
   `search.redirect`, e a mensagem exibida é a de `INVALID_SESSION` da regra 5: "Sua sessão expirou.
   Entre de novo.".
-- **`POST /auth/refresh` e `POST /auth/sign-in` estão fora do interceptor.** Um `401` neles é resposta
+- **`POST /sessions/current/tokens` e `POST /sessions` estão fora do interceptor.** Um `401` neles é resposta
   legítima, não sessão vencida; tentar renovar a partir deles seria laço infinito.
 - **O web não sabe quando o token expira** — ele não lê o cookie, que é `HttpOnly`, e não há
   temporizador. A renovação é sempre reativa, disparada por um `401`.
@@ -306,7 +310,7 @@ Dado um visitante em `/login`
 E que a API responde o login com sucesso
 Quando ele preenche e-mail e senha e aciona `Entrar`
 Então o formulário é submetido uma única vez
-E o corpo de `POST /auth/sign-in` traz só `email` e `password`, sem nenhuma URL de redirecionamento
+E o corpo de `POST /sessions` traz só `email` e `password`, sem nenhuma URL de redirecionamento
 E o usuário é levado para `/app`
 E `/app` exibe o nome e o e-mail devolvidos pela sessão
 ```
@@ -339,7 +343,7 @@ E o usuário é levado para `/verify-email` com o e-mail digitado no estado da n
 Dado um visitante em `/signup`
 E que a API responde `202` com o corpo vazio
 Quando ele aciona `Criar conta`
-Então o corpo de `POST /auth/sign-up` traz só `name`, `email` e `password`
+Então o corpo de `POST /users` traz só `name`, `email` e `password`
 E a tela exibe "Enviamos um link de confirmação para {e-mail}." com o e-mail digitado
 E o usuário é levado para `/verify-email`
 E o componente não recebe nenhuma informação que distinga um e-mail novo de um já cadastrado
@@ -403,7 +407,7 @@ Então a tela exibe "Este link expirou ou já foi usado. Peça um novo."
 E oferece o link `Pedir um novo link` para `/forgot-password`
 E os campos de senha não são renderizados
 E o mesmo acontece em `/reset-password` sem `token` e sem `error`
-E o mesmo acontece quando o `POST` de redefinição responde `INVALID_TOKEN`
+E o mesmo acontece quando o `POST` de redefinição responde com o `type` `invalid-token`
 ```
 
 
@@ -431,7 +435,7 @@ E o botão em submissão mantém a mesma largura ao trocar o rótulo pelo texto 
 ```gherkin
 Dado um visitante em `/login`
 Quando ele aciona `Entrar com Google`
-Então o browser navega para `<VITE_API_URL>/auth/google`, sem passar por axios
+Então o browser navega para `<VITE_API_URL>/oauth/google`, sem passar por axios
 E nenhuma credencial é enviada pelo formulário
 E nenhuma URL de redirecionamento é enviada na query
 E o mesmo botão em `/signup` faz exatamente a mesma navegação
@@ -460,10 +464,10 @@ Então a tela exibe "As senhas não coincidem."
 E nenhuma requisição é enviada
 ```
 
-### Cenário 16 — Um `code` desconhecido não quebra a tela (exceção, regra 5)
+### Cenário 16 — Um `type` desconhecido não quebra a tela (exceção, regra 5)
 
 ```gherkin
-Dado que a API responde com um `code` que não tem tradução
+Dado que a API responde com um `type` que não tem tradução
 Quando qualquer formulário desta spec é submetido
 Então a tela exibe "Não foi possível completar a ação. Tente de novo."
 E a resposta original é registrada no console
@@ -496,14 +500,16 @@ E o mesmo vale para os formulários de `/signup`, `/forgot-password`, `/reset-pa
 ### Cenário 19 — Link de confirmação volta para a tela certa (caminho alternativo, regra 1)
 
 ```gherkin
-Dado um visitante que abre `/verify-email`
-Quando a sessão carregada é válida
+Dado um visitante que abre `/verify-email?token=<token válido>`
+Então `POST /email-verifications/confirmation` é chamado só com `token`
+E ele é levado para `/app`
+Quando ele abre `/verify-email` sem `token` e a sessão carregada é válida
 Então ele é levado para `/app`
-Quando não há sessão e a query traz `error=TOKEN_EXPIRED`
+Quando ele abre `/verify-email?token=<token expirado>` e a API responde `400` com o `type` `token-expired`
 Então a tela exibe "Este link expirou ou já foi usado. Peça um novo."
 E exibe o campo E-mail e o botão `Reenviar link`
 Quando ele aciona `Reenviar link` com um e-mail válido
-Então `POST /auth/send-verification-email` é chamado só com `email`
+Então `POST /email-verifications` é chamado só com `email`
 E a tela exibe "Se houver uma confirmação pendente para este e-mail, você receberá um novo link."
 E o botão fica desabilitado por 60 segundos
 ```
@@ -536,7 +542,7 @@ E o Cache Storage não contém nenhuma URL da origem de `VITE_API_URL`
 Dado um usuário em `/app` cujo access token venceu
 E uma tela que dispara três requisições à API ao abrir
 Quando as três respondem `401` com o código `INVALID_SESSION`
-Então `POST /auth/refresh` é chamado exatamente uma vez
+Então `POST /sessions/current/tokens` é chamado exatamente uma vez
 E as outras duas esperam essa chamada em vez de dispararem a sua
 E, com o refresh bem-sucedido, as três requisições originais são repetidas uma única vez cada
 E o usuário permanece em `/app`, sem ver nenhuma mensagem
@@ -546,13 +552,13 @@ E o usuário permanece em `/app`, sem ver nenhuma mensagem
 
 ```gherkin
 Dado um usuário em `/app/account/password` cujo access token venceu
-E que `POST /auth/refresh` responde `401`
+E que `POST /sessions/current/tokens` responde `401`
 Quando a renovação falha
 Então o cache do TanStack Query é invalidado
 E o usuário é levado para `/login` com `redirect` igual a `/app/account/password`
 E a tela exibe "Sua sessão expirou. Entre de novo."
-E nenhuma segunda chamada a `POST /auth/refresh` é disparada
-E um `401` em `POST /auth/sign-in` nunca dispara renovação
+E nenhuma segunda chamada a `POST /sessions/current/tokens` é disparada
+E um `401` em `POST /sessions` nunca dispara renovação
 ```
 
 ---
@@ -578,7 +584,7 @@ E um `401` em `POST /auth/sign-in` nunca dispara renovação
 
 | Nome do Campo | Tipo | Habilitado | Obrigatório | Regra / Validação |
 | --- | --- | --- | --- | --- |
-| `E-mail` | Texto (254) | Condicional (há `error` na query, ou não há e-mail no estado da navegação) | Condicional (quando visível) | Formato de e-mail; `autoComplete="email"`. Quando oculto, o e-mail vem do estado da navegação |
+| `E-mail` | Texto (254) | Condicional (a confirmação do `token` falhou, ou não há e-mail no estado da navegação) | Condicional (quando visível) | Formato de e-mail; `autoComplete="email"`. Quando oculto, o e-mail vem do estado da navegação |
 
 ### `/forgot-password`
 
@@ -609,14 +615,14 @@ Sem campo. Exibe `user.name` e `user.email` da sessão.
 
 | Nome da Ação | Destino / Ação | Regra de Ativação | Mensagens Associadas |
 | --- | --- | --- | --- |
-| `Entrar` | `POST /auth/sign-in` com `email` e `password`; vai para `search.redirect` ou `/app` | Habilitado com e-mail e senha preenchidos; desabilitado durante a submissão, com o rótulo `Entrando…` | Erro: tabela da regra 5 |
-| `Entrar com Google` | navegação de topo para `<VITE_API_URL>/auth/google`, sem corpo e sem query | Sempre habilitado | Erro: o que voltar em `?error=` na query de `/login`, pela tabela da regra 5 |
-| `Criar conta` | `POST /auth/sign-up` com `name`, `email` e `password`; vai para `/verify-email` | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Criando…` | Sucesso: "Enviamos um link de confirmação para {e-mail}." · Erro: tabela da regra 5 |
-| `Reenviar link` | `POST /auth/send-verification-email` com `email` | Habilitado com um e-mail conhecido ou digitado; volta a ficar habilitado 60 segundos após cada acionamento | Sucesso: "Se houver uma confirmação pendente para este e-mail, você receberá um novo link." · Erro: "Muitas tentativas. Tente de novo em um minuto." |
-| `Enviar link` | `POST /auth/request-password-reset` com `email`; permanece em `/forgot-password` | Habilitado com o e-mail válido; desabilitado durante a submissão, com o rótulo `Enviando…` | Sucesso: "Se este e-mail tiver cadastro, você receberá um link para redefinir a senha." |
-| `Redefinir senha` | `POST /auth/reset-password` com o `token` da query e a nova senha; vai para `/login` | Habilitado com as duas senhas válidas e iguais; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha redefinida. Entre com a nova senha." · Erro: tabela da regra 5 |
-| `Salvar` | `POST /auth/change-password` com `currentPassword` e `newPassword`; permanece na tela | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha alterada." · Erro: tabela da regra 5 |
-| `Sair` | `POST /auth/sign-out`, invalida o cache do Query; vai para `/login` | Sempre habilitado | Erro: "Não foi possível completar a ação. Tente de novo." |
+| `Entrar` | `POST /sessions` com `email` e `password`; vai para `search.redirect` ou `/app` | Habilitado com e-mail e senha preenchidos; desabilitado durante a submissão, com o rótulo `Entrando…` | Erro: tabela da regra 5 |
+| `Entrar com Google` | navegação de topo para `<VITE_API_URL>/oauth/google`, sem corpo e sem query | Sempre habilitado | Erro: o que voltar em `?error=` na query de `/login`, pela tabela da regra 5 |
+| `Criar conta` | `POST /users` com `name`, `email` e `password`; vai para `/verify-email` | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Criando…` | Sucesso: "Enviamos um link de confirmação para {e-mail}." · Erro: tabela da regra 5 |
+| `Reenviar link` | `POST /email-verifications` com `email` | Habilitado com um e-mail conhecido ou digitado; volta a ficar habilitado 60 segundos após cada acionamento | Sucesso: "Se houver uma confirmação pendente para este e-mail, você receberá um novo link." · Erro: "Muitas tentativas. Tente de novo em um minuto." |
+| `Enviar link` | `POST /password-resets` com `email`; permanece em `/forgot-password` | Habilitado com o e-mail válido; desabilitado durante a submissão, com o rótulo `Enviando…` | Sucesso: "Se este e-mail tiver cadastro, você receberá um link para redefinir a senha." |
+| `Redefinir senha` | `POST /password-resets/confirmation` com o `token` da query e a nova senha; vai para `/login` | Habilitado com as duas senhas válidas e iguais; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha redefinida. Entre com a nova senha." · Erro: tabela da regra 5 |
+| `Salvar` | `PUT /users/me/password` com `currentPassword` e `newPassword`; permanece na tela | Habilitado com os três campos válidos; desabilitado durante a submissão, com o rótulo `Salvando…` | Sucesso: "Senha alterada." · Erro: tabela da regra 5 |
+| `Sair` | `DELETE /sessions/current`, invalida o cache do Query; vai para `/login` | Sempre habilitado | Erro: "Não foi possível completar a ação. Tente de novo." |
 | `Esqueci minha senha` | Link para `/forgot-password` | Sempre habilitado | — |
 | `Criar conta` (link) | Link para `/signup` | Sempre habilitado | — |
 | `Já tenho conta` | Link para `/login` | Sempre habilitado | — |
