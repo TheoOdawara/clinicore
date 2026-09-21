@@ -162,8 +162,11 @@ go-live.
 - **Offline no app** — sem internet, o app mostra e grava como se estivesse online; o que foi gravado
   espera numa fila e sobe quando a conexão volta. Uma escrita feita sobre dado que mudou no servidor é
   recusada e fica em pendência para a pessoa refazer — nada é sobrescrito em silêncio. O dado de saúde
-  guardado no aparelho é cifrado, abre com biometria ou PIN, e é apagado após 72 horas sem sincronizar,
-  no logout e na revogação da sessão; a fila pendente não é apagada.
+  guardado no aparelho é cifrado e é apagado após 72 horas sem sincronizar, no logout e na revogação da
+  sessão; a fila pendente não é apagada. O app não tem trava própria: protege o dado a criptografia e o
+  bloqueio do aparelho.
+- **Entrar com biometria** — web e app oferecem passkey como forma de login, ao lado de senha e Google
+  (`docs/specs/autenticacao/004-autenticacao-mobile.md`).
 - **Segurança e LGPD** — dado de saúde é dado sensível: isolamento entre tenants, criptografia em
   trânsito e repouso, trilha de auditoria de acesso ao prontuário, menor privilégio por papel.
 - **Validade legal do prontuário eletrônico** — eliminar papel exige conformidade com as normas do CFO e

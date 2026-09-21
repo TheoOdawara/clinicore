@@ -1,6 +1,6 @@
 # 0007. App nativo em Flutter, com offline completo
 
-- Status: accepted
+- Status: accepted, emendada em 2026-09-21 pela spec `004-sessao-por-token-api.md` nos itens 7 e 8
 - Date: 2026-09-21
 - Emenda a: 0002 (o web deixa de ser o único front do sistema e não guarda dado clínico offline),
   `docs/requirements.md` §5 (Plataforma) e `CLAUDE.md` da raiz (Stack)
@@ -41,7 +41,6 @@ clínico offline; o offline é exclusivo do app.
 | Cliente HTTP gerado do OpenAPI | `swagger_parser` (Retrofit sobre dio) | 1.44.3 |
 | Banco local | `drift` sobre `sqlite3`, cifrado com SQLite3MultipleCiphers (`source: sqlite3mc`) | 2.35.0 · 3.6.0 |
 | Token e chave do banco | `flutter_secure_storage` — Keychain no iOS, Keystore no Android | 11.2.0 |
-| Desbloqueio | `local_auth`, biometria com PIN do aparelho como alternativa | 3.0.2 |
 
 Decisões de detalhe dentro desta:
 
@@ -66,12 +65,16 @@ Decisões de detalhe dentro desta:
 6. **O dado no aparelho vem em duas camadas.** A ocupação da agenda — horário livre ou ocupado, sem
    paciente — cobre um período longo, para responder "tem horário daqui a dois meses". O dado clínico
    cobre só os pacientes de um período curto. Os dois períodos são números da spec da agenda.
-7. **Dado de saúde no aparelho** fica no banco cifrado, com a chave no Keychain/Keystore, e só abre
-   depois do desbloqueio por biometria ou PIN. É apagado **72 horas após a última sincronização**, no
+7. **Dado de saúde no aparelho** fica no banco cifrado, com a chave no Keychain/Keystore. **O app não
+   tem trava própria**: a biometria é forma de login (passkey), não bloqueio de tela, e o dado offline
+   fica protegido pela criptografia do banco e pelo bloqueio do aparelho, quando a pessoa configurou um.
+   Quem deixa o aparelho sem bloqueio assume esse risco. É apagado **72 horas após a última sincronização**, no
    logout e quando a API recusa o refresh da sessão. A fila pendente não é apagada: sobe no próximo login.
 8. **A sessão do app é token no header**, não cookie: o app não é o mesmo site da API, então o
    `SameSite=Lax` da spec `003-autenticacao-api.md` não se aplica a ele. Access token curto, refresh
-   opaco guardado no Keychain/Keystore, os dois na mesma tabela `session` que o web usa.
+   opaco guardado no Keychain/Keystore, os dois na mesma tabela `session` que o web usa. A sessão do
+   app dura 7 dias de inatividade; a do web continua em 24 horas, porque o computador da recepção é
+   compartilhado. O contrato está em `docs/specs/autenticacao/004-sessao-por-token-api.md`.
 9. **Leitura de prontuário offline é auditada.** O app registra o acesso localmente e o envia pela mesma
    fila, para que a trilha de acesso ao prontuário do §5 dos requisitos não tenha buraco.
 
@@ -80,7 +83,7 @@ Fica fora desta ADR, cada um com o seu dono:
 - Os dois períodos do item 6 — spec da agenda, depois de analisar o uso real.
 - O canal da notificação do item 5 — spec do prontuário.
 - As rotas de sincronização e o formato da pendência — spec do motor de sync.
-- As rotas e o ciclo do token do item 8 — spec de autenticação do app.
+- As rotas e o ciclo do token do item 8 — `docs/specs/autenticacao/004-sessao-por-token-api.md`.
 
 Ordem do que vem depois: spec de autenticação do app, spec do motor de sync, scaffold do `apps/mobile`.
 
