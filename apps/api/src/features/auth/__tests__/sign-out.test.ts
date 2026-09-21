@@ -62,7 +62,9 @@ describe("POST /auth/sign-out", () => {
       .get("/auth/session")
       .set("Cookie", [access])
       .expect(401);
-    expect(me.body).toMatchObject({ code: "INVALID_SESSION" });
+    expect(me.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-session",
+    });
   });
 
   it("refuses the repeated sign-out and changes nothing", async () => {
@@ -79,13 +81,17 @@ describe("POST /auth/sign-out", () => {
       .set("Cookie", [access])
       .expect(401);
 
-    expect(response.body).toMatchObject({ code: "INVALID_SESSION" });
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-session",
+    });
     expect(await authApp.dataSource.getRepository(Session).count()).toBe(0);
   });
 
   it("refuses a request without the access cookie", async () => {
     const response = await authApp.post("/auth/sign-out").expect(401);
 
-    expect(response.body).toMatchObject({ code: "INVALID_SESSION" });
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-session",
+    });
   });
 });

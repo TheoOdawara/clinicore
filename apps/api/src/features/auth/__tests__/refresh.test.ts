@@ -89,9 +89,9 @@ describe("POST /auth/refresh", () => {
       .expect(401);
 
     expect(response.body).toEqual({
-      code: "SESSION_REUSED",
-      message: "Refresh token reuse detected",
-      fields: {},
+      type: "tag:clinicore.com.br,2026:session-reused",
+      title: "Refresh token reuse detected",
+      status: 401,
     });
 
     const session = await authApp.dataSource
@@ -108,14 +108,18 @@ describe("POST /auth/refresh", () => {
       .get("/auth/session")
       .set("Cookie", [rotatedAccess])
       .expect(401);
-    expect(invalidSession.body).toMatchObject({ code: "INVALID_SESSION" });
+    expect(invalidSession.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-session",
+    });
 
     const rotatedRefresh = cookieNamed(rotation, REFRESH_COOKIE) ?? "";
     const refusedRefresh = await authApp
       .post("/auth/refresh")
       .set("Cookie", [rotatedRefresh])
       .expect(401);
-    expect(refusedRefresh.body).toMatchObject({ code: "INVALID_SESSION" });
+    expect(refusedRefresh.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-session",
+    });
   });
 
   it("refuses a refresh token of a session that does not exist", async () => {
@@ -127,7 +131,9 @@ describe("POST /auth/refresh", () => {
       .set("Cookie", [refresh])
       .expect(401);
 
-    expect(response.body).toMatchObject({ code: "INVALID_SESSION" });
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-session",
+    });
   });
 
   it("refuses a malformed refresh token", async () => {
@@ -138,6 +144,8 @@ describe("POST /auth/refresh", () => {
       .set("Cookie", [`${REFRESH_COOKIE}=not-a-token`])
       .expect(401);
 
-    expect(response.body).toMatchObject({ code: "INVALID_SESSION" });
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-session",
+    });
   });
 });

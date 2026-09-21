@@ -8,7 +8,6 @@ export type ErrorCode =
   | "EMAIL_NOT_VERIFIED"
   | "INVALID_ORIGIN"
   | "RATE_LIMITED"
-  | "INTERNAL_ERROR"
   | "SERVICE_UNAVAILABLE";
 
 export type BusinessErrorType =
@@ -19,51 +18,54 @@ export type BusinessErrorType =
   | "Unauthorized"
   | "Unavailable";
 
-export type ErrorFields = Record<string, string>;
+export interface FieldError {
+  pointer: string;
+  code: string;
+}
 
 export class BusinessError extends Error {
   readonly type: BusinessErrorType;
   readonly code: ErrorCode;
-  readonly fields: ErrorFields;
+  readonly errors: FieldError[];
 
   private constructor(
     type: BusinessErrorType,
     code: ErrorCode,
     message: string,
-    fields: ErrorFields,
+    errors: FieldError[],
   ) {
     super(message);
     this.name = "BusinessError";
     this.type = type;
     this.code = code;
-    this.fields = fields;
+    this.errors = errors;
   }
 
   static notFound(code: ErrorCode, message: string): BusinessError {
-    return new BusinessError("NotFound", code, message, {});
+    return new BusinessError("NotFound", code, message, []);
   }
 
   static conflict(code: ErrorCode, message: string): BusinessError {
-    return new BusinessError("Conflict", code, message, {});
+    return new BusinessError("Conflict", code, message, []);
   }
 
   static forbidden(code: ErrorCode, message: string): BusinessError {
-    return new BusinessError("Forbidden", code, message, {});
+    return new BusinessError("Forbidden", code, message, []);
   }
 
   static invalid(
     code: ErrorCode,
     message: string,
-    fields: ErrorFields = {},
+    errors: FieldError[] = [],
   ): BusinessError {
-    return new BusinessError("Invalid", code, message, fields);
+    return new BusinessError("Invalid", code, message, errors);
   }
 
   static unauthorized(code: ErrorCode, message: string): BusinessError {
-    return new BusinessError("Unauthorized", code, message, {});
+    return new BusinessError("Unauthorized", code, message, []);
   }
 
   static unavailable(code: ErrorCode, message: string): BusinessError {
-    return new BusinessError("Unavailable", code, message, {});
+    return new BusinessError("Unavailable", code, message, []);
   }
 }

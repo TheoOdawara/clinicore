@@ -44,9 +44,9 @@ describe("OriginGuard", () => {
       .expect(403);
 
     expect(response.body).toEqual({
-      code: "INVALID_ORIGIN",
-      message: "Invalid origin",
-      fields: {},
+      type: "tag:clinicore.com.br,2026:invalid-origin",
+      title: "Invalid origin",
+      status: 403,
     });
   });
 
@@ -56,7 +56,9 @@ describe("OriginGuard", () => {
       .send(CREDENTIALS)
       .expect(403);
 
-    expect(response.body).toMatchObject({ code: "INVALID_ORIGIN" });
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-origin",
+    });
   });
 
   it.each(["https://app.clinicore.com.br", "https://clinicore.com.br"])(

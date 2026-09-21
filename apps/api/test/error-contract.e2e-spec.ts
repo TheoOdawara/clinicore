@@ -17,10 +17,13 @@ describe("error contract", () => {
   it("answers an unhandled error with 500 and no detail", async () => {
     const response = await request(probe.server).get("/probe/boom").expect(500);
 
+    expect(response.headers["content-type"]).toMatch(
+      /^application\/problem\+json/,
+    );
     expect(response.body).toEqual({
-      code: "INTERNAL_ERROR",
-      message: "Internal server error",
-      fields: {},
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
     });
     expect(response.text).not.toContain("probe failure with a stack");
   });
@@ -38,9 +41,9 @@ describe("error contract", () => {
       .expect(500);
 
     expect(response.body).toEqual({
-      code: "INTERNAL_ERROR",
-      message: "Internal server error",
-      fields: {},
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
     });
     expect(response.text).not.toContain("db-prod");
     expect(probe.written()).toContain("db-prod:5432 refused");
@@ -52,9 +55,9 @@ describe("error contract", () => {
       .expect(503);
 
     expect(response.body).toEqual({
-      code: "SERVICE_UNAVAILABLE",
-      message: "Server error",
-      fields: {},
+      type: "about:blank",
+      title: "Service Unavailable",
+      status: 503,
     });
     expect(response.text).not.toContain("cache-prod");
     expect(probe.written()).toContain("cache-prod:6379 is down");
@@ -65,10 +68,13 @@ describe("error contract", () => {
       .get("/probe/business-unavailable")
       .expect(503);
 
+    expect(response.headers["content-type"]).toMatch(
+      /^application\/problem\+json/,
+    );
     expect(response.body).toEqual({
-      code: "SERVICE_UNAVAILABLE",
-      message: "Service temporarily unavailable",
-      fields: {},
+      type: "tag:clinicore.com.br,2026:service-unavailable",
+      title: "Service temporarily unavailable",
+      status: 503,
     });
   });
 
@@ -77,7 +83,14 @@ describe("error contract", () => {
       .get("/probe/does-not-exist")
       .expect(404);
 
-    expect(response.body).toMatchObject({ code: "NOT_FOUND", fields: {} });
+    expect(response.headers["content-type"]).toMatch(
+      /^application\/problem\+json/,
+    );
+    expect(response.body).toEqual({
+      type: "about:blank",
+      title: "Not Found",
+      status: 404,
+    });
   });
 
   it("names the first violated constraint of each field", async () => {
@@ -88,9 +101,13 @@ describe("error contract", () => {
       .expect(400);
 
     expect(response.body).toEqual({
-      code: "VALIDATION_FAILED",
-      message: "Validation failed",
-      fields: { email: "IS_EMAIL", password: "MIN_LENGTH" },
+      type: "tag:clinicore.com.br,2026:validation-failed",
+      title: "Validation failed",
+      status: 400,
+      errors: [
+        { pointer: "#/email", code: "IS_EMAIL" },
+        { pointer: "#/password", code: "MIN_LENGTH" },
+      ],
     });
   });
 
@@ -102,9 +119,10 @@ describe("error contract", () => {
       .expect(400);
 
     expect(response.body).toEqual({
-      code: "VALIDATION_FAILED",
-      message: "Validation failed",
-      fields: { "address.zip": "IS_STRING" },
+      type: "tag:clinicore.com.br,2026:validation-failed",
+      title: "Validation failed",
+      status: 400,
+      errors: [{ pointer: "#/address/zip", code: "IS_STRING" }],
     });
   });
 
@@ -120,8 +138,8 @@ describe("error contract", () => {
       .expect(400);
 
     expect(response.body).toMatchObject({
-      code: "VALIDATION_FAILED",
-      fields: { role: "WHITELIST_VALIDATION" },
+      type: "tag:clinicore.com.br,2026:validation-failed",
+      errors: [{ pointer: "#/role", code: "WHITELIST_VALIDATION" }],
     });
   });
 });

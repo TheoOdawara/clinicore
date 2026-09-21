@@ -62,7 +62,9 @@ describe("the cap of active sessions", () => {
       .get("/auth/session")
       .set("Cookie", [oldestAccess])
       .expect(401);
-    expect(me.body).toMatchObject({ code: "INVALID_SESSION" });
+    expect(me.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-session",
+    });
   });
 
   it("keeps exactly five sessions after twenty sign-ins", async () => {

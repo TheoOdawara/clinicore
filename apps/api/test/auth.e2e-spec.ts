@@ -20,7 +20,9 @@ describe("auth routes on the whole application", () => {
       .send({ email: "ana@exemplo.com", password: "Clinica#2026" })
       .expect(403);
 
-    expect(response.body).toMatchObject({ code: "INVALID_ORIGIN" });
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-origin",
+    });
   });
 
   it("refuses a refresh from an origin outside the list", async () => {
@@ -29,7 +31,9 @@ describe("auth routes on the whole application", () => {
       .set("Origin", "http://evil.example")
       .expect(403);
 
-    expect(response.body).toMatchObject({ code: "INVALID_ORIGIN" });
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-origin",
+    });
   });
 
   it("refuses the session route without the access cookie", async () => {
@@ -37,7 +41,9 @@ describe("auth routes on the whole application", () => {
       .get("/auth/session")
       .expect(401);
 
-    expect(response.body).toMatchObject({ code: "INVALID_SESSION" });
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-session",
+    });
   });
 
   it("keeps the health check public with the global guard in place", async () => {

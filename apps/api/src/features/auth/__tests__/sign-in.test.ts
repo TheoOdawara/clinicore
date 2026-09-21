@@ -102,9 +102,9 @@ describe("POST /auth/sign-in", () => {
       .expect(401);
 
     expect(wrongPassword.body).toEqual({
-      code: "INVALID_CREDENTIALS",
-      message: "Invalid email or password",
-      fields: {},
+      type: "tag:clinicore.com.br,2026:invalid-credentials",
+      title: "Invalid email or password",
+      status: 401,
     });
     expect(unknownEmail.body).toEqual(wrongPassword.body);
   });
@@ -144,9 +144,9 @@ describe("POST /auth/sign-in", () => {
       .expect(403);
 
     expect(response.body).toEqual({
-      code: "EMAIL_NOT_VERIFIED",
-      message: "Email not verified",
-      fields: {},
+      type: "tag:clinicore.com.br,2026:email-not-verified",
+      title: "Email not verified",
+      status: 403,
     });
     expect(await authApp.dataSource.getRepository(Session).count()).toBe(0);
   });

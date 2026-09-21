@@ -88,9 +88,10 @@ describe("POST /auth/sign-up", () => {
         .expect(400);
 
       expect(response.body).toEqual({
-        code: "VALIDATION_FAILED",
-        message: "Validation failed",
-        fields: { password: "WEAK_PASSWORD" },
+        type: "tag:clinicore.com.br,2026:validation-failed",
+        title: "Validation failed",
+        status: 400,
+        errors: [{ pointer: "#/password", code: "WEAK_PASSWORD" }],
       });
 
       const users = await authApp.dataSource.getRepository(User).find();
@@ -109,7 +110,9 @@ describe("POST /auth/sign-up", () => {
       })
       .expect(400);
 
-    expect(response.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:validation-failed",
+    });
 
     const users = await authApp.dataSource.getRepository(User).find();
     expect(users).toHaveLength(0);

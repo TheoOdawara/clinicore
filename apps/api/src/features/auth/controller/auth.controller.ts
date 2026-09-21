@@ -10,23 +10,19 @@ import {
 } from "@nestjs/common";
 import {
   ApiAcceptedResponse,
-  ApiBadRequestResponse,
-  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiServiceUnavailableResponse,
   ApiTags,
-  ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import type { Request, Response } from "express";
 import {
   CurrentUser,
   type AuthenticatedUser,
 } from "../../../common/decorators/current-user.decorator";
+import { ApiProblemResponse } from "../../../common/decorators/api-problem-response.decorator";
 import { Public } from "../../../common/decorators/public.decorator";
 import { EnvironmentService } from "../../../core/config/environment.service";
-import { ErrorResponse } from "../../../common/dto/error.response";
 import { SessionResponse } from "../dto/session.response";
 import { SignInDto } from "../dto/sign-in.dto";
 import { SignUpDto } from "../dto/sign-up.dto";
@@ -87,11 +83,11 @@ export class AuthController {
       "Always answers 202 with an empty body, whether the email is new or already registered.",
   })
   @ApiAcceptedResponse({ description: "Accepted, with no body" })
-  @ApiBadRequestResponse({
-    description: "VALIDATION_FAILED, with the offending field in fields",
-    type: ErrorResponse,
-  })
-  @ApiForbiddenResponse({ description: "INVALID_ORIGIN", type: ErrorResponse })
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    "VALIDATION_FAILED, with the offending field in fields",
+  )
+  @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
   async signUp(@Body() body: SignUpDto): Promise<void> {
     await this.signUpService.signUp(body.name, body.email, body.password);
   }
@@ -105,19 +101,15 @@ export class AuthController {
     type: SessionResponse,
     headers: SESSION_COOKIES,
   })
-  @ApiBadRequestResponse({
-    description: "VALIDATION_FAILED",
-    type: ErrorResponse,
-  })
-  @ApiUnauthorizedResponse({
-    description:
-      "INVALID_CREDENTIALS, for both a wrong password and an unknown email",
-    type: ErrorResponse,
-  })
-  @ApiForbiddenResponse({
-    description: "EMAIL_NOT_VERIFIED, or INVALID_ORIGIN",
-    type: ErrorResponse,
-  })
+  @ApiProblemResponse(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED")
+  @ApiProblemResponse(
+    HttpStatus.UNAUTHORIZED,
+    "INVALID_CREDENTIALS, for both a wrong password and an unknown email",
+  )
+  @ApiProblemResponse(
+    HttpStatus.FORBIDDEN,
+    "EMAIL_NOT_VERIFIED, or INVALID_ORIGIN",
+  )
   async signIn(
     @Body() body: SignInDto,
     @Req() request: Request,
@@ -147,12 +139,11 @@ export class AuthController {
     description: "Rotated, with both cookies replaced",
     headers: SESSION_COOKIES,
   })
-  @ApiUnauthorizedResponse({
-    description:
-      "INVALID_SESSION, or SESSION_REUSED when the old token comes back",
-    type: ErrorResponse,
-  })
-  @ApiForbiddenResponse({ description: "INVALID_ORIGIN", type: ErrorResponse })
+  @ApiProblemResponse(
+    HttpStatus.UNAUTHORIZED,
+    "INVALID_SESSION, or SESSION_REUSED when the old token comes back",
+  )
+  @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
   async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
@@ -175,16 +166,12 @@ export class AuthController {
     description: "Signed out, with both cookies expired",
     headers: SESSION_COOKIES,
   })
-  @ApiUnauthorizedResponse({
-    description: "INVALID_SESSION",
-    type: ErrorResponse,
-  })
-  @ApiForbiddenResponse({ description: "INVALID_ORIGIN", type: ErrorResponse })
-  @ApiServiceUnavailableResponse({
-    description:
-      "SERVICE_UNAVAILABLE when Redis is unreachable; the session survives",
-    type: ErrorResponse,
-  })
+  @ApiProblemResponse(HttpStatus.UNAUTHORIZED, "INVALID_SESSION")
+  @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
+  @ApiProblemResponse(
+    HttpStatus.SERVICE_UNAVAILABLE,
+    "SERVICE_UNAVAILABLE when Redis is unreachable; the session survives",
+  )
   async signOut(
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) response: Response,
@@ -197,14 +184,11 @@ export class AuthController {
   @Get("session")
   @ApiOperation({ summary: "Read the signed-in user" })
   @ApiOkResponse({ description: "The signed-in user", type: SessionResponse })
-  @ApiUnauthorizedResponse({
-    description: "INVALID_SESSION",
-    type: ErrorResponse,
-  })
-  @ApiServiceUnavailableResponse({
-    description: "SERVICE_UNAVAILABLE when Redis is unreachable",
-    type: ErrorResponse,
-  })
+  @ApiProblemResponse(HttpStatus.UNAUTHORIZED, "INVALID_SESSION")
+  @ApiProblemResponse(
+    HttpStatus.SERVICE_UNAVAILABLE,
+    "SERVICE_UNAVAILABLE when Redis is unreachable",
+  )
   async session(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<SessionResponse> {
