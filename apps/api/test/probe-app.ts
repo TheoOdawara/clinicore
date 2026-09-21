@@ -22,6 +22,7 @@ import { BusinessError } from "../src/common/exceptions/business-error";
 import { configureApplication } from "../src/configure-application";
 import { EnvironmentService } from "../src/core/config/environment.service";
 import { LOGGER, createLogger } from "../src/core/logger/logger";
+import { REDIS, createRedis } from "../src/core/redis/redis";
 
 export const PROBE_COOKIE = "session=probe-cookie-value";
 export const PROBE_SET_COOKIE = "session=probe-set-cookie-value";
@@ -127,7 +128,7 @@ export class Probe {
   }
 }
 
-export async function createProbeApp(): Promise<Probe> {
+export async function createProbeApp(redisUrl?: string): Promise<Probe> {
   const lines: LogLine[] = [];
   const destination = {
     write(line: string): void {
@@ -135,7 +136,7 @@ export async function createProbeApp(): Promise<Probe> {
     },
   };
 
-  const moduleRef = await Test.createTestingModule({
+  let builder = Test.createTestingModule({
     imports: [AppModule, ProbeModule],
   })
     .overrideProvider(LOGGER)
@@ -143,8 +144,13 @@ export async function createProbeApp(): Promise<Probe> {
       inject: [EnvironmentService],
       factory: (environment: EnvironmentService) =>
         createLogger(environment.get("LOG_LEVEL"), destination),
-    })
-    .compile();
+    });
+  if (redisUrl !== undefined) {
+    builder = builder
+      .overrideProvider(REDIS)
+      .useFactory({ factory: () => createRedis(redisUrl) });
+  }
+  const moduleRef = await builder.compile();
 
   const app = moduleRef.createNestApplication<NestExpressApplication>();
   configureApplication(app, app.get(EnvironmentService));
