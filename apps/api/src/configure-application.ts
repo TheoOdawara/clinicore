@@ -1,3 +1,4 @@
+import cookieParser from "cookie-parser";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import type { EnvironmentService } from "./core/config/environment.service";
 
@@ -11,5 +12,6 @@ export function configureApplication(
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   });
+  app.use(cookieParser());
   app.set("trust proxy", environment.get("TRUSTED_PROXIES"));
 }

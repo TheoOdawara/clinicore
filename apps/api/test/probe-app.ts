@@ -16,6 +16,7 @@ import { IsEmail, IsString, MinLength, ValidateNested } from "class-validator";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import type { Response } from "express";
 import { AppModule } from "../src/app.module";
+import { Public } from "../src/common/decorators/public.decorator";
 import { BusinessError } from "../src/common/exceptions/business-error";
 import { configureApplication } from "../src/configure-application";
 import { EnvironmentService } from "../src/core/config/environment.service";
@@ -43,6 +44,7 @@ class ProfileProbeDto {
   address!: AddressProbeDto;
 }
 
+@Public()
 @Controller("probe")
 class ProbeController {
   @Post("sign-in")

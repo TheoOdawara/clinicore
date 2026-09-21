@@ -72,6 +72,7 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "rootDir": "src",
-    "testRegex": "__tests__/.*\\.test\\.ts$"
+    "testRegex": "__tests__/.*\\.test\\.ts$",
+    "maxWorkers": 1
   }
 }
