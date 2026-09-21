@@ -12,7 +12,12 @@ export type ErrorCode =
   | "SERVICE_UNAVAILABLE";
 
 export type BusinessErrorType =
-  "NotFound" | "Conflict" | "Forbidden" | "Invalid" | "Unauthorized";
+  | "NotFound"
+  | "Conflict"
+  | "Forbidden"
+  | "Invalid"
+  | "Unauthorized"
+  | "Unavailable";
 
 export type ErrorFields = Record<string, string>;
 
@@ -56,5 +61,9 @@ export class BusinessError extends Error {
 
   static unauthorized(code: ErrorCode, message: string): BusinessError {
     return new BusinessError("Unauthorized", code, message, {});
+  }
+
+  static unavailable(code: ErrorCode, message: string): BusinessError {
+    return new BusinessError("Unavailable", code, message, {});
   }
 }

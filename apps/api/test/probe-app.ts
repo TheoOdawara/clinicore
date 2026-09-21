@@ -16,6 +16,7 @@ import { IsEmail, IsString, MinLength, ValidateNested } from "class-validator";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import type { Response } from "express";
 import { AppModule } from "../src/app.module";
+import { BusinessError } from "../src/common/exceptions/business-error";
 import { configureApplication } from "../src/configure-application";
 import { EnvironmentService } from "../src/core/config/environment.service";
 import { LOGGER, createLogger } from "../src/core/logger/logger";
@@ -73,6 +74,14 @@ class ProbeController {
   @Get("unavailable")
   unavailable(): never {
     throw new ServiceUnavailableException("redis at cache-prod:6379 is down");
+  }
+
+  @Get("business-unavailable")
+  businessUnavailable(): never {
+    throw BusinessError.unavailable(
+      "SERVICE_UNAVAILABLE",
+      "Service temporarily unavailable",
+    );
   }
 
   @Get("hang")

@@ -20,6 +20,7 @@ const STATUS_BY_TYPE: Record<BusinessErrorType, HttpStatus> = {
   Forbidden: HttpStatus.FORBIDDEN,
   NotFound: HttpStatus.NOT_FOUND,
   Conflict: HttpStatus.CONFLICT,
+  Unavailable: HttpStatus.SERVICE_UNAVAILABLE,
 };
 
 const INTERNAL_SERVER_ERROR: number = HttpStatus.INTERNAL_SERVER_ERROR;

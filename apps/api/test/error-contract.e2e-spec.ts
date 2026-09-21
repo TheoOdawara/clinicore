@@ -60,6 +60,18 @@ describe("error contract", () => {
     expect(probe.written()).toContain("cache-prod:6379 is down");
   });
 
+  it("answers a business unavailable error with the catalog message", async () => {
+    const response = await request(probe.server)
+      .get("/probe/business-unavailable")
+      .expect(503);
+
+    expect(response.body).toEqual({
+      code: "SERVICE_UNAVAILABLE",
+      message: "Service temporarily unavailable",
+      fields: {},
+    });
+  });
+
   it("keeps the status of an exception the framework raised", async () => {
     const response = await request(probe.server)
       .get("/probe/does-not-exist")
