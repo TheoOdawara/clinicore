@@ -1,4 +1,5 @@
 import {
+  All,
   Body,
   Controller,
   Get,
@@ -16,6 +17,8 @@ import { IsEmail, IsString, MinLength, ValidateNested } from "class-validator";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import type { Response } from "express";
 import { AppModule } from "../src/app.module";
+import { Public } from "../src/common/decorators/public.decorator";
+import { BusinessError } from "../src/common/exceptions/business-error";
 import { configureApplication } from "../src/configure-application";
 import { EnvironmentService } from "../src/core/config/environment.service";
 import { LOGGER, createLogger } from "../src/core/logger/logger";
@@ -42,6 +45,7 @@ class ProfileProbeDto {
   address!: AddressProbeDto;
 }
 
+@Public()
 @Controller("probe")
 class ProbeController {
   @Post("sign-in")
@@ -55,6 +59,11 @@ class ProbeController {
 
   @Get("session")
   session(): { status: string } {
+    return { status: "ok" };
+  }
+
+  @All("resource")
+  resource(): { status: string } {
     return { status: "ok" };
   }
 
@@ -73,6 +82,14 @@ class ProbeController {
   @Get("unavailable")
   unavailable(): never {
     throw new ServiceUnavailableException("redis at cache-prod:6379 is down");
+  }
+
+  @Get("business-unavailable")
+  businessUnavailable(): never {
+    throw BusinessError.unavailable(
+      "SERVICE_UNAVAILABLE",
+      "Service temporarily unavailable",
+    );
   }
 
   @Get("hang")

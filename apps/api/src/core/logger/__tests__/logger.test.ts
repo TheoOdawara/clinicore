@@ -28,7 +28,7 @@ describe("createLogger", () => {
         {
           req: {
             method: "POST",
-            url: "/auth/sign-in?token=do-not-leak-query",
+            url: "/sessions?token=do-not-leak-query",
             headers: { cookie: COOKIE, authorization: AUTHORIZATION },
             body: {
               password: PASSWORD,
@@ -53,7 +53,7 @@ describe("createLogger", () => {
     const written = capture((logger) => {
       logger.info(
         {
-          req: { method: "POST", url: "/auth/sign-in?token=secret" },
+          req: { method: "POST", url: "/sessions?token=secret" },
           res: { statusCode: 200 },
         },
         "request",
@@ -65,7 +65,7 @@ describe("createLogger", () => {
       res: { statusCode: number };
     };
 
-    expect(line.req).toEqual({ method: "POST", path: "/auth/sign-in" });
+    expect(line.req).toEqual({ method: "POST", path: "/sessions" });
     expect(line.res).toEqual({ statusCode: 200 });
   });
 

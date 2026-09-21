@@ -17,18 +17,18 @@ corpo, status e cookie são os desta spec.
 
 | Método | Rota | Auth / Role | Idempotente |
 | --- | --- | --- | --- |
-| `POST` | `/auth/sign-up` | público | Sim |
-| `POST` | `/auth/sign-in` | público | Não — limitado pela regra 16 |
-| `POST` | `/auth/refresh` | cookie `clinicore_refresh` | Não — rotaciona (regra 3) |
-| `POST` | `/auth/sign-out` | cookie `clinicore_access` | Sim |
-| `GET` | `/auth/session` | cookie `clinicore_access` | Sim |
-| `POST` | `/auth/send-verification-email` | público | Sim, na janela da regra 15 |
-| `GET` | `/auth/verify-email` | token na query | Sim |
-| `POST` | `/auth/request-password-reset` | público | Sim, na janela da regra 15 |
-| `POST` | `/auth/reset-password` | token no corpo | Sim |
-| `POST` | `/auth/change-password` | cookie `clinicore_access` | Sim |
-| `GET` | `/auth/google` | público | Sim |
-| `GET` | `/auth/google/callback` | `state` e `code` do Google | Sim |
+| `POST` | `/users` | público | Sim |
+| `POST` | `/sessions` | público | Não — limitado pela regra 16 |
+| `POST` | `/sessions/current/tokens` | cookie `clinicore_refresh` | Não — rotaciona (regra 3) |
+| `DELETE` | `/sessions/current` | cookie `clinicore_access` | Sim |
+| `GET` | `/sessions/current` | cookie `clinicore_access` | Sim |
+| `POST` | `/email-verifications` | público | Sim, na janela da regra 15 |
+| `POST` | `/email-verifications/confirmation` | token no corpo | Sim |
+| `POST` | `/password-resets` | público | Sim, na janela da regra 15 |
+| `POST` | `/password-resets/confirmation` | token no corpo | Sim |
+| `PUT` | `/users/me/password` | cookie `clinicore_access` | Sim |
+| `GET` | `/oauth/google` | público | Sim |
+| `GET` | `/oauth/google/callback` | `state` e `code` do Google | Sim |
 | `GET` | `/health` | público | Sim |
 
 **Critério de idempotência:** uma rota é idempotente quando N chamadas iguais deixam o banco, e o que
@@ -43,7 +43,7 @@ vive no Redis e é o mecanismo que limita as chamadas.
 | `refresh` | **Não é.** Cada chamada rotaciona o refresh token; a segunda chamada com o token antigo derruba a sessão (regra 3) |
 | `sign-out` | Depois da primeira, a sessão não existe. Repetir responde `401` e não altera nada |
 | `send-verification-email` | Dentro de 60 segundos, a repetição para o mesmo endereço não envia (regra 15) |
-| `verify-email` | Depois da primeira, o token está consumido. Repetir redireciona com `?error=INVALID_TOKEN` |
+| `verify-email` | Depois da primeira, o token está consumido. Repetir responde `400` com `type` `invalid-token` |
 | `request-password-reset` | Dentro de 60 segundos, a repetição para o mesmo endereço não grava token nem envia (regra 15) |
 | `reset-password` | O token é consumido na primeira. Repetir responde `400 INVALID_TOKEN` e a senha continua a da primeira |
 | `change-password` | Repetir falha em `currentPassword`, porque a senha já mudou |
@@ -57,7 +57,7 @@ Todo corpo é JSON e é uma classe DTO com decorators de `class-validator` em
 destino é montado no servidor a partir de `APP_ORIGIN` (regra 1). Campo desconhecido no corpo é
 recusado.
 
-**`POST /auth/sign-up`**
+**`POST /users`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
@@ -69,43 +69,43 @@ recusado.
 { "name": "Ana Souza", "email": "ana@exemplo.com", "password": "Clinica#2026" }
 ```
 
-**`POST /auth/sign-in`**
+**`POST /sessions`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `email` | `string` | Sim | endereço de e-mail válido |
 | `password` | `string` | Sim | 1 a 128 caracteres |
 
-**`POST /auth/send-verification-email`** e **`POST /auth/request-password-reset`**
+**`POST /email-verifications`** e **`POST /password-resets`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `email` | `string` | Sim | endereço de e-mail válido |
 
-**`GET /auth/verify-email`**
+**`POST /email-verifications/confirmation`**
 
-| Parâmetro | Onde | Tipo | Obrigatório | Validação |
-| --- | --- | --- | --- | --- |
-| `token` | query | `string` | Sim | 43 caracteres base64url |
+| Campo | Tipo | Obrigatório | Validação |
+| --- | --- | --- | --- |
+| `token` | `string` | Sim | 43 caracteres base64url |
 
-**`POST /auth/reset-password`**
+**`POST /password-resets/confirmation`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `token` | `string` | Sim | 43 caracteres base64url |
 | `newPassword` | `string` | Sim | regra 4 (política de senha) |
 
-**`POST /auth/change-password`**
+**`PUT /users/me/password`**
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
 | `currentPassword` | `string` | Sim | 1 a 128 caracteres |
 | `newPassword` | `string` | Sim | regra 4 (política de senha) |
 
-**`POST /auth/refresh`**, **`POST /auth/sign-out`**, **`GET /auth/session`**, **`GET /auth/google`**:
+**`POST /sessions/current/tokens`**, **`DELETE /sessions/current`**, **`GET /sessions/current`**, **`GET /oauth/google`**:
 sem corpo e sem parâmetro. O que identifica quem chama é o cookie (regra 2).
 
-**`GET /auth/google/callback`**
+**`GET /oauth/google/callback`**
 
 | Parâmetro | Onde | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- | --- |
@@ -114,7 +114,7 @@ sem corpo e sem parâmetro. O que identifica quem chama é o cookie (regra 2).
 
 ### Response
 
-**`200 OK` — `POST /auth/sign-in` e `GET /auth/session`**
+**`201 Created` — `POST /sessions`**, com `Location: /sessions/current`, e **`200 OK` — `GET /sessions/current`**
 
 ```json
 {
@@ -131,34 +131,35 @@ sem corpo e sem parâmetro. O que identifica quem chama é o cookie (regra 2).
 Em `sign-in`, junto vêm os dois `Set-Cookie` da regra 2. Em `session`, nenhum cookie é reescrito.
 Todo `id` é um UUID em texto (regra 12).
 
-**`202 Accepted` com corpo vazio** — `POST /auth/sign-up`, `POST /auth/send-verification-email` e
-`POST /auth/request-password-reset`. **Sempre a mesma resposta**, para e-mail novo, já cadastrado,
+**`202 Accepted` com corpo vazio** — `POST /users`, `POST /email-verifications` e
+`POST /password-resets`. **Sempre a mesma resposta**, para e-mail novo, já cadastrado,
 inexistente, já verificado, dentro ou fora da janela da regra 15. Não há corpo porque não há nada que
 possa ser dito sem revelar o estado da conta (regra 8).
 
-**`204 No Content`** — `POST /auth/refresh`, `POST /auth/sign-out`, `POST /auth/reset-password` e
-`POST /auth/change-password`. Em `refresh` vêm os dois `Set-Cookie` novos; em `sign-out`, os dois
+**`204 No Content`** — `POST /sessions/current/tokens`, `DELETE /sessions/current`,
+`POST /email-verifications/confirmation`, `POST /password-resets/confirmation` e `PUT /users/me/password`. Em `refresh` vêm os dois `Set-Cookie` novos; em `sign-out`, os dois
 `Set-Cookie` de expiração.
 
-**`302 Found`** — `GET /auth/verify-email` redireciona para `${APP_ORIGIN}/verify-email`, com
-`?error=<code>` em caso de erro. `GET /auth/google` redireciona para a URL de autorização do Google, e
-`GET /auth/google/callback` redireciona para `${APP_ORIGIN}/app` com os dois cookies de sessão, ou para
-`${APP_ORIGIN}/login?error=<code>`. **Os três destinos são montados a partir de `APP_ORIGIN`**, nunca
+**`302 Found`** — `GET /oauth/google` redireciona para a URL de autorização do Google, e
+`GET /oauth/google/callback` redireciona para `${APP_ORIGIN}/app` com os dois cookies de sessão, ou para
+`${APP_ORIGIN}/login?error=<code>`. **Os dois destinos são montados a partir de `APP_ORIGIN`**, nunca
 recebidos do cliente, e nunca a partir de `ALLOWED_ORIGINS` — a landing não é destino de
 autenticação.
 
-**Corpo de erro**, em toda rota, vindo do `ExceptionFilter` global:
+**Corpo de erro**, em toda rota, vindo do `ExceptionFilter` global: Problem Details da RFC 9457, com
+`Content-Type: application/problem+json` (ADR 0006, regra 10):
 
 ```json
-{ "code": "INVALID_CREDENTIALS", "message": "Invalid email or password", "fields": {} }
+{ "type": "tag:clinicore.com.br,2026:invalid-credentials", "title": "Invalid email or password", "status": 401 }
 ```
 
 | Status | Quando |
 | --- | --- |
-| `200` | Login bem-sucedido, ou leitura da sessão |
+| `200` | Leitura da sessão |
+| `201` | Login bem-sucedido |
 | `202` | As três rotas que não revelam estado de conta (regra 8) |
-| `204` | Refresh, logout e as duas trocas de senha |
-| `302` | Verificação de e-mail e as duas pontas do fluxo do Google |
+| `204` | Refresh, logout, confirmação de e-mail e as duas trocas de senha |
+| `302` | As duas pontas do fluxo do Google |
 | `400` | Corpo ou query inválidos, senha fora da política, token inválido ou consumido, senha atual incorreta |
 | `401` | Credenciais incorretas, cookie de acesso ausente, expirado ou revogado, refresh inválido |
 | `403` | E-mail ainda não verificado, ou `Origin` fora de `ALLOWED_ORIGINS` |
@@ -188,24 +189,24 @@ função. Papéis, permissões e tenancy são as issues #6 e #7.
   origens que podem falar com a API pelo browser: o sistema, e a landing `https://clinicore.com.br`
   quando ela passar a chamar alguma rota pública. Em desenvolvimento as duas valem
   `http://localhost:3000`.
-- `main.ts` chama `app.enableCors({ origin: env.ALLOWED_ORIGINS, credentials: true, methods: ["GET", "POST", "OPTIONS"], allowedHeaders: ["Content-Type"] })`
+- `main.ts` chama `app.enableCors({ origin: env.ALLOWED_ORIGINS, credentials: true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], allowedHeaders: ["Content-Type"] })`
   — a **lista de origens exatas**, nunca `*` e nunca um curinga. O Express responde com a origem que
   pediu, quando ela está na lista.
 - **O CORS não é a guarda.** Ele instrui o browser; não impede requisição alguma de chegar. A guarda é
-  `common/guards/origin.guard.ts`, registrada como `APP_GUARD`: **todo `POST` precisa do header
-  `Origin` pertencente a `ALLOWED_ORIGINS`**, comparado por igualdade exata contra cada item da lista, e
+  `common/guards/origin.guard.ts`, registrada como `APP_GUARD`: **todo método que não é `GET`, `HEAD`
+  nem `OPTIONS` precisa do header `Origin` pertencente a `ALLOWED_ORIGINS`**, comparado por igualdade exata contra cada item da lista, e
   qualquer outro valor, ou a ausência do header, responde `403 INVALID_ORIGIN` antes de o controller
   rodar. **Comparação é de origem inteira, nunca de sufixo** — casar o fim da string aceitaria
   `https://clinicore.com.br.evil.example`.
-- **Por que a guarda existe, mesmo com o cookie em `SameSite=Lax`:** `Lax` já não acompanha um `POST`
-  vindo de outro site, então ela deixou de ser a única linha contra CSRF e passou a ser a segunda. Ela
-  continua porque `/auth/refresh` e `/auth/sign-out` não têm corpo — nem a validação de DTO os
+- **Por que a guarda existe, mesmo com o cookie em `SameSite=Lax`:** `Lax` já não acompanha um `POST`, `PUT`,
+  `PATCH` ou `DELETE` vindo de outro site, então ela deixou de ser a única linha contra CSRF e passou a ser a segunda. Ela
+  continua porque `/sessions/current/tokens` e `/sessions/current` não têm corpo — nem a validação de DTO os
   protegeria — e porque é ela que faz a API recusar cedo, no lugar de depender de o browser ter se
   comportado.
-- `GET` é isento: `/health`, `/auth/session`, `/auth/verify-email` e as duas rotas do Google não mudam
-  estado a partir de um corpo, e a navegação de volta do Google chega sem `Origin`.
+- `GET`, `HEAD` e `OPTIONS` são isentos: `/health`, `/sessions/current` e as duas rotas do Google não
+  mudam estado a partir de um corpo, e a navegação de volta do Google chega sem `Origin`.
 - **Não existe redirecionamento aberto porque não existe parâmetro de redirecionamento.** Nenhuma rota
-  lê `callbackURL`, `redirectTo` ou `errorCallbackURL`; o DTO recusa campo desconhecido, e os três
+  lê `callbackURL`, `redirectTo` ou `errorCallbackURL`; o DTO recusa campo desconhecido, e os dois
   destinos da API são montados no servidor a partir de `APP_ORIGIN`. **Um destino nunca sai de
   `ALLOWED_ORIGINS`:** a lista existe para autorizar quem chama, não para escolher para onde mandar o
   usuário — e é isso que impede que incluir a landing um dia vire um redirecionamento aberto.
@@ -219,10 +220,10 @@ A sessão não é um token único. São dois, com tempos de vida e caminhos dife
 | Cookie | Conteúdo | `Path` | `Max-Age` | Quem valida |
 | --- | --- | --- | --- | --- |
 | `clinicore_access` | JWT assinado com `JWT_SECRET` | `/` | 900 (15 min) | `JwtStrategy`, sem tocar o banco |
-| `clinicore_refresh` | `<sessionId>.<segredo>` opaco | `/auth/refresh` | 86400 (24 h) | `POST /auth/refresh`, contra a tabela `session` |
+| `clinicore_refresh` | `<sessionId>.<segredo>` opaco | `/sessions/current/tokens` | 86400 (24 h) | `POST /sessions/current/tokens`, contra a tabela `session` |
 
 - Os dois são **`HttpOnly: true` sempre**. O JavaScript do web nunca lê nenhum dos dois; quem carrega o
-  usuário é `GET /auth/session` com `credentials: "include"`.
+  usuário é `GET /sessions/current` com `credentials: "include"`.
 - **`sameSite: "lax"` em todo ambiente.** `app.clinicore.com.br` e `api.clinicore.com.br` têm o mesmo
   domínio registrável, `clinicore.com.br`, e `SameSite` é calculado por **domínio registrável, não por
   origem**: são o mesmo site, e o cookie `Lax` acompanha tanto a chamada do sistema quanto a navegação de
@@ -234,13 +235,13 @@ A sessão não é um token único. São dois, com tempos de vida e caminhos dife
   disparado de qualquer outro site; com `Lax` essa porta está fechada no browser, e a guarda de `Origin`
   da regra 1 passa a ser a segunda linha em vez da única. Hospedar a API fora de `clinicore.com.br` — num
   domínio de plataforma, por exemplo — quebraria essa premissa e obrigaria a rever esta regra inteira.
-- **O `Path` do refresh é `/auth/refresh`, e isso é o ponto.** O refresh token não acompanha nenhuma
-  outra requisição. `POST /auth/sign-out` não precisa dele: o `sessionId` está no JWT de acesso.
+- **O `Path` do refresh é `/sessions/current/tokens`, e isso é o ponto.** O refresh token não acompanha nenhuma
+  outra requisição. `DELETE /sessions/current` não precisa dele: o `sessionId` está no JWT de acesso.
 - **Nenhum `Domain`.** Os cookies pertencem ao host da API e não são compartilhados com subdomínio
   nenhum. É o que impede a landing, que é pública e fica no ápice do domínio, de receber cookie de
   sessão.
 - O JWT de acesso carrega `sub` (o `user.id`), `sid` (o `session.id`) e `exp`. Nada mais — nome,
-  e-mail e `emailVerified` saem de `GET /auth/session`, para que uma mudança neles não fique presa no
+  e-mail e `emailVerified` saem de `GET /sessions/current`, para que uma mudança neles não fique presa no
   token por 15 minutos.
 - **A denylist do Redis é o que torna a revogação imediata.** Revogar uma sessão grava
   `auth:revoked:<sessionId>` com TTL de 900 segundos — o tempo de vida do access token. O
@@ -250,9 +251,10 @@ A sessão não é um token único. São dois, com tempos de vida e caminhos dife
 - **Toda revogação escreve na denylist**, sem exceção: logout, reset de senha, troca de senha, reuso de
   refresh detectado e corte pelo teto de 5 sessões (regra 16).
 - **O Redis é dependência dura da requisição autenticada, e a falha é fechada.** Redis inalcançável faz
-  o `JwtStrategy` responder `503` com o código `SERVICE_UNAVAILABLE`, e faz a rota que revoga responder
-  `500` sem revogar pela metade. Responder `204` num logout cujo token continua valendo por 15 minutos
-  é pior do que responder erro.
+  o `JwtStrategy` responder `503` com o código `SERVICE_UNAVAILABLE`, e isso vale também para a rota
+  que revoga: ela é autenticada, então a consulta à denylist acontece antes do service e nada é
+  revogado pela metade — a linha em `session` sobrevive. Responder `204` num logout cujo token continua
+  valendo por 15 minutos é pior do que responder erro.
 
 ### 3. O refresh rotaciona a cada uso, e reusar o antigo derruba a sessão
 
@@ -261,7 +263,7 @@ A sessão não é um token único. São dois, com tempos de vida e caminhos dife
 - **SHA-256, não argon2.** O segredo tem 256 bits de entropia e não é adivinhável por força bruta; o
   argon2 existe para senha escolhida por gente (regra 4). A comparação é feita com
   `crypto.timingSafeEqual`.
-- `POST /auth/refresh` faz, numa única transação de repository:
+- `POST /sessions/current/tokens` faz, numa única transação de repository:
   1. localiza a `session` pelo `sessionId` do token;
   2. compara o hash do segredo recebido com o gravado;
   3. **iguais:** grava um segredo novo, empurra `expiresAt` para 24 horas à frente, devolve `204` com os
@@ -276,7 +278,7 @@ A sessão não é um token único. São dois, com tempos de vida e caminhos dife
   **não existe "lembrar de mim"**: toda sessão dura o mesmo.
 - **Não existe conceito de sessão fresca.** A única operação sensível desta entrega é
   `change-password`, que já exige `currentPassword`.
-- Duas chamadas simultâneas de `/auth/refresh` com o mesmo token válido: a transação serializa, uma
+- Duas chamadas simultâneas de `/sessions/current/tokens` com o mesmo token válido: a transação serializa, uma
   rotaciona e a outra cai no caso 4 e derruba a sessão. É o comportamento correto — o custo é um
   relogin, e o benefício é que roubo de refresh não passa despercebido. O web serializa o refresh numa
   única chamada em voo.
@@ -296,23 +298,27 @@ Uma senha é aceita quando cumpre **todas** as condições:
   sobre essa função, usado nos DTOs de `sign-up`, `reset-password` e `change-password`. **A guarda fica
   no DTO, não em cada service.**
 - O `ValidationPipe` global recusa com `400 VALIDATION_FAILED` e
-  `fields: { "password": "WEAK_PASSWORD" }` ou `fields: { "newPassword": "WEAK_PASSWORD" }` (regra 10).
+  `errors: [{ "pointer": "#/password", "code": "WEAK_PASSWORD" }]`, ou `#/newPassword` (regra 10).
 - A senha é hasheada com `@node-rs/argon2`, algoritmo `Argon2id`, nos parâmetros padrão da biblioteca.
   O hash vive em `account.passwordHash` e nunca em `user`.
 
 ### 5. O e-mail é verificado antes do primeiro login
 
-- `POST /auth/sign-up` **não cria sessão** e não devolve cookie. Responde `202` e envia o link.
-- `POST /auth/sign-in` com a senha correta e `user.emailVerified = false` responde
+- `POST /users` **não cria sessão** e não devolve cookie. Responde `202` e envia o link.
+- `POST /sessions` com a senha correta e `user.emailVerified = false` responde
   `403 EMAIL_NOT_VERIFIED`, não cria sessão, e **reenvia o link**, sujeito à regra 15. Senha errada
   responde `401 INVALID_CREDENTIALS` antes desse ponto, sem enviar nada.
 - O token de verificação é uma linha em `verification` com `purpose = "email_verification"`, 32 bytes
   aleatórios em base64url, gravados como SHA-256, com `expiresAt` 1 hora à frente.
-- `GET /auth/verify-email?token=…` consome o token e redireciona para `${APP_ORIGIN}/verify-email`:
+- **O link do e-mail aponta para o web**, `${APP_ORIGIN}/verify-email?token=<token>`, e é a página do
+  web que chama `POST /email-verifications/confirmation` com `{ token }` no corpo (ADR 0006). O link
+  nunca aponta para a API: um `GET` que consome token seria gasto pelo scanner de link do cliente de
+  e-mail antes da pessoa clicar.
+- `POST /email-verifications/confirmation` consome o token:
   - válido → marca `user.emailVerified = true`, grava `verification.consumedAt`, **cria a sessão** e
-    redireciona com os dois cookies;
-  - inválido, consumido ou inexistente → `?error=INVALID_TOKEN`, sem cookie;
-  - expirado → `?error=TOKEN_EXPIRED`, sem cookie.
+    responde `204` com os dois `Set-Cookie` da regra 2;
+  - inválido, consumido ou inexistente → `400 INVALID_TOKEN`, sem cookie;
+  - expirado → `400 TOKEN_EXPIRED`, sem cookie.
 - Uma conta criada pelo Google nasce com `emailVerified = true` e nunca passa por esta regra (regra 6).
 - Ao marcar `emailVerified = true`, **todos os tokens de verificação pendentes daquele endereço são
   consumidos na mesma transação**, para que um segundo link no e-mail da pessoa não crie uma segunda
@@ -320,18 +326,18 @@ Uma senha é aceita quando cumpre **todas** as condições:
 
 ### 6. Google e senha são a mesma conta
 
-- `GET /auth/google` monta a URL de autorização do Google e responde `302` para ela, com
+- `GET /oauth/google` monta a URL de autorização do Google e responde `302` para ela, com
   `prompt=select_account` e `scope=openid email profile`. **Não grava nada no banco** — o `state` viaja
   em cookie.
 - **O `state` é um cookie, não uma linha.** `clinicore_oauth_state` guarda 32 bytes aleatórios em
-  base64url, `HttpOnly`, `Path=/auth/google`, `Max-Age=600`, `SameSite=Lax`, e `Secure` em produção.
+  base64url, `HttpOnly`, `Path=/oauth/google`, `Max-Age=600`, `SameSite=Lax`, e `Secure` em produção.
   `Lax` basta porque a volta do Google é uma navegação `GET` de topo, que carrega cookie `Lax`. O
   `state` da query é comparado com o do cookie em `crypto.timingSafeEqual`; diferente ou ausente,
   `302` para `${APP_ORIGIN}/login?error=INVALID_STATE`.
 - A implementação é `@nestjs/passport` com `passport-google-oauth20`, e o `state` é guardado por um
   `store` próprio sobre o cookie — `passport-oauth2` aceita um `store` e é isso que dispensa
   `express-session`. A URL de callback registrada no Google Cloud Console é
-  `${API_URL}/auth/google/callback`.
+  `${API_URL}/oauth/google/callback`.
 - **O perfil do Google só é aceito com `email_verified = true`.** Falso, a resposta é `302` para
   `${APP_ORIGIN}/login?error=UNVERIFIED_PROVIDER_EMAIL`, e nada é gravado. Sem isso, um provedor que
   devolvesse um e-mail não verificado sequestraria a conta de quem tem esse endereço.
@@ -348,12 +354,12 @@ Uma senha é aceita quando cumpre **todas** as condições:
 
 ### 7. Recuperar e trocar senha
 
-- `POST /auth/request-password-reset` grava uma linha em `verification` com
+- `POST /password-resets` grava uma linha em `verification` com
   `purpose = "password_reset"`, token de 32 bytes aleatórios em base64url gravado como SHA-256 e
   `expiresAt` 1 hora à frente, e envia o link, sujeito à regra 15. Responde `202` sempre (regra 8).
 - **O link aponta direto para o web**, `${APP_ORIGIN}/reset-password?token=<token>`. Não existe rota de
   API que apenas redirecione: ela só ampliaria a superfície de redirecionamento sem fazer nada.
-- `POST /auth/reset-password` faz, numa única transação de repository: consome o token, grava o hash da
+- `POST /password-resets/confirmation` faz, numa única transação de repository: consome o token, grava o hash da
   nova senha em `account` e **apaga todas as sessões do usuário**. Fora da transação, cada `sessionId`
   apagado vai para a denylist (regra 2). Responde `204`.
 - **Redefinir a senha derrubar todas as sessões é imediato**, inclusive os access tokens ainda dentro
@@ -362,7 +368,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
   `400 INVALID_TOKEN`, porque o token é consumido dentro da transação.
 - **Redefinir a senha de um usuário sem `account` de senha cria essa `account`.** É assim que quem
   entrou só com Google passa a ter também login por senha.
-- `POST /auth/change-password` confere `currentPassword` com o argon2, grava o hash novo e **apaga
+- `PUT /users/me/password` confere `currentPassword` com o argon2, grava o hash novo e **apaga
   todas as sessões do usuário exceto a do cookie usado na requisição**, mandando as apagadas para a
   denylist. Quem troca a senha continua logado no dispositivo atual e cai em todos os outros. Não há
   parâmetro para desligar isso. Responde `204`; o cookie de acesso e o de refresh atuais continuam
@@ -374,7 +380,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
   `sign-up`, `send-verification-email` e `request-password-reset` respondem igual para e-mail novo, já
   cadastrado, inexistente, já verificado, dentro e fora da janela da regra 15. Não há corpo, então não
   há nada que possa diferir.
-- `POST /auth/sign-in` responde `401 INVALID_CREDENTIALS` tanto para e-mail inexistente quanto para
+- `POST /sessions` responde `401 INVALID_CREDENTIALS` tanto para e-mail inexistente quanto para
   senha errada.
 - **O tempo de resposta também não diferencia.** Quando não existe `account` de senha para o e-mail, o
   service verifica a senha recebida contra um **hash argon2 fixo, gerado no boot**, e descarta o
@@ -417,23 +423,30 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - O repository traduz o erro conhecido do TypeORM — `QueryFailedError` com o código do Postgres,
   `EntityNotFoundError` — para esses tipos, e nunca deixa vazar erro de driver.
 - `common/filters/business-error.filter.ts`, registrado como `APP_FILTER`, é **o único lugar do app que
-  conhece HTTP**. Converte o tipo em status e responde `{ code, message, fields }`.
+  conhece HTTP**. Converte o tipo em status e responde Problem Details da RFC 9457 (ADR 0006), com
+  `Content-Type: application/problem+json`:
+  - `type` é `tag:clinicore.com.br,2026:` seguido do código do catálogo em minúsculas e com hífen —
+    `INVALID_SESSION` sai como `tag:clinicore.com.br,2026:invalid-session`. **O cliente decide pelo
+    `type`**, nunca pelo `title`;
+  - `title` é a mensagem do catálogo, fixa para cada `type`;
+  - `status` repete o status HTTP;
+  - `errors` só existe na validação; `detail` e `instance` não existem.
 - O `ValidationPipe` global roda com `whitelist: true`, `forbidNonWhitelisted: true` e
-  `transform: true`, e um `exceptionFactory` que devolve
-  `{ code: "VALIDATION_FAILED", message: "Validation failed", fields }`, onde `fields` mapeia o nome do
-  campo para o **nome da primeira restrição violada**, em maiúsculas com sublinhado:
-  `{ "email": "IS_EMAIL", "password": "WEAK_PASSWORD" }`. O texto que a pessoa lê é escrito no web a
-  partir desses códigos, nunca da `message`.
-- **Um `HttpException` do próprio Nest mantém o status.** Rota inexistente continua `404`, método
-  errado continua `405`, e o `code` é o nome do status em maiúsculas com sublinhado — `NOT_FOUND`,
-  `METHOD_NOT_ALLOWED` —, com `fields` vazio. É regra geral, não uma tabela por caso.
-- **Um `HttpException` 5xx mantém o status, mas nunca o texto.** Ele é registrado no Pino com a stack, e
-  a resposta leva `code` igual ao nome do status — `INTERNAL_ERROR` no `500`, `SERVICE_UNAVAILABLE` no
-  `503` — com `message` fixa: `"Internal server error"` no `500`, `"Server error"` nos demais.
+  `transform: true`, e um `exceptionFactory` que lança `VALIDATION_FAILED` com `errors`: um item por
+  campo, com `pointer` em JSON Pointer (`#/email`, `#/address/zip`) e `code` com o **nome da primeira
+  restrição violada**, em maiúsculas com sublinhado:
+  `[{ "pointer": "#/email", "code": "IS_EMAIL" }, { "pointer": "#/password", "code": "WEAK_PASSWORD" }]`.
+  O texto que a pessoa lê é escrito no web a partir do `type` e desses códigos, nunca do `title`.
+- **Um `HttpException` do próprio Nest mantém o status e usa `about:blank`.** Rota inexistente
+  continua `404`, método errado continua `405`, e o `title` é a frase padrão do status
+  (`http.STATUS_CODES`) — `"Not Found"`, `"Method Not Allowed"` —, como a RFC pede para `about:blank`.
+  A mensagem gerada pelo Nest nunca chega ao corpo. É regra geral, não uma tabela por caso.
+- **Um `HttpException` 5xx mantém o status, e é registrado no Pino com a stack.** O corpo é o mesmo
+  `about:blank` com a frase do status, então o texto da exceção nunca vaza.
 - Um erro que não é `BusinessError` nem `HttpException` é registrado no Pino com a stack completa e
   respondido como `500` com corpo
-  `{ "code": "INTERNAL_ERROR", "message": "Internal server error", "fields": {} }`.
-- A `message` é inglês e é texto de desenvolvedor, para log e depuração.
+  `{ "type": "about:blank", "title": "Internal Server Error", "status": 500 }`.
+- O `title` é inglês e é texto de desenvolvedor, para log e depuração.
 
 ### 11. Toda rota de autenticação tem limite por IP, e o IP não pode ser forjado
 
@@ -449,14 +462,14 @@ Uma senha é aceita quando cumpre **todas** as condições:
 
   | Caminho | Janela | Máximo |
   | --- | --- | --- |
-  | `/auth/sign-up` | 60 s | 3 |
-  | `/auth/sign-in` | 60 s | 5 |
-  | `/auth/refresh` | 60 s | 30 |
-  | `/auth/send-verification-email` | 60 s | 3 |
-  | `/auth/request-password-reset` | 60 s | 5 |
-  | `/auth/reset-password` | 60 s | 5 |
-  | `/auth/change-password` | 60 s | 3 |
-  | `/auth/google` e `/auth/google/callback` | 60 s | 10 |
+  | `/users` | 60 s | 3 |
+  | `/sessions` | 60 s | 5 |
+  | `/sessions/current/tokens` | 60 s | 30 |
+  | `/email-verifications` | 60 s | 3 |
+  | `/password-resets` | 60 s | 5 |
+  | `/password-resets/confirmation` | 60 s | 5 |
+  | `/users/me/password` | 60 s | 3 |
+  | `/oauth/google` e `/oauth/google/callback` | 60 s | 10 |
   | qualquer outra rota | 10 s | 100 |
   | `/health` | sem limite, por `@SkipThrottle()` | — |
 
@@ -477,9 +490,11 @@ Uma senha é aceita quando cumpre **todas** as condições:
 
 ### 12. Persistência e Auditoria
 
-- **Cinco tabelas, em duas migrations**, todas escritas à mão em `core/db/migrations/`, com
-  `synchronize: false` em todo ambiente (regra 6 da spec `002`). As entities do TypeORM ficam em
-  `features/auth/entities/`, uma classe por tabela.
+- **Cinco tabelas, em duas migrations**, todas geradas por `typeorm migration:generate` e revisadas
+  antes do commit, em `core/db/migrations/`, com `synchronize: false` em todo ambiente (regra 6 da
+  spec `002`). As entities do TypeORM ficam em `features/auth/entities/`, uma classe por tabela, e
+  são a única fonte do schema: índice, unique e nome de enum nascem nelas, nunca editados no arquivo
+  gerado.
 
   | Tabela | Migration | Colunas |
   | --- | --- | --- |
@@ -493,12 +508,16 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - Os índices em `session.expiresAt`, `verification.expiresAt` e `emailDispatch.createdAt` existem para
   que a limpeza da regra 17 não varra a tabela inteira.
 - **Toda chave primária é UUID**, com `@PrimaryGeneratedColumn("uuid")` na entity e
-  `DEFAULT gen_random_uuid()` escrito na migration — nativo do PostgreSQL 13 em diante, sem extensão.
+  `DEFAULT gen_random_uuid()` na migration — nativo do PostgreSQL 13 em diante, sem extensão. Quem o
+  entrega é `uuidExtension: "pgcrypto"` no `data-source.options.ts`; sem essa opção o gerador escreve
+  `uuid_generate_v4()`, que depende da extensão `uuid-ossp`. Ao lado dela, `installExtensions: false`
+  impede o `CREATE EXTENSION` que o TypeORM roda a cada boot.
   O gate de que a entity e a migration não divergiram é um step do job da API no CI: roda
   `typeorm migration:generate` apontando para um arquivo temporário e **falha se esse arquivo for
   criado**.
 - `provider`, `purpose` e `kind` são colunas de enum do Postgres, criadas pela migration e espelhadas
-  em `features/auth/enums/`.
+  em `features/auth/enums/`. **A coluna não declara `enumName`**: o nome derivado já é
+  `<tabela>_<coluna>_enum`, e declará-lo explicitamente produz drift permanente.
 - **Cadastro por senha e por Google são atômicos**, em `dataSource.transaction()` dentro do
   repository, como manda o contrato: `user`, `account` e, no cadastro por senha, a linha de
   `emailDispatch` da regra 15 são gravados juntos ou nenhum é. **O envio do e-mail fica fora da
@@ -647,36 +666,34 @@ para sempre.
 
 ## Erros
 
-Catálogo próprio desta API. A `message` é inglês, texto de desenvolvedor; o texto que a pessoa lê é
-escrito no web a partir do `code` (regra 10).
+Catálogo próprio desta API. No corpo, o código sai como `type`, na forma
+`tag:clinicore.com.br,2026:<código em minúsculas e com hífen>`, e a mensagem sai como `title` (regra 10).
+A mensagem é inglês, texto de desenvolvedor; o texto que a pessoa lê é escrito no web a partir do `type`.
 
 | Código | HTTP | Quando | Mensagem |
 | --- | --- | --- | --- |
-| `VALIDATION_FAILED` | `400` | Corpo ou query fora do DTO; `fields` traz o campo e a restrição | "Validation failed" |
-| `INVALID_TOKEN` | `400` | Token de reset inválido, consumido ou expirado em `POST /auth/reset-password` | "Invalid token" |
+| `VALIDATION_FAILED` | `400` | Corpo ou query fora do DTO; `errors` traz o campo e a restrição | "Validation failed" |
+| `INVALID_TOKEN` | `400` | Token de reset inválido, consumido ou expirado em `POST /password-resets/confirmation`; token de verificação inválido, consumido ou inexistente em `POST /email-verifications/confirmation` | "Invalid token" |
+| `TOKEN_EXPIRED` | `400` | Token de verificação expirado em `POST /email-verifications/confirmation` | "Token expired" |
 | `INVALID_PASSWORD` | `400` | `currentPassword` incorreta em `change-password` | "Invalid password" |
 | `INVALID_CREDENTIALS` | `401` | E-mail inexistente, ou senha incorreta no login | "Invalid email or password" |
 | `INVALID_SESSION` | `401` | Cookie de acesso ausente, malformado, expirado ou na denylist; refresh de sessão inexistente ou vencida | "Invalid session" |
 | `SESSION_REUSED` | `401` | Refresh token que não bate com o gravado; a sessão é derrubada (regra 3) | "Refresh token reuse detected" |
 | `EMAIL_NOT_VERIFIED` | `403` | Login com a senha correta e o e-mail ainda não verificado | "Email not verified" |
-| `INVALID_ORIGIN` | `403` | `POST` com `Origin` fora de `ALLOWED_ORIGINS`, ou sem o header | "Invalid origin" |
+| `INVALID_ORIGIN` | `403` | Método que não é `GET`, `HEAD` nem `OPTIONS` com `Origin` fora de `ALLOWED_ORIGINS`, ou sem o header | "Invalid origin" |
 | `RATE_LIMITED` | `429` | Limite da rota excedido (regra 11) | "Too many requests" |
-| `INTERNAL_ERROR` | `500` | Erro desconhecido | "Internal server error" |
 | `SERVICE_UNAVAILABLE` | `503` | Redis inalcançável numa requisição autenticada (regra 2) | "Service temporarily unavailable" |
 
-Além destes, o filtro devolve o nome do status HTTP como `code` para um `HttpException` levantado
-pelo próprio framework — `NOT_FOUND`, `METHOD_NOT_ALLOWED`, `PAYLOAD_TOO_LARGE` —, com a `message`
-do framework e `fields` vazio.
+Fora do catálogo, todo erro sai como `about:blank` com a frase padrão do status no `title`: o
+`HttpException` levantado pelo próprio framework (`404`, `405`, `413`) e todo `500` (regra 10).
 
 Códigos que saem apenas em `?error=` de um `302`, sem corpo e sem `message`:
 
 | Código | Rota | Quando |
 | --- | --- | --- |
-| `INVALID_TOKEN` | `/auth/verify-email` | Token inválido, consumido ou inexistente |
-| `TOKEN_EXPIRED` | `/auth/verify-email` | Token de verificação expirado |
-| `INVALID_STATE` | `/auth/google/callback` | `state` da query diferente do cookie, ou cookie ausente |
-| `UNVERIFIED_PROVIDER_EMAIL` | `/auth/google/callback` | O Google devolveu `email_verified` falso |
-| `PROVIDER_ERROR` | `/auth/google/callback` | A troca do `code` falhou, ou o Google devolveu erro |
+| `INVALID_STATE` | `/oauth/google/callback` | `state` da query diferente do cookie, ou cookie ausente |
+| `UNVERIFIED_PROVIDER_EMAIL` | `/oauth/google/callback` | O Google devolveu `email_verified` falso |
+| `PROVIDER_ERROR` | `/oauth/google/callback` | A troca do `code` falhou, ou o Google devolveu erro |
 
 ## Efeitos Colaterais
 
@@ -727,7 +744,7 @@ Duas fronteiras externas são substituídas, e nenhuma outra:
 
 ```gherkin
 Dado que o e-mail `ana@exemplo.com` não existe na tabela `user`
-Quando é enviado `POST /auth/sign-up` com nome, e-mail e a senha `Clinica#2026`
+Quando é enviado `POST /users` com nome, e-mail e a senha `Clinica#2026`
 Então o sistema responde `202` com corpo vazio
 E existe uma linha em `user` com `email = "ana@exemplo.com"` e `emailVerified = false`
 E existe uma linha em `account` com `provider = "credential"` e `passwordHash` preenchida
@@ -742,11 +759,11 @@ E nenhum `Set-Cookie` é devolvido
 
 ```gherkin
 Dado um usuário cadastrado com `email = "ana@exemplo.com"`
-Quando é enviado `POST /auth/sign-up` com o mesmo e-mail, repetido 3 vezes
+Quando é enviado `POST /users` com o mesmo e-mail, repetido 3 vezes
 Então as 3 respostas são `202` com corpo vazio, idênticas à do Cenário 1
 E continua existindo exatamente uma linha em `user` e uma em `account` para esse e-mail
 E nenhum e-mail foi entregue ao transport
-E dois `POST /auth/sign-up` disparados ao mesmo tempo com o mesmo e-mail novo respondem os dois `202`
+E dois `POST /users` disparados ao mesmo tempo com o mesmo e-mail novo respondem os dois `202`
 E resta exatamente uma linha em `user` para esse e-mail
 ```
 
@@ -754,7 +771,7 @@ E resta exatamente uma linha em `user` para esse e-mail
 
 ```gherkin
 Dado um usuário cadastrado com `emailVerified = false` e sem pedido de e-mail nos últimos 60 segundos
-Quando é enviado `POST /auth/sign-in` com a senha correta
+Quando é enviado `POST /sessions` com a senha correta
 Então o sistema responde `403` com o código `EMAIL_NOT_VERIFIED`
 E nenhuma linha é criada em `session`
 E um e-mail de confirmação foi entregue ao transport
@@ -765,23 +782,23 @@ E com a senha errada a resposta é `401 INVALID_CREDENTIALS` e nenhum e-mail é 
 
 ```gherkin
 Dado um usuário cadastrado com `emailVerified = false` e dois links de verificação válidos
-Quando é feita a requisição `GET /auth/verify-email` com o token do primeiro link
-Então o sistema responde `302` para `http://localhost:3000/verify-email`
+Quando é feita a requisição `POST /email-verifications/confirmation` com o token do primeiro link
+Então o sistema responde `204`
 E a resposta traz os cookies `clinicore_access` e `clinicore_refresh`
 E `user.emailVerified` passa a ser `true`
 E existe exatamente uma linha em `session` para esse usuário
 E as duas linhas em `verification` desse endereço têm `consumedAt` preenchido
-E repetir a requisição com qualquer um dos dois tokens responde `302` para `http://localhost:3000/verify-email?error=INVALID_TOKEN`
+E repetir a requisição com qualquer um dos dois tokens responde `400` com o código `INVALID_TOKEN`
 E continua existindo exatamente uma linha em `session`
 ```
 
-### Cenário 5 — Link de verificação inválido ou expirado redireciona com o código (exceção, regra 5)
+### Cenário 5 — Token de verificação inválido ou expirado é recusado com o código (exceção, regra 5)
 
 ```gherkin
 Dado um usuário cadastrado com `emailVerified = false`
-Quando `GET /auth/verify-email` é chamado com um token que não existe
-Então o sistema responde `302` para `http://localhost:3000/verify-email?error=INVALID_TOKEN`
-E com um token de `expiresAt` no passado responde `302` para `http://localhost:3000/verify-email?error=TOKEN_EXPIRED`
+Quando `POST /email-verifications/confirmation` é chamado com um token que não existe
+Então o sistema responde `400` com o código `INVALID_TOKEN`
+E com um token de `expiresAt` no passado responde `400` com o código `TOKEN_EXPIRED`
 E nenhuma das duas respostas traz `Set-Cookie`
 E nenhuma linha em `user` ou em `session` é alterada
 ```
@@ -790,20 +807,20 @@ E nenhuma linha em `user` ou em `session` é alterada
 
 ```gherkin
 Dado um usuário com `emailVerified = true`
-Quando é enviado `POST /auth/sign-in` com a senha correta
-Então o sistema responde `200` com o corpo `{ "user": { ... } }` e sem senha nem hash no corpo
+Quando é enviado `POST /sessions` com a senha correta
+Então o sistema responde `201` com `Location: /sessions/current` e o corpo `{ "user": { ... } }`, sem senha nem hash
 E o `Set-Cookie` de `clinicore_access` traz `HttpOnly`, `Path=/` e `Max-Age=900`
-E o `Set-Cookie` de `clinicore_refresh` traz `HttpOnly`, `Path=/auth/refresh` e `Max-Age=86400`
+E o `Set-Cookie` de `clinicore_refresh` traz `HttpOnly`, `Path=/sessions/current/tokens` e `Max-Age=86400`
 E a linha criada em `session` tem `expiresAt` 24 horas à frente de `createdAt`, com tolerância de 60 segundos
 E `session.refreshTokenHash` não contém o valor que veio no cookie
-E `GET /auth/session` com o cookie de acesso devolve `200` com o mesmo usuário
+E `GET /sessions/current` com o cookie de acesso devolve `200` com o mesmo usuário
 ```
 
 ### Cenário 7 — Senha errada não distingue de e-mail inexistente (exceção, regra 8)
 
 ```gherkin
 Dado um usuário verificado com o e-mail `ana@exemplo.com`
-Quando é enviado `POST /auth/sign-in` com a senha errada
+Quando é enviado `POST /sessions` com a senha errada
 Então o sistema responde `401` com o código `INVALID_CREDENTIALS`
 E a mesma requisição para o e-mail inexistente `ninguem@exemplo.com` responde `401` com o mesmo código
 E os dois corpos de resposta são iguais
@@ -814,23 +831,23 @@ E a diferença entre as medianas de 20 respostas de cada caso fica abaixo de 50 
 
 ```gherkin
 Dado um usuário logado, com o cookie `clinicore_refresh` da resposta do login
-Quando é enviado `POST /auth/refresh` com esse cookie
+Quando é enviado `POST /sessions/current/tokens` com esse cookie
 Então o sistema responde `204`
 E os dois `Set-Cookie` trazem valores diferentes dos anteriores
 E `session.refreshTokenHash` mudou e `session.id` continua o mesmo
 E `session.expiresAt` foi empurrado para 24 horas à frente
-E o cookie de acesso novo autentica `GET /auth/session`
+E o cookie de acesso novo autentica `GET /sessions/current`
 ```
 
 ### Cenário 9 — Reusar o refresh antigo derruba a sessão inteira (exceção, regra 3)
 
 ```gherkin
-Dado um usuário logado e um `POST /auth/refresh` já executado com sucesso
-Quando é enviado `POST /auth/refresh` de novo com o cookie de refresh **antigo**
+Dado um usuário logado e um `POST /sessions/current/tokens` já executado com sucesso
+Quando é enviado `POST /sessions/current/tokens` de novo com o cookie de refresh **antigo**
 Então o sistema responde `401` com o código `SESSION_REUSED`
 E a linha em `session` deixa de existir
 E a chave `auth:revoked:<sessionId>` existe no Redis com TTL menor ou igual a 900
-E o cookie de acesso emitido na rotação, ainda dentro dos 15 minutos, passa a responder `401 INVALID_SESSION` em `GET /auth/session`
+E o cookie de acesso emitido na rotação, ainda dentro dos 15 minutos, passa a responder `401 INVALID_SESSION` em `GET /sessions/current`
 E o cookie de refresh da rotação também responde `401 INVALID_SESSION`
 ```
 
@@ -838,13 +855,13 @@ E o cookie de refresh da rotação também responde `401 INVALID_SESSION`
 
 ```gherkin
 Dado um usuário logado com uma linha em `session`
-Quando é enviado `POST /auth/sign-out` com o cookie de acesso
+Quando é enviado `DELETE /sessions/current` com o cookie de acesso
 Então o sistema responde `204`
 E os dois `Set-Cookie` de expiração são devolvidos, com `Max-Age=0`
 E a linha em `session` deixa de existir
 E a chave `auth:revoked:<sessionId>` existe no Redis
-E `GET /auth/session` com o mesmo cookie de acesso responde `401` com o código `INVALID_SESSION`
-E repetir `POST /auth/sign-out` com o mesmo cookie responde `401` e não altera nenhuma tabela
+E `GET /sessions/current` com o mesmo cookie de acesso responde `401` com o código `INVALID_SESSION`
+E repetir `DELETE /sessions/current` com o mesmo cookie responde `401` e não altera nenhuma tabela
 ```
 
 ### Cenário 11 — Senha fraca é recusada nas três rotas (exceção, regra 4)
@@ -853,8 +870,8 @@ E repetir `POST /auth/sign-out` com o mesmo cookie responde `401` e não altera 
 Dado o decorator de política de senha ativo nos DTOs
 Quando `sem_maiuscula#1`, `SEM_DIGITO#a`, `SemEspecial1` ou `Aa#1` são enviados como senha
 Então cada um responde `400` com o código `VALIDATION_FAILED`
-E `fields` traz o campo da senha com o valor `WEAK_PASSWORD`
-E o mesmo vale nas rotas `/auth/sign-up`, `/auth/reset-password` e `/auth/change-password`
+E `errors` traz o `pointer` do campo da senha com o `code` `WEAK_PASSWORD`
+E o mesmo vale nas rotas `/users`, `/password-resets/confirmation` e `/users/me/password`
 E nenhuma linha é gravada em `user`, `account` ou `verification`
 E `Clinica#2026` é aceita nas três
 ```
@@ -863,10 +880,10 @@ E `Clinica#2026` é aceita nas três
 
 ```gherkin
 Dado o `ValidationPipe` global com `forbidNonWhitelisted`
-Quando é enviado `POST /auth/sign-up` com um campo `callbackURL` igual a `http://evil.example/x`
+Quando é enviado `POST /users` com um campo `callbackURL` igual a `http://evil.example/x`
 Então o sistema responde `400` com o código `VALIDATION_FAILED`
 E nenhuma linha é gravada em `user`
-E o mesmo vale para `redirectTo` em `POST /auth/request-password-reset`
+E o mesmo vale para `redirectTo` em `POST /password-resets`
 ```
 
 ### Cenário 13 — Google vincula à conta existente em vez de duplicar (caminho alternativo, regra 6)
@@ -874,8 +891,8 @@ E o mesmo vale para `redirectTo` em `POST /auth/request-password-reset`
 ```gherkin
 Dado um usuário verificado com `email = "ana@exemplo.com"` e uma linha em `account` com `provider = "credential"`
 E os endpoints do Google substituídos, devolvendo `sub = "google-ana"`, `email = "ana@exemplo.com"` e `email_verified = true`
-Quando é feita a requisição `GET /auth/google` e guardado o cookie `clinicore_oauth_state`
-E é feita a requisição `GET /auth/google/callback` com o `state` da URL de autorização, um `code` qualquer e esse cookie
+Quando é feita a requisição `GET /oauth/google` e guardado o cookie `clinicore_oauth_state`
+E é feita a requisição `GET /oauth/google/callback` com o `state` da URL de autorização, um `code` qualquer e esse cookie
 Então o sistema responde `302` para `http://localhost:3000/app`, com os dois cookies de sessão
 E continua existindo exatamente uma linha em `user` com esse e-mail
 E passa a existir uma segunda linha em `account` com `provider = "google"`, `providerAccountId = "google-ana"` e o mesmo `userId`
@@ -887,9 +904,9 @@ E entrar com a senha original continua funcionando
 
 ```gherkin
 Dado a contagem de linhas de todas as tabelas do schema público
-Quando é feita a requisição `GET /auth/google` 3 vezes
+Quando é feita a requisição `GET /oauth/google` 3 vezes
 Então cada resposta é `302` para `accounts.google.com`, com `prompt=select_account`
-E cada resposta traz o cookie `clinicore_oauth_state` com `HttpOnly`, `Path=/auth/google` e `Max-Age=600`
+E cada resposta traz o cookie `clinicore_oauth_state` com `HttpOnly`, `Path=/oauth/google` e `Max-Age=600`
 E nenhuma tabela ganhou linha
 ```
 
@@ -897,7 +914,7 @@ E nenhuma tabela ganhou linha
 
 ```gherkin
 Dado os endpoints do Google substituídos
-Quando `GET /auth/google/callback` é chamado com um `state` diferente do cookie
+Quando `GET /oauth/google/callback` é chamado com um `state` diferente do cookie
 Então o sistema responde `302` para `http://localhost:3000/login?error=INVALID_STATE`
 E chamado sem o cookie `clinicore_oauth_state` responde o mesmo
 E com o `state` correto mas `email_verified` falso responde `302` para `http://localhost:3000/login?error=UNVERIFIED_PROVIDER_EMAIL`
@@ -908,7 +925,7 @@ E nenhuma linha é gravada em `user`, `account` ou `session`
 
 ```gherkin
 Dado um usuário verificado com o e-mail `ana@exemplo.com` e sem pedidos de e-mail nas últimas 24 horas
-Quando é enviado `POST /auth/request-password-reset` para `ana@exemplo.com` e depois para `ninguem@exemplo.com`
+Quando é enviado `POST /password-resets` para `ana@exemplo.com` e depois para `ninguem@exemplo.com`
 Então as duas requisições respondem `202` com corpo vazio
 E um e-mail com o assunto `Redefinir sua senha do Clinicore` foi entregue apenas para `ana@exemplo.com`
 E o link do e-mail aponta para `http://localhost:3000/reset-password?token=<token>`
@@ -919,7 +936,7 @@ E existe exatamente uma linha em `verification` com `purpose = "password_reset"`
 
 ```gherkin
 Dado um usuário verificado com o e-mail `ana@exemplo.com` e sem pedidos de e-mail nas últimas 24 horas
-Quando `POST /auth/request-password-reset` para `ana@exemplo.com` é enviado 4 vezes em 10 segundos, cada vez de um IP de cliente diferente
+Quando `POST /password-resets` para `ana@exemplo.com` é enviado 4 vezes em 10 segundos, cada vez de um IP de cliente diferente
 Então as 4 respostas são `202` com corpo vazio
 E exatamente 1 e-mail foi entregue ao transport
 E existe exatamente 1 linha em `verification` com `purpose = "password_reset"`
@@ -930,7 +947,7 @@ E existe exatamente 1 linha em `emailDispatch` para esse endereço com `kind = "
 
 ```gherkin
 Dado o e-mail `ana@exemplo.com` com 5 linhas em `emailDispatch` de `kind = "verification"` nas últimas 24 horas, a mais recente há 2 minutos
-Quando é enviado `POST /auth/send-verification-email` para esse endereço
+Quando é enviado `POST /email-verifications` para esse endereço
 Então o sistema responde `202` com o mesmo corpo vazio de um pedido aceito
 E nenhum e-mail é entregue ao transport
 E continua havendo 5 linhas em `emailDispatch` para esse endereço
@@ -941,7 +958,7 @@ E o mesmo pedido de `kind = "password_reset"` para o mesmo endereço continua se
 
 ```gherkin
 Dado o e-mail `ninguem@exemplo.com`, que não existe em `user`
-Quando `POST /auth/request-password-reset` para esse endereço é enviado 2 vezes em 10 segundos
+Quando `POST /password-resets` para esse endereço é enviado 2 vezes em 10 segundos
 Então existe exatamente 1 linha em `emailDispatch` para esse endereço
 E as 2 respostas são iguais às de um endereço cadastrado no Cenário 17
 ```
@@ -950,11 +967,11 @@ E as 2 respostas são iguais às de um endereço cadastrado no Cenário 17
 
 ```gherkin
 Dado um usuário verificado logado em dois dispositivos, com duas linhas em `session`, e um token de reset válido
-Quando é enviado `POST /auth/reset-password` com a nova senha `Outra#Senha9`
+Quando é enviado `POST /password-resets/confirmation` com a nova senha `Outra#Senha9`
 Então o sistema responde `204`
 E nenhuma linha em `session` resta para esse usuário
 E existe uma chave `auth:revoked:<sessionId>` no Redis para cada uma das duas sessões
-E `GET /auth/session` com qualquer um dos dois cookies de acesso responde `401 INVALID_SESSION`
+E `GET /sessions/current` com qualquer um dos dois cookies de acesso responde `401 INVALID_SESSION`
 E entrar com `Outra#Senha9` funciona
 E entrar com a senha antiga responde `401`
 E repetir a mesma requisição responde `400` com o código `INVALID_TOKEN`
@@ -968,18 +985,18 @@ E uma única linha em `account` para ela, com `provider = "google"`
 Quando é pedido o reset de senha e o token recebido é usado com a senha `Clinica#2026`
 Então passa a existir uma linha em `account` com `provider = "credential"` e `passwordHash` preenchida
 E a linha com `provider = "google"` continua existindo
-E entrar com `ana@exemplo.com` e `Clinica#2026` responde `200`
+E entrar com `ana@exemplo.com` e `Clinica#2026` responde `201`
 ```
 
 ### Cenário 22 — Trocar a senha mantém a sessão atual e derruba as outras (caminho feliz, regra 7)
 
 ```gherkin
 Dado um usuário logado em dois dispositivos, com duas linhas em `session`
-Quando é enviado `POST /auth/change-password` com a senha atual correta e a nova senha, usando o cookie do primeiro dispositivo
+Quando é enviado `PUT /users/me/password` com a senha atual correta e a nova senha, usando o cookie do primeiro dispositivo
 Então o sistema responde `204`
 E resta exatamente uma linha em `session`, a do cookie usado na requisição
-E `GET /auth/session` com o cookie do primeiro dispositivo continua respondendo `200`
-E `GET /auth/session` com o cookie do segundo responde `401 INVALID_SESSION`
+E `GET /sessions/current` com o cookie do primeiro dispositivo continua respondendo `200`
+E `GET /sessions/current` com o cookie do segundo responde `401 INVALID_SESSION`
 E repetir a mesma requisição responde `400` com o código `INVALID_PASSWORD`
 E a senha continua a da primeira chamada
 ```
@@ -988,11 +1005,11 @@ E a senha continua a da primeira chamada
 
 ```gherkin
 Dado um usuário verificado com 5 linhas em `session`
-Quando é enviado `POST /auth/sign-in` com a senha correta
-Então o sistema responde `200`
+Quando é enviado `POST /sessions` com a senha correta
+Então o sistema responde `201`
 E o usuário continua com exatamente 5 linhas em `session`
 E a linha de `createdAt` mais antiga deixou de existir
-E `GET /auth/session` com o cookie de acesso dessa sessão responde `401 INVALID_SESSION`
+E `GET /sessions/current` com o cookie de acesso dessa sessão responde `401 INVALID_SESSION`
 E 20 logins seguidos, respeitando a regra 11, deixam o usuário com exatamente 5 linhas em `session`
 ```
 
@@ -1000,22 +1017,24 @@ E 20 logins seguidos, respeitando a regra 11, deixam o usuário com exatamente 5
 
 ```gherkin
 Dado a API rodando com `ALLOWED_ORIGINS` igual a `https://app.clinicore.com.br,https://clinicore.com.br`
-Quando chega um preflight `OPTIONS /auth/sign-in` com `Origin: https://app.clinicore.com.br`
+Quando chega um preflight `OPTIONS /sessions` com `Origin: https://app.clinicore.com.br`
 Então a resposta traz `Access-Control-Allow-Origin: https://app.clinicore.com.br`
 E traz `Access-Control-Allow-Credentials: true`
 E nunca traz `Access-Control-Allow-Origin: *`
 E o mesmo preflight com `Origin: https://clinicore.com.br` é liberado com essa origem
-E `POST /auth/refresh` com `Origin: http://evil.example` responde `403 INVALID_ORIGIN`
-E `POST /auth/refresh` com `Origin: https://clinicore.com.br.evil.example` responde `403 INVALID_ORIGIN`
-E `POST /auth/refresh` sem o header `Origin` responde `403 INVALID_ORIGIN`
-E `GET /auth/session` sem o header `Origin` responde normalmente
+E o preflight de `DELETE /sessions/current` traz `DELETE` em `Access-Control-Allow-Methods`
+E `POST /sessions/current/tokens` com `Origin: http://evil.example` responde `403 INVALID_ORIGIN`
+E `POST /sessions/current/tokens` com `Origin: https://clinicore.com.br.evil.example` responde `403 INVALID_ORIGIN`
+E `POST /sessions/current/tokens` sem o header `Origin` responde `403 INVALID_ORIGIN`
+E `DELETE /sessions/current` sem o header `Origin` responde `403 INVALID_ORIGIN`
+E `GET /sessions/current` sem o header `Origin` responde normalmente
 ```
 
 ### Cenário 25 — O limite do login barra a sexta tentativa (exceção, regra 11)
 
 ```gherkin
 Dado a API com o Redis limpo
-Quando seis requisições `POST /auth/sign-in` com senha errada chegam do mesmo IP dentro de 60 segundos
+Quando seis requisições `POST /sessions` com senha errada chegam do mesmo IP dentro de 60 segundos
 Então as cinco primeiras respondem `401`
 E a sexta responde `429` com o código `RATE_LIMITED`
 E `GET /health` chamado 200 vezes seguidas nunca responde `429`
@@ -1025,18 +1044,18 @@ E `GET /health` chamado 200 vezes seguidas nunca responde `429`
 
 ```gherkin
 Dado a API com `TRUSTED_PROXIES` igual a `10.0.0.0/8` e o Redis limpo
-Quando seis requisições `POST /auth/sign-in` com senha errada são enviadas dentro de 60 segundos
+Quando seis requisições `POST /sessions` com senha errada são enviadas dentro de 60 segundos
 E cada uma traz `x-forwarded-for: <forjado>, 203.0.113.7, 10.0.0.1`, com um `<forjado>` diferente a cada chamada
 Então as cinco primeiras respondem `401`
 E a sexta responde `429`
-E existe uma única chave de contagem no Redis para `/auth/sign-in`, a de `203.0.113.7`
+E existe uma única chave de contagem no Redis para `/sessions`, a de `203.0.113.7`
 ```
 
 ### Cenário 27 — O log registra a requisição sem vazar segredo (caminho feliz, regra 9)
 
 ```gherkin
 Dado a API com `LOG_LEVEL` igual a `info`
-Quando é enviado `POST /auth/sign-in` com senha correta
+Quando é enviado `POST /sessions` com senha correta
 Então a saída em `stdout` contém uma linha JSON com o método, o caminho, o status `200` e a duração
 E essa linha não contém a senha enviada
 E não contém o valor do header `cookie` nem do `set-cookie`
@@ -1049,7 +1068,8 @@ E uma requisição `GET /health` não produz nenhuma linha de log
 Dado uma rota de teste que lança um erro não tratado
 Quando ela é chamada
 Então o sistema responde `500`
-E o corpo é exatamente `{"code":"INTERNAL_ERROR","message":"Internal server error","fields":{}}`
+E o corpo é exatamente `{"type":"about:blank","title":"Internal Server Error","status":500}`
+E o `Content-Type` é `application/problem+json`
 E a stack completa aparece no log do Pino
 E a stack não aparece na resposta
 ```
@@ -1083,9 +1103,9 @@ E com `NODE_ENV` igual a `development` o mesmo login devolve `HttpOnly` e `SameS
 
 ```gherkin
 Dado um usuário logado e o Redis inalcançável
-Quando é feita a requisição `GET /auth/session` com o cookie de acesso válido
+Quando é feita a requisição `GET /sessions/current` com o cookie de acesso válido
 Então o sistema responde `503` com o código `SERVICE_UNAVAILABLE`
-E `POST /auth/sign-out` responde `500` e a linha em `session` continua existindo
+E `DELETE /sessions/current` responde `503` com o mesmo código e a linha em `session` continua existindo
 E `GET /health` continua respondendo `200`
 ```
 
@@ -1094,7 +1114,7 @@ E `GET /health` continua respondendo `200`
 ```gherkin
 Dado que o e-mail `ana@exemplo.com` não existe na tabela `user`
 E o transport de e-mail falha ao enviar
-Quando é enviado `POST /auth/sign-up` com nome, e-mail e a senha `Clinica#2026`
+Quando é enviado `POST /users` com nome, e-mail e a senha `Clinica#2026`
 Então o sistema responde `202` com corpo vazio
 E existe uma linha em `user` e uma em `account` para esse e-mail
 E existe uma linha em `emailDispatch` para esse endereço
@@ -1174,7 +1194,7 @@ Essa divisão está no contrato do repo, na seção **`api` — camadas**.
 | 3 | #66 | Authenticate with email and password and issue the session cookies | Entities e a migration `AddAuth`; `@node-rs/argon2`; `sign-up`, `sign-in`, `refresh`, `sign-out` e `session`; `features/auth/strategy/jwt.strategy.ts` e `common/guards/jwt-auth.guard.ts` com `@Public()`; a denylist no Redis; a rotação com detecção de reuso; o teto de 5 sessões; o step de migration no CI | Cenários 2, 6, 7, 8, 9, 10, 11, 12, 23, 24, 30, 31 e 35 verdes | #69 |
 | 4 | #67 | Send the verification and the reset emails with a per-address limit | `core/mail/` com o transport do Gmail e os dois templates; a migration `AddEmailDispatch`; `email-dispatch.repository.ts` com `registerDispatch`; o fluxo de verificação de e-mail e o de reset de senha; o reenvio no login não verificado | Cenários 1, 3, 4, 5, 16, 17, 18, 19, 20, 21 e 32 verdes | #66 |
 | 5 | #68 | Sign in with Google and link it to the existing account | `features/auth/strategy/google.strategy.ts` com `passport-google-oauth20` e o `store` de `state` em cookie; as duas rotas; a vinculação à conta existente; a recusa de `email_verified` falso; o `nock` dos endpoints do Google nos testes | Cenários 13, 14 e 15 verdes | #66 |
-| 6 | #70 | Change the password of the signed-in user | `POST /auth/change-password`, a conferência de `currentPassword` com argon2 e a derrubada das outras sessões com denylist | Cenário 22 verde | #66 |
+| 6 | #70 | Change the password of the signed-in user | `PUT /users/me/password`, a conferência de `currentPassword` com argon2 e a derrubada das outras sessões com denylist | Cenário 22 verde | #66 |
 | 7 | #71 | Purge expired authentication records daily in a worker | `core/queue/` com `@nestjs/bullmq` sobre o cliente de #69; `src/worker.ts` e o script `worker`; o job repetível `purge-expired-auth-records`; o `@Processor`, o service e os repositories da limpeza | Cenários 33 e 34 verdes; a linha do worker no Cenário 29 verde | #67, #69 |
 
 As tasks do `apps/web` ficam na spec irmã, reescrita pela ADR 0002 — o web permanece em Vite e TanStack Router, e passa a falar com estas rotas por axios.
