@@ -23,6 +23,7 @@ const STATUS_BY_TYPE: Record<BusinessErrorType, HttpStatus> = {
   Forbidden: HttpStatus.FORBIDDEN,
   NotFound: HttpStatus.NOT_FOUND,
   Conflict: HttpStatus.CONFLICT,
+  RateLimited: HttpStatus.TOO_MANY_REQUESTS,
   Unavailable: HttpStatus.SERVICE_UNAVAILABLE,
 };
 

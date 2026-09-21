@@ -194,6 +194,14 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
 - **O `StandardSchemaValidationPipe` existe no `@nestjs/common@11` e não dá para usar.** Ele lê
   `metadata.schema`, e no 11 o `ArgumentMetadata` não tem esse campo nem o `@Body()` tem sobrecarga que
   o alimente. É encanamento adiantado para o 12. Conferir que o arquivo existe não basta.
+- **A chave de contagem do throttler é um hash, não a rota.** O `@nest-lab/throttler-storage-redis`
+  grava `{<sha256 de "<Controller>-<handler>-<throttler>-<tracker>">:<throttler>}:hits` e o par
+  `:blocked`. Um `redis-cli --scan` por `/sessions` não acha nada; o teste calcula a chave pela mesma
+  fórmula. Renomear um handler zera o contador dele.
+- **O `quit()` do ioredis rejeita quando o cliente não está `ready`.** Com `enableOfflineQueue: false`,
+  o Redis fora do ar faz o `quit()` falhar, e o shutdown sai com `ERROR_DURING_SHUTDOWN` e deixa o
+  Jest preso na reconexão. O `RedisModule` só chama `quit()` com status `ready`; fora disso,
+  `disconnect()`.
 
 ## Infraestrutura
 

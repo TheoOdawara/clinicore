@@ -18,6 +18,7 @@ import {
   ApiOperation,
   ApiTags,
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import {
   CurrentUser,
@@ -41,6 +42,8 @@ import {
 } from "../utils/session-cookies";
 
 const USER_AGENT_LIMIT = 512;
+const ONE_MINUTE = 60_000;
+const REDIS_UNAVAILABLE = "SERVICE_UNAVAILABLE when Redis is unreachable";
 const CURRENT_SESSION_PATH = "/sessions/current";
 const SESSION_COOKIES = {
   "Set-Cookie": {
@@ -67,6 +70,7 @@ function refreshTokenOf(request: Request): string | undefined {
 }
 
 @ApiTags("Auth")
+@ApiProblemResponse(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED")
 @Controller()
 export class AuthController {
   constructor(
@@ -80,6 +84,7 @@ export class AuthController {
 
   @Public()
   @Post("users")
+  @Throttle({ default: { ttl: ONE_MINUTE, limit: 3 } })
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
     summary: "Register an email and password account",
@@ -92,12 +97,14 @@ export class AuthController {
     "VALIDATION_FAILED, with the offending field in fields",
   )
   @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
+  @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
   async signUp(@Body() body: SignUpDto): Promise<void> {
     await this.signUpService.signUp(body.name, body.email, body.password);
   }
 
   @Public()
   @Post("sessions")
+  @Throttle({ default: { ttl: ONE_MINUTE, limit: 5 } })
   @HttpCode(HttpStatus.CREATED)
   @Header("Location", CURRENT_SESSION_PATH)
   @ApiOperation({ summary: "Open a session and issue the session cookies" })
@@ -121,6 +128,7 @@ export class AuthController {
     HttpStatus.FORBIDDEN,
     "EMAIL_NOT_VERIFIED, or INVALID_ORIGIN",
   )
+  @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
   async signIn(
     @Body() body: SignInDto,
     @Req() request: Request,
@@ -140,6 +148,7 @@ export class AuthController {
 
   @Public()
   @Post("sessions/current/tokens")
+  @Throttle({ default: { ttl: ONE_MINUTE, limit: 30 } })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: "Rotate the refresh token",
@@ -155,6 +164,7 @@ export class AuthController {
     "INVALID_SESSION, or SESSION_REUSED when the old token comes back",
   )
   @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
+  @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
   async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
@@ -196,10 +206,7 @@ export class AuthController {
   @ApiOperation({ summary: "Read the signed-in user" })
   @ApiOkResponse({ description: "The signed-in user", type: SessionResponse })
   @ApiProblemResponse(HttpStatus.UNAUTHORIZED, "INVALID_SESSION")
-  @ApiProblemResponse(
-    HttpStatus.SERVICE_UNAVAILABLE,
-    "SERVICE_UNAVAILABLE when Redis is unreachable",
-  )
+  @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
   async session(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<SessionResponse> {

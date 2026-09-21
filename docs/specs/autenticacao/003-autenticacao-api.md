@@ -165,7 +165,7 @@ autenticação.
 | `403` | E-mail ainda não verificado, ou `Origin` fora de `ALLOWED_ORIGINS` |
 | `429` | Limite de requisições da rota excedido (regra 11) |
 | `500` | Erro desconhecido, sem detalhe no corpo (regra 10) |
-| `503` | Redis inalcançável (regra 2) |
+| `503` | Redis inalcançável (regras 2 e 11) |
 
 ### Perfis e privilégios
 
@@ -474,10 +474,18 @@ Uma senha é aceita quando cumpre **todas** as condições:
   | `/health` | sem limite, por `@SkipThrottle()` | — |
 
 - Excedido, o `ThrottlerGuard` lança e o filtro responde `429` com o código `RATE_LIMITED`.
+- **A falha é fechada, como na regra 2.** Redis inalcançável durante a contagem responde `503` com o
+  código `SERVICE_UNAVAILABLE`, em vez de deixar a requisição passar sem limite. O `/health` não conta,
+  então continua respondendo.
+- A ordem dos guards globais é `Origin` → limite → JWT: `Origin` inválido responde `403` sem gastar
+  contagem, e uma rota autenticada conta a tentativa antes de o cookie ser conferido.
 - **O IP vem da cadeia de proxies confiáveis, pelo próprio Express.**
   `app.set("trust proxy", env.TRUSTED_PROXIES)` recebe a lista de blocos CIDR; o Express percorre
   `x-forwarded-for` da direita para a esquerda, pula os hops confiáveis e entrega em `req.ip` o
-  primeiro que não é. `getTracker(req)` do guard devolve `req.ip`. O que o cliente escreve à esquerda
+  primeiro que não é. `getTracker(req)` do guard devolve `req.ip` normalizado pelo próprio
+  `@nestjs/throttler`: `::ffff:` removido do IPv4 mapeado, e IPv6 reduzido ao `/64`, que é a alocação
+  padrão de um cliente — sem isso, trocar de endereço dentro do próprio `/64` daria um contador novo a
+  cada requisição. O que o cliente escreve à esquerda
   do hop que o proxy acrescentou nunca é usado.
 - Uma cadeia em que **todos** os hops são confiáveis faz o Express entregar o valor mais à esquerda,
   que o cliente controla. Por isso `TRUSTED_PROXIES` nomeia exatamente a sub-rede do proxy à frente da
@@ -486,7 +494,8 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - **A garantia depende do deploy:** a API só pode ser alcançável através do proxy que acrescenta o hop.
   Exposta direto, um `x-forwarded-for` forjado de valor único seria aceito como IP do cliente. Isso é a
   issue #4 (Fora de Escopo).
-- Em `development`, sem proxy, o IP resolve como `127.0.0.1`.
+- Em `development`, sem proxy, o IP é o do socket: `127.0.0.1` quando o cliente chama por IPv4, e
+  `::1` — contado como `::/64` — quando `localhost` resolve para IPv6, como no `curl localhost`.
 
 ### 12. Persistência e Auditoria
 
@@ -682,7 +691,7 @@ A mensagem é inglês, texto de desenvolvedor; o texto que a pessoa lê é escri
 | `EMAIL_NOT_VERIFIED` | `403` | Login com a senha correta e o e-mail ainda não verificado | "Email not verified" |
 | `INVALID_ORIGIN` | `403` | Método que não é `GET`, `HEAD` nem `OPTIONS` com `Origin` fora de `ALLOWED_ORIGINS`, ou sem o header | "Invalid origin" |
 | `RATE_LIMITED` | `429` | Limite da rota excedido (regra 11) | "Too many requests" |
-| `SERVICE_UNAVAILABLE` | `503` | Redis inalcançável numa requisição autenticada (regra 2) | "Service temporarily unavailable" |
+| `SERVICE_UNAVAILABLE` | `503` | Redis inalcançável numa requisição autenticada (regra 2) ou numa rota com limite (regra 11) | "Service temporarily unavailable" |
 
 Fora do catálogo, todo erro sai como `about:blank` com a frase padrão do status no `title`: o
 `HttpException` levantado pelo próprio framework (`404`, `405`, `413`) e todo `500` (regra 10).
@@ -1051,6 +1060,10 @@ E a sexta responde `429`
 E existe uma única chave de contagem no Redis para `/sessions`, a de `203.0.113.7`
 ```
 
+No teste automatizado, `TRUSTED_PROXIES` vale `127.0.0.1/32,10.0.0.0/8`: o socket do supertest é
+`127.0.0.1` e faz o papel do proxy. Só com `10.0.0.0/8`, o Express não confiaria no socket, ignoraria o
+`x-forwarded-for` inteiro, e o cenário passaria sem provar nada.
+
 ### Cenário 27 — O log registra a requisição sem vazar segredo (caminho feliz, regra 9)
 
 ```gherkin
@@ -1190,7 +1203,7 @@ Essa divisão está no contrato do repo, na seção **`api` — camadas**.
 | # | Issue | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- | --- |
 | 1 | #65 | Add the authentication environment, the logger and the error contract to apps/api | As 12 variáveis em `core/config/`, com o decorator de CIDR e o de `MAIL_FROM`; `core/logger/` com o Pino atrás do `LoggerService` e o interceptor; `common/exceptions/business-error.ts`; `common/filters/business-error.filter.ts`; o `ValidationPipe` global e o `exceptionFactory` de `fields`; `common/guards/origin.guard.ts`; `app.set("trust proxy", …)`; `.github/workflows/ci.yml` com as variáveis novas e o serviço `redis:8` | Cenários 27, 28 e 29 verdes, sem a linha do worker no 29; a parte de `Origin` do Cenário 24 verde; os quatro gates da API saem com código 0 | — |
-| 2 | #69 | Add Redis and rate-limit the authentication routes by trusted client IP | `core/redis/` com o cliente `ioredis` único sobre `REDIS_URL`, `@nestjs/throttler` com `@nest-lab/throttler-storage-redis`, o `ThrottlerGuard` global com `getTracker` sobre `req.ip`, o `@SkipThrottle()` de `/health` e a tabela de limites da regra 11 | Cenários 25 e 26 verdes | #65 |
+| 2 | #69 | Rate-limit the authentication routes by trusted client IP | `@nestjs/throttler` com `@nest-lab/throttler-storage-redis` sobre o cliente `ioredis` de `core/redis/`, o guard global com `getTracker` sobre `req.ip` normalizado e falha fechada em `503`, o `@SkipThrottle()` de `/health` e a tabela de limites da regra 11 | Cenários 25 e 26 verdes | #65 |
 | 3 | #66 | Authenticate with email and password and issue the session cookies | Entities e a migration `AddAuth`; `@node-rs/argon2`; `sign-up`, `sign-in`, `refresh`, `sign-out` e `session`; `features/auth/strategy/jwt.strategy.ts` e `common/guards/jwt-auth.guard.ts` com `@Public()`; a denylist no Redis; a rotação com detecção de reuso; o teto de 5 sessões; o step de migration no CI | Cenários 2, 6, 7, 8, 9, 10, 11, 12, 23, 24, 30, 31 e 35 verdes | #69 |
 | 4 | #67 | Send the verification and the reset emails with a per-address limit | `core/mail/` com o transport do Gmail e os dois templates; a migration `AddEmailDispatch`; `email-dispatch.repository.ts` com `registerDispatch`; o fluxo de verificação de e-mail e o de reset de senha; o reenvio no login não verificado | Cenários 1, 3, 4, 5, 16, 17, 18, 19, 20, 21 e 32 verdes | #66 |
 | 5 | #68 | Sign in with Google and link it to the existing account | `features/auth/strategy/google.strategy.ts` com `passport-google-oauth20` e o `store` de `state` em cookie; as duas rotas; a vinculação à conta existente; a recusa de `email_verified` falso; o `nock` dos endpoints do Google nos testes | Cenários 13, 14 e 15 verdes | #66 |

@@ -16,6 +16,7 @@ export type BusinessErrorType =
   | "Forbidden"
   | "Invalid"
   | "Unauthorized"
+  | "RateLimited"
   | "Unavailable";
 
 export interface FieldError {
@@ -63,6 +64,10 @@ export class BusinessError extends Error {
 
   static unauthorized(code: ErrorCode, message: string): BusinessError {
     return new BusinessError("Unauthorized", code, message, []);
+  }
+
+  static rateLimited(code: ErrorCode, message: string): BusinessError {
+    return new BusinessError("RateLimited", code, message, []);
   }
 
   static unavailable(code: ErrorCode, message: string): BusinessError {
