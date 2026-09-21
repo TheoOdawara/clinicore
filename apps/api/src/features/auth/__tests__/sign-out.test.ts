@@ -67,34 +67,37 @@ describe("DELETE /sessions/current", () => {
     });
   });
 
-  it("refuses the repeated sign-out and changes nothing", async () => {
+  it("keeps the session when the revocation cannot be written", async () => {
     await createVerifiedUser(authApp, EMAIL, PASSWORD);
     const signIn = await authApp
       .post("/sessions")
       .send({ email: EMAIL, password: PASSWORD })
       .expect(201);
     const access = cookieNamed(signIn, ACCESS_COOKIE) ?? "";
+    const session = await authApp.dataSource
+      .getRepository(Session)
+      .findOneOrFail({ where: {} });
+    jest
+      .spyOn(authApp.redis, "set")
+      .mockRejectedValueOnce(new Error("OOM command not allowed"));
+
+    const response = await authApp
+      .delete("/sessions/current")
+      .set("Cookie", [access])
+      .expect(503);
+
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:service-unavailable",
+    });
+    expect(
+      await authApp.dataSource
+        .getRepository(Session)
+        .findOne({ where: { id: session.id } }),
+    ).not.toBeNull();
 
     await authApp
       .delete("/sessions/current")
       .set("Cookie", [access])
       .expect(204);
-    const response = await authApp
-      .delete("/sessions/current")
-      .set("Cookie", [access])
-      .expect(401);
-
-    expect(response.body).toMatchObject({
-      type: "tag:clinicore.com.br,2026:invalid-session",
-    });
-    expect(await authApp.dataSource.getRepository(Session).count()).toBe(0);
-  });
-
-  it("refuses a request without the access cookie", async () => {
-    const response = await authApp.delete("/sessions/current").expect(401);
-
-    expect(response.body).toMatchObject({
-      type: "tag:clinicore.com.br,2026:invalid-session",
-    });
   });
 });

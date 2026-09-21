@@ -3,7 +3,6 @@ import { JwtService } from "@nestjs/jwt";
 import { verify } from "@node-rs/argon2";
 import { BusinessError } from "../../../common/exceptions/business-error";
 import type { User } from "../entities/user.entity";
-import { RevokedSessionRepository } from "../repository/revoked-session.repository";
 import { SessionRepository } from "../repository/session.repository";
 import { UserRepository } from "../repository/user.repository";
 import { REFRESH_MAX_AGE_IN_SECONDS } from "../utils/session-cookies";
@@ -28,7 +27,6 @@ export class SignInService {
   constructor(
     private readonly users: UserRepository,
     private readonly sessions: SessionRepository,
-    private readonly revoked: RevokedSessionRepository,
     private readonly jwt: JwtService,
     @Inject(DUMMY_PASSWORD_HASH) private readonly dummyHash: string,
   ) {}
@@ -69,7 +67,7 @@ export class SignInService {
     const expiresAt = new Date(
       Date.now() + REFRESH_MAX_AGE_IN_SECONDS * MILLISECONDS,
     );
-    const created = await this.sessions.createSession(
+    const session = await this.sessions.createSession(
       user.id,
       refresh.hash,
       expiresAt,
@@ -77,12 +75,10 @@ export class SignInService {
       userAgent,
     );
 
-    await this.revoked.revokeMany(created.revokedIds);
-
     return {
       user: toSessionUser(user),
-      accessToken: this.jwt.sign({ sub: user.id, sid: created.session.id }),
-      refreshToken: composeRefreshToken(created.session.id, refresh.secret),
+      accessToken: this.jwt.sign({ sub: user.id, sid: session.id }),
+      refreshToken: composeRefreshToken(session.id, refresh.secret),
     };
   }
 }

@@ -2,13 +2,9 @@ import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource, In } from "typeorm";
 import { Session } from "../entities/session.entity";
+import { RevokedSessionRepository } from "./revoked-session.repository";
 
 export const SESSION_CAP = 5;
-
-export interface CreatedSession {
-  session: Session;
-  revokedIds: string[];
-}
 
 export type RotationOutcome =
   | { status: "rotated"; session: Session }
@@ -17,7 +13,10 @@ export type RotationOutcome =
 
 @Injectable()
 export class SessionRepository {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly revoked: RevokedSessionRepository,
+  ) {}
 
   createSession(
     userId: string,
@@ -25,7 +24,7 @@ export class SessionRepository {
     expiresAt: Date,
     ipAddress: string | null,
     userAgent: string | null,
-  ): Promise<CreatedSession> {
+  ): Promise<Session> {
     return this.dataSource.transaction(async (manager) => {
       const session = await manager.save(
         manager.create(Session, {
@@ -47,9 +46,10 @@ export class SessionRepository {
       const revokedIds = surplus.map((expired) => expired.id);
       if (revokedIds.length > 0) {
         await manager.delete(Session, { id: In(revokedIds) });
+        await this.revoked.revokeMany(revokedIds);
       }
 
-      return { session, revokedIds };
+      return session;
     });
   }
 
@@ -71,6 +71,7 @@ export class SessionRepository {
 
       if (!matchesStoredHash(session.refreshTokenHash)) {
         await manager.delete(Session, { id: sessionId });
+        await this.revoked.revoke(sessionId);
         return { status: "reused" };
       }
 
@@ -87,11 +88,15 @@ export class SessionRepository {
       .findOne({ where: { id: sessionId } });
   }
 
-  async deleteById(sessionId: string): Promise<boolean> {
-    const result = await this.dataSource
-      .getRepository(Session)
-      .delete({ id: sessionId });
+  revokeSession(sessionId: string): Promise<boolean> {
+    return this.dataSource.transaction(async (manager) => {
+      const result = await manager.delete(Session, { id: sessionId });
+      if (result.affected === 0) {
+        return false;
+      }
 
-    return result.affected !== 0;
+      await this.revoked.revoke(sessionId);
+      return true;
+    });
   }
 }

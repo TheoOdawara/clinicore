@@ -18,12 +18,16 @@ export class RevokedSessionRepository {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
   async revoke(sessionId: string): Promise<void> {
-    await this.redis.set(
-      `${KEY_PREFIX}${sessionId}`,
-      "1",
-      "EX",
-      TTL_IN_SECONDS,
-    );
+    try {
+      await this.redis.set(
+        `${KEY_PREFIX}${sessionId}`,
+        "1",
+        "EX",
+        TTL_IN_SECONDS,
+      );
+    } catch {
+      throw unavailable();
+    }
   }
 
   async revokeMany(sessionIds: string[]): Promise<void> {

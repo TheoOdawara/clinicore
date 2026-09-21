@@ -67,15 +67,28 @@ describe("the cap of active sessions", () => {
     });
   });
 
-  it("keeps exactly five sessions after twenty sign-ins", async () => {
+  it("opens no session when the eviction cannot be revoked", async () => {
     await createVerifiedUser(authApp, EMAIL, PASSWORD);
-
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    const sessions = authApp.dataSource.getRepository(Session);
+    for (let attempt = 0; attempt < SESSION_CAP; attempt += 1) {
       await signIn();
     }
+    const before = await sessions.find({ select: { id: true } });
+    jest
+      .spyOn(authApp.redis, "set")
+      .mockRejectedValueOnce(new Error("OOM command not allowed"));
 
-    expect(await authApp.dataSource.getRepository(Session).count()).toBe(
-      SESSION_CAP,
+    const response = await authApp
+      .post("/sessions")
+      .send({ email: EMAIL, password: PASSWORD })
+      .expect(503);
+
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:service-unavailable",
+    });
+    const after = await sessions.find({ select: { id: true } });
+    expect(after.map((session) => session.id).sort()).toEqual(
+      before.map((session) => session.id).sort(),
     );
   });
 

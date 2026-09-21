@@ -177,9 +177,10 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
   arrasto é maior do que parece: trocar o tipo da coluna faz o gerador derrubar e recriar todo índice
   e unique que a usa. **A coluna de enum não declara nome.**
 - **O gerador de migration sai com código 1 quando não há diferença**, com
-  `No changes in database schema were found`. Por isso o gate de drift do CI decide pela existência do
-  arquivo, nunca pelo código de saída — e **cria o diretório de destino antes**, senão a CLI falha por
-  outro motivo, nenhum arquivo aparece e o gate passa sem ter verificado nada.
+  `No changes in database schema were found`. Por isso o gate de drift do CI roda com `--check`, que
+  inverte isso: sai 0 só quando o schema bate com as entities, e 1 tanto em drift quanto em falha da
+  própria CLI. Decidir pela existência do arquivo com `|| true` deixava a CLI quebrada passar como
+  "sem drift".
 - **As suítes de teste dividem o mesmo Postgres**, e a limpeza de uma derruba os dados da outra. Por
   isso o Jest da API roda com `maxWorkers: 1`; em paralelo, testes que passam isolados falham juntos.
 - **O `delete({})` do TypeORM 1.1 é recusado** com `Empty criteria(s) are not allowed`. Apagar a tabela

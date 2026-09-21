@@ -1,3 +1,4 @@
+import { isUUID } from "class-validator";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 const SECRET_BYTES = 32;
@@ -30,10 +31,12 @@ export function parseRefreshToken(
     return null;
   }
 
-  return {
-    sessionId: token.slice(0, separatorAt),
-    secret: token.slice(separatorAt + 1),
-  };
+  const sessionId = token.slice(0, separatorAt);
+  if (!isUUID(sessionId)) {
+    return null;
+  }
+
+  return { sessionId, secret: token.slice(separatorAt + 1) };
 }
 
 export function hashesMatch(first: string, second: string): boolean {

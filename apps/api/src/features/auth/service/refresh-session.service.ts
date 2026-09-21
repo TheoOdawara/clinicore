@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { BusinessError } from "../../../common/exceptions/business-error";
-import { RevokedSessionRepository } from "../repository/revoked-session.repository";
 import { SessionRepository } from "../repository/session.repository";
 import { REFRESH_MAX_AGE_IN_SECONDS } from "../utils/session-cookies";
 import {
@@ -23,7 +22,6 @@ export interface RotatedSession {
 export class RefreshSessionService {
   constructor(
     private readonly sessions: SessionRepository,
-    private readonly revoked: RevokedSessionRepository,
     private readonly jwt: JwtService,
   ) {}
 
@@ -52,7 +50,6 @@ export class RefreshSessionService {
     }
 
     if (outcome.status === "reused") {
-      await this.revoked.revoke(parsed.sessionId);
       throw BusinessError.unauthorized(
         "SESSION_REUSED",
         "Refresh token reuse detected",

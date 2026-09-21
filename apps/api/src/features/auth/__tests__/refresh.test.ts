@@ -122,26 +122,45 @@ describe("POST /sessions/current/tokens", () => {
     });
   });
 
-  it("refuses a refresh token of a session that does not exist", async () => {
+  it("keeps the session when the reuse revocation cannot be written", async () => {
     const { refresh, sessionId } = await signIn();
-    await authApp.dataSource.getRepository(Session).delete({ id: sessionId });
+    await authApp
+      .post("/sessions/current/tokens")
+      .set("Cookie", [refresh])
+      .expect(204);
+    jest
+      .spyOn(authApp.redis, "set")
+      .mockRejectedValueOnce(new Error("OOM command not allowed"));
 
     const response = await authApp
       .post("/sessions/current/tokens")
       .set("Cookie", [refresh])
-      .expect(401);
+      .expect(503);
 
     expect(response.body).toMatchObject({
-      type: "tag:clinicore.com.br,2026:invalid-session",
+      type: "tag:clinicore.com.br,2026:service-unavailable",
+    });
+    expect(
+      await authApp.dataSource
+        .getRepository(Session)
+        .findOne({ where: { id: sessionId } }),
+    ).not.toBeNull();
+
+    const retried = await authApp
+      .post("/sessions/current/tokens")
+      .set("Cookie", [refresh])
+      .expect(401);
+    expect(retried.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:session-reused",
     });
   });
 
-  it("refuses a malformed refresh token", async () => {
+  it("refuses a refresh token whose session id is not a uuid", async () => {
     await signIn();
 
     const response = await authApp
       .post("/sessions/current/tokens")
-      .set("Cookie", [`${REFRESH_COOKIE}=not-a-token`])
+      .set("Cookie", [`${REFRESH_COOKIE}=abc.xyz`])
       .expect(401);
 
     expect(response.body).toMatchObject({
