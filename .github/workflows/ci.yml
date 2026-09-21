@@ -69,6 +69,13 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
+      - run: npm run migration:run
+      - name: schema matches the entities
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/drift"
+          npm run migration:generate -- "$RUNNER_TEMP/drift/Drift" || true
+          ! compgen -G "$RUNNER_TEMP/drift/*Drift*.ts" > /dev/null
       - run: npm run test
       - run: npm run test:e2e
 
