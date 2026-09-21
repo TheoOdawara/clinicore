@@ -1,7 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
 import { IsEmail, IsString, Length } from "class-validator";
-import { IsStrongPassword } from "./is-strong-password.decorator";
+import { IsStrongPassword } from "../utils/password-policy";
 
 function trimmed({ value }: { value: unknown }): unknown {
   if (typeof value !== "string") {

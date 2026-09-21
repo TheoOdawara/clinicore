@@ -1,3 +1,5 @@
+import { registerDecorator } from "class-validator";
+
 const MINIMUM_LENGTH = 8;
 const MAXIMUM_LENGTH = 128;
 const UPPERCASE = /\p{Lu}/u;
@@ -14,4 +16,18 @@ export function isStrongPassword(password: string): boolean {
     DIGIT.test(password) &&
     NEITHER_LETTER_NOR_DIGIT.test(password)
   );
+}
+
+export function IsStrongPassword() {
+  return function decorate(target: object, propertyName: string): void {
+    registerDecorator({
+      name: "weakPassword",
+      target: target.constructor,
+      propertyName,
+      validator: {
+        validate: (value: unknown) =>
+          typeof value === "string" && isStrongPassword(value),
+      },
+    });
+  };
 }
