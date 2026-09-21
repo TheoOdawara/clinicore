@@ -156,7 +156,14 @@ go-live.
 ## 5. Requisitos não funcionais
 - **Mobile-first** — toda tela é desenhada na largura de celular antes do desktop. UX simples é o
   principal argumento contra o legado.
-- **Plataforma** — web responsiva. Sem app nativo no MVP.
+- **Plataforma** — web responsiva e app nativo iOS e Android, os dois no MVP e no go-live da clínica
+  piloto, com as mesmas telas. O web exige conexão; o app funciona sem ela
+  (`docs/decisions/0007-app-nativo-em-flutter-com-offline.md`).
+- **Offline no app** — sem internet, o app mostra e grava como se estivesse online; o que foi gravado
+  espera numa fila e sobe quando a conexão volta. Uma escrita feita sobre dado que mudou no servidor é
+  recusada e fica em pendência para a pessoa refazer — nada é sobrescrito em silêncio. O dado de saúde
+  guardado no aparelho é cifrado, abre com biometria ou PIN, e é apagado após 72 horas sem sincronizar,
+  no logout e na revogação da sessão; a fila pendente não é apagada.
 - **Segurança e LGPD** — dado de saúde é dado sensível: isolamento entre tenants, criptografia em
   trânsito e repouso, trilha de auditoria de acesso ao prontuário, menor privilégio por papel.
 - **Validade legal do prontuário eletrônico** — eliminar papel exige conformidade com as normas do CFO e
@@ -241,6 +248,13 @@ go-live.
   então remarca; quando não resolve, então transfere para a recepção.
 - **IA clínica** — dada uma consulta gravada com consentimento, quando termina, então o dentista recebe
   um rascunho de evolução que só entra no prontuário após aprovar.
+- **Offline** — dado um dentista com o app sincronizado, quando perde a internet, então vê a agenda e os
+  pacientes dela e registra o atendimento; quando a conexão volta, então o registro chega à API sem ação
+  dele.
+- **Conflito offline** — dada uma consulta cancelada na recepção enquanto o dentista estava offline,
+  quando o registro dele sobe, então a API o recusa e o app o mostra em pendência.
+- **Expiração offline** — dado um app sem sincronizar há 72 horas, quando é aberto, então não mostra dado
+  de saúde e mantém a fila pendente.
 - **Indicadores** — dado um mês de operação, quando o gestor abre o painel, então vê funil de orçamento,
   ocupação, faltas e inadimplência.
 
@@ -280,3 +294,6 @@ go-live.
   assina tudo com sessão de até 7 dias; sem certificado, assinatura avançada no que a lei permite e
   impressão no resto; paciente assina em qualquer dispositivo da clínica ou por e-mail; impressão sempre
   disponível. gov.br descartado. Parecer jurídico sobre assinatura avançada vira pergunta em aberto.
+- **2026-09-21** — App nativo iOS e Android entra no MVP e no go-live da piloto, em Flutter, com paridade
+  de telas com o web. Offline completo no app, com fila de escrita, recusa por versão e pendência, dado
+  cifrado apagado após 72 horas sem sincronizar. O web segue exigindo conexão. Decisão na ADR 0007.

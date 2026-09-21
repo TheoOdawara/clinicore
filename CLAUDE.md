@@ -14,6 +14,11 @@ o contrato HTTP.
 
 **Os três apps usam npm sobre Node 26.** É estado decidido, não transitório.
 
+**Um quarto app, `apps/mobile`, está decidido e ainda não existe:** app nativo iOS e Android em Flutter,
+com paridade de telas com o web, offline com fila de escrita e cliente HTTP gerado do OpenAPI da API —
+gerar do contrato não é importar código. A coluna dele na Stack, a linha nos Comandos e a pasta na
+Arquitetura entram no scaffold. Decisão em `docs/decisions/0007-app-nativo-em-flutter-com-offline.md`.
+
 Cada app tem o seu domínio: `clinicore.com.br` é a landing pública, `app.clinicore.com.br` é o sistema e
 `api.clinicore.com.br` é a API. Os três compartilham o mesmo domínio registrável, e é isso que mantém o
 cookie de sessão em `SameSite=Lax`.
@@ -42,8 +47,9 @@ As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0002-web-e-site-em-vite.md`,
 `docs/decisions/0003-design-system-com-shadcn-ui-e-react-bits.md`,
 `docs/decisions/0004-lint-do-front-em-eslint.md`,
-`docs/decisions/0005-front-em-npm-sobre-node.md` e
-`docs/decisions/0006-api-rest-e-problem-details.md`.
+`docs/decisions/0005-front-em-npm-sobre-node.md`,
+`docs/decisions/0006-api-rest-e-problem-details.md` e
+`docs/decisions/0007-app-nativo-em-flutter-com-offline.md`.
 
 ## Comandos
 
