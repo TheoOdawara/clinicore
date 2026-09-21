@@ -1,4 +1,5 @@
 import {
+  All,
   Body,
   Controller,
   Get,
@@ -58,6 +59,11 @@ class ProbeController {
 
   @Get("session")
   session(): { status: string } {
+    return { status: "ok" };
+  }
+
+  @All("resource")
+  resource(): { status: string } {
     return { status: "ok" };
   }
 

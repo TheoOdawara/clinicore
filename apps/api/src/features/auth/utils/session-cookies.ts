@@ -6,7 +6,7 @@ export const REFRESH_COOKIE = "clinicore_refresh";
 export const ACCESS_MAX_AGE_IN_SECONDS = 900;
 export const REFRESH_MAX_AGE_IN_SECONDS = 86400;
 const MILLISECONDS = 1000;
-const REFRESH_PATH = "/auth/refresh";
+const REFRESH_PATH = "/sessions/current/tokens";
 
 function baseOptions(nodeEnv: Environment["NODE_ENV"]): CookieOptions {
   return {

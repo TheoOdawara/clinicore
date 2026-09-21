@@ -9,7 +9,7 @@ export function configureApplication(
   app.enableCors({
     origin: environment.get("ALLOWED_ORIGINS"),
     credentials: true,
-    methods: ["GET", "POST", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
   });
   app.use(cookieParser());

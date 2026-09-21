@@ -16,7 +16,7 @@ describe("auth routes on the whole application", () => {
 
   it("refuses a sign-in without the Origin header before reaching the service", async () => {
     const response = await request(probe.server)
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: "ana@exemplo.com", password: "Clinica#2026" })
       .expect(403);
 
@@ -27,8 +27,18 @@ describe("auth routes on the whole application", () => {
 
   it("refuses a refresh from an origin outside the list", async () => {
     const response = await request(probe.server)
-      .post("/auth/refresh")
+      .post("/sessions/current/tokens")
       .set("Origin", "http://evil.example")
+      .expect(403);
+
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-origin",
+    });
+  });
+
+  it("refuses a sign-out without the Origin header", async () => {
+    const response = await request(probe.server)
+      .delete("/sessions/current")
       .expect(403);
 
     expect(response.body).toMatchObject({
@@ -38,7 +48,7 @@ describe("auth routes on the whole application", () => {
 
   it("refuses the session route without the access cookie", async () => {
     const response = await request(probe.server)
-      .get("/auth/session")
+      .get("/sessions/current")
       .expect(401);
 
     expect(response.body).toMatchObject({
@@ -52,7 +62,7 @@ describe("auth routes on the whole application", () => {
 
   it("answers the preflight of an allowed origin with credentials", async () => {
     const response = await request(probe.server)
-      .options("/auth/sign-in")
+      .options("/sessions")
       .set("Origin", ORIGIN)
       .set("Access-Control-Request-Method", "POST")
       .expect(204);

@@ -29,9 +29,9 @@ describe("the cap of active sessions", () => {
 
   async function signIn(): Promise<string> {
     const response = await authApp
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: EMAIL, password: PASSWORD })
-      .expect(200);
+      .expect(201);
     return cookieNamed(response, ACCESS_COOKIE) ?? "";
   }
 
@@ -59,7 +59,7 @@ describe("the cap of active sessions", () => {
     ).toBe(1);
 
     const me = await authApp
-      .get("/auth/session")
+      .get("/sessions/current")
       .set("Cookie", [oldestAccess])
       .expect(401);
     expect(me.body).toMatchObject({

@@ -39,6 +39,10 @@ export class AuthApp {
     return request(this.server).post(path).set("Origin", this.origin);
   }
 
+  delete(path: string): request.Test {
+    return request(this.server).delete(path).set("Origin", this.origin);
+  }
+
   get(path: string): request.Test {
     return request(this.server).get(path);
   }
@@ -87,7 +91,7 @@ export async function createVerifiedUser(
   password: string,
 ): Promise<User> {
   await authApp
-    .post("/auth/sign-up")
+    .post("/users")
     .send({ name: "Ana Souza", email, password })
     .expect(202);
 

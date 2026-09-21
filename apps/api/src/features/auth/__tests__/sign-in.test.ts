@@ -27,7 +27,7 @@ function median(values: number[]): number {
   return middle;
 }
 
-describe("POST /auth/sign-in", () => {
+describe("POST /sessions", () => {
   let authApp: AuthApp;
 
   beforeAll(async () => {
@@ -46,9 +46,9 @@ describe("POST /auth/sign-in", () => {
     const user = await createVerifiedUser(authApp, EMAIL, PASSWORD);
 
     const response = await authApp
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: EMAIL, password: PASSWORD })
-      .expect(200);
+      .expect(201);
 
     expect(response.body).toEqual({
       user: {
@@ -59,6 +59,7 @@ describe("POST /auth/sign-in", () => {
         image: null,
       },
     });
+    expect(response.headers.location).toBe("/sessions/current");
     expect(JSON.stringify(response.body)).not.toContain(PASSWORD);
 
     const access = cookieNamed(response, ACCESS_COOKIE);
@@ -69,7 +70,7 @@ describe("POST /auth/sign-in", () => {
     expect(access).toContain("SameSite=Lax");
     expect(access).not.toContain("Domain");
     expect(refresh).toContain("HttpOnly");
-    expect(refresh).toContain("Path=/auth/refresh");
+    expect(refresh).toContain("Path=/sessions/current/tokens");
     expect(refresh).toContain("Max-Age=86400");
     expect(refresh).toContain("SameSite=Lax");
 
@@ -83,7 +84,7 @@ describe("POST /auth/sign-in", () => {
     expect(refresh).not.toContain(session.refreshTokenHash);
 
     const me = await authApp
-      .get("/auth/session")
+      .get("/sessions/current")
       .set("Cookie", [access ?? ""])
       .expect(200);
     expect(me.body).toEqual(response.body);
@@ -93,11 +94,11 @@ describe("POST /auth/sign-in", () => {
     await createVerifiedUser(authApp, EMAIL, PASSWORD);
 
     const wrongPassword = await authApp
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: EMAIL, password: "Errada#2026" })
       .expect(401);
     const unknownEmail = await authApp
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: "ninguem@exemplo.com", password: "Errada#2026" })
       .expect(401);
 
@@ -115,7 +116,7 @@ describe("POST /auth/sign-in", () => {
     const measure = async (email: string): Promise<number> => {
       const started = performance.now();
       await authApp
-        .post("/auth/sign-in")
+        .post("/sessions")
         .send({ email, password: "Errada#2026" })
         .expect(401);
       return performance.now() - started;
@@ -134,12 +135,12 @@ describe("POST /auth/sign-in", () => {
 
   it("refuses the sign-in of an unverified email", async () => {
     await authApp
-      .post("/auth/sign-up")
+      .post("/users")
       .send({ name: "Ana Souza", email: EMAIL, password: PASSWORD })
       .expect(202);
 
     const response = await authApp
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: EMAIL, password: PASSWORD })
       .expect(403);
 
@@ -155,9 +156,9 @@ describe("POST /auth/sign-in", () => {
     await createVerifiedUser(authApp, EMAIL, PASSWORD);
 
     await authApp
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: "ANA@Exemplo.com", password: PASSWORD })
-      .expect(200);
+      .expect(201);
 
     expect(await authApp.dataSource.getRepository(User).count()).toBe(1);
   });

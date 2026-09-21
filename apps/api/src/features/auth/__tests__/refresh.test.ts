@@ -13,7 +13,7 @@ const ACCESS_COOKIE = "clinicore_access";
 const REFRESH_COOKIE = "clinicore_refresh";
 const REVOCATION_TTL_IN_SECONDS = 900;
 
-describe("POST /auth/refresh", () => {
+describe("POST /sessions/current/tokens", () => {
   let authApp: AuthApp;
 
   beforeAll(async () => {
@@ -35,9 +35,9 @@ describe("POST /auth/refresh", () => {
   }> {
     await createVerifiedUser(authApp, EMAIL, PASSWORD);
     const response = await authApp
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: EMAIL, password: PASSWORD })
-      .expect(200);
+      .expect(201);
 
     const session = await authApp.dataSource
       .getRepository(Session)
@@ -56,7 +56,7 @@ describe("POST /auth/refresh", () => {
     const before = await sessions.findOneOrFail({ where: { id: sessionId } });
 
     const response = await authApp
-      .post("/auth/refresh")
+      .post("/sessions/current/tokens")
       .set("Cookie", [refresh])
       .expect(204);
 
@@ -71,7 +71,7 @@ describe("POST /auth/refresh", () => {
     );
 
     await authApp
-      .get("/auth/session")
+      .get("/sessions/current")
       .set("Cookie", [rotatedAccess])
       .expect(200);
   });
@@ -79,12 +79,12 @@ describe("POST /auth/refresh", () => {
   it("drops the whole session when the old refresh token comes back", async () => {
     const { refresh, sessionId } = await signIn();
     const rotation = await authApp
-      .post("/auth/refresh")
+      .post("/sessions/current/tokens")
       .set("Cookie", [refresh])
       .expect(204);
 
     const response = await authApp
-      .post("/auth/refresh")
+      .post("/sessions/current/tokens")
       .set("Cookie", [refresh])
       .expect(401);
 
@@ -105,7 +105,7 @@ describe("POST /auth/refresh", () => {
 
     const rotatedAccess = cookieNamed(rotation, ACCESS_COOKIE) ?? "";
     const invalidSession = await authApp
-      .get("/auth/session")
+      .get("/sessions/current")
       .set("Cookie", [rotatedAccess])
       .expect(401);
     expect(invalidSession.body).toMatchObject({
@@ -114,7 +114,7 @@ describe("POST /auth/refresh", () => {
 
     const rotatedRefresh = cookieNamed(rotation, REFRESH_COOKIE) ?? "";
     const refusedRefresh = await authApp
-      .post("/auth/refresh")
+      .post("/sessions/current/tokens")
       .set("Cookie", [rotatedRefresh])
       .expect(401);
     expect(refusedRefresh.body).toMatchObject({
@@ -127,7 +127,7 @@ describe("POST /auth/refresh", () => {
     await authApp.dataSource.getRepository(Session).delete({ id: sessionId });
 
     const response = await authApp
-      .post("/auth/refresh")
+      .post("/sessions/current/tokens")
       .set("Cookie", [refresh])
       .expect(401);
 
@@ -140,7 +140,7 @@ describe("POST /auth/refresh", () => {
     await signIn();
 
     const response = await authApp
-      .post("/auth/refresh")
+      .post("/sessions/current/tokens")
       .set("Cookie", [`${REFRESH_COOKIE}=not-a-token`])
       .expect(401);
 

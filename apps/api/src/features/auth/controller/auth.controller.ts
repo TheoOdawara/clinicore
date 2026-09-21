@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Post,
@@ -10,6 +12,7 @@ import {
 } from "@nestjs/common";
 import {
   ApiAcceptedResponse,
+  ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -38,10 +41,11 @@ import {
 } from "../utils/session-cookies";
 
 const USER_AGENT_LIMIT = 512;
+const CURRENT_SESSION_PATH = "/sessions/current";
 const SESSION_COOKIES = {
   "Set-Cookie": {
     description:
-      "clinicore_access on Path=/ for 900s, and clinicore_refresh on Path=/auth/refresh for 86400s; both HttpOnly and SameSite=Lax",
+      "clinicore_access on Path=/ for 900s, and clinicore_refresh on Path=/sessions/current/tokens for 86400s; both HttpOnly and SameSite=Lax",
     schema: { type: "array", items: { type: "string" } },
   },
 } as const;
@@ -63,7 +67,7 @@ function refreshTokenOf(request: Request): string | undefined {
 }
 
 @ApiTags("Auth")
-@Controller("auth")
+@Controller()
 export class AuthController {
   constructor(
     private readonly signUpService: SignUpService,
@@ -75,7 +79,7 @@ export class AuthController {
   ) {}
 
   @Public()
-  @Post("sign-up")
+  @Post("users")
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
     summary: "Register an email and password account",
@@ -93,13 +97,20 @@ export class AuthController {
   }
 
   @Public()
-  @Post("sign-in")
-  @HttpCode(HttpStatus.OK)
+  @Post("sessions")
+  @HttpCode(HttpStatus.CREATED)
+  @Header("Location", CURRENT_SESSION_PATH)
   @ApiOperation({ summary: "Open a session and issue the session cookies" })
-  @ApiOkResponse({
+  @ApiCreatedResponse({
     description: "The signed-in user",
     type: SessionResponse,
-    headers: SESSION_COOKIES,
+    headers: {
+      ...SESSION_COOKIES,
+      Location: {
+        description: "The session that was opened",
+        schema: { type: "string", example: CURRENT_SESSION_PATH },
+      },
+    },
   })
   @ApiProblemResponse(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED")
   @ApiProblemResponse(
@@ -128,7 +139,7 @@ export class AuthController {
   }
 
   @Public()
-  @Post("refresh")
+  @Post("sessions/current/tokens")
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: "Rotate the refresh token",
@@ -155,7 +166,7 @@ export class AuthController {
     setSessionCookies(response, this.environment.get("NODE_ENV"), rotated);
   }
 
-  @Post("sign-out")
+  @Delete("sessions/current")
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: "Close the current session",
@@ -181,7 +192,7 @@ export class AuthController {
     clearSessionCookies(response, this.environment.get("NODE_ENV"));
   }
 
-  @Get("session")
+  @Get("sessions/current")
   @ApiOperation({ summary: "Read the signed-in user" })
   @ApiOkResponse({ description: "The signed-in user", type: SessionResponse })
   @ApiProblemResponse(HttpStatus.UNAUTHORIZED, "INVALID_SESSION")

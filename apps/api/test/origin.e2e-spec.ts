@@ -61,6 +61,48 @@ describe("OriginGuard", () => {
     });
   });
 
+  it.each(["delete", "put", "patch"] as const)(
+    "rejects a %s without the Origin header",
+    async (method) => {
+      const response = await request(probe.server)
+        [method]("/probe/resource")
+        .expect(403);
+
+      expect(response.body).toMatchObject({
+        type: "tag:clinicore.com.br,2026:invalid-origin",
+      });
+    },
+  );
+
+  it.each(["delete", "put", "patch"] as const)(
+    "lets a %s from an allowed origin through",
+    async (method) => {
+      await request(probe.server)
+        [method]("/probe/resource")
+        .set("Origin", "https://app.clinicore.com.br")
+        .expect(200, { status: "ok" });
+    },
+  );
+
+  it("answers a HEAD without the Origin header", async () => {
+    await request(probe.server).head("/probe/resource").expect(200);
+  });
+
+  it.each(["DELETE", "PUT", "PATCH"])(
+    "allows the %s preflight from an allowed origin",
+    async (method) => {
+      const response = await request(probe.server)
+        .options("/probe/resource")
+        .set("Origin", "https://app.clinicore.com.br")
+        .set("Access-Control-Request-Method", method)
+        .expect(204);
+
+      expect(response.headers["access-control-allow-methods"]).toContain(
+        method,
+      );
+    },
+  );
+
   it.each(["https://app.clinicore.com.br", "https://clinicore.com.br"])(
     "allows the preflight from %p with credentials",
     async (origin) => {

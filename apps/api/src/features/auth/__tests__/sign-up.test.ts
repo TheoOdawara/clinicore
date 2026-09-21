@@ -5,7 +5,7 @@ import { createAuthApp, type AuthApp } from "./auth-app";
 const EMAIL = "ana@exemplo.com";
 const PASSWORD = "Clinica#2026";
 
-describe("POST /auth/sign-up", () => {
+describe("POST /users", () => {
   let authApp: AuthApp;
 
   beforeAll(async () => {
@@ -22,7 +22,7 @@ describe("POST /auth/sign-up", () => {
 
   it("creates the user and the credential account", async () => {
     const response = await authApp
-      .post("/auth/sign-up")
+      .post("/users")
       .send({ name: "Ana Souza", email: EMAIL, password: PASSWORD })
       .expect(202);
 
@@ -42,7 +42,7 @@ describe("POST /auth/sign-up", () => {
 
   it("stores the email in lowercase", async () => {
     await authApp
-      .post("/auth/sign-up")
+      .post("/users")
       .send({ name: "Ana Souza", email: "Ana@Exemplo.COM", password: PASSWORD })
       .expect(202);
 
@@ -52,9 +52,9 @@ describe("POST /auth/sign-up", () => {
 
   it("answers the repeated sign-up exactly like the first one", async () => {
     const body = { name: "Ana Souza", email: EMAIL, password: PASSWORD };
-    const first = await authApp.post("/auth/sign-up").send(body).expect(202);
-    const second = await authApp.post("/auth/sign-up").send(body).expect(202);
-    const third = await authApp.post("/auth/sign-up").send(body).expect(202);
+    const first = await authApp.post("/users").send(body).expect(202);
+    const second = await authApp.post("/users").send(body).expect(202);
+    const third = await authApp.post("/users").send(body).expect(202);
 
     expect(second.body).toEqual(first.body);
     expect(third.body).toEqual(first.body);
@@ -68,8 +68,8 @@ describe("POST /auth/sign-up", () => {
   it("keeps a single user when two sign-ups race with the same email", async () => {
     const body = { name: "Ana Souza", email: EMAIL, password: PASSWORD };
     const [first, second] = await Promise.all([
-      authApp.post("/auth/sign-up").send(body),
-      authApp.post("/auth/sign-up").send(body),
+      authApp.post("/users").send(body),
+      authApp.post("/users").send(body),
     ]);
 
     expect(first.status).toBe(202);
@@ -83,7 +83,7 @@ describe("POST /auth/sign-up", () => {
     "refuses the weak password %s",
     async (password) => {
       const response = await authApp
-        .post("/auth/sign-up")
+        .post("/users")
         .send({ name: "Ana Souza", email: EMAIL, password })
         .expect(400);
 
@@ -101,7 +101,7 @@ describe("POST /auth/sign-up", () => {
 
   it("refuses a field the DTO does not declare", async () => {
     const response = await authApp
-      .post("/auth/sign-up")
+      .post("/users")
       .send({
         name: "Ana Souza",
         email: EMAIL,

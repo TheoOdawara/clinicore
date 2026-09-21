@@ -7,7 +7,7 @@ import type { Request } from "express";
 import { EnvironmentService } from "../../core/config/environment.service";
 import { BusinessError } from "../exceptions/business-error";
 
-const GUARDED_METHOD = "POST";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 @Injectable()
 export class OriginGuard implements CanActivate {
@@ -15,7 +15,7 @@ export class OriginGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
-    if (request.method !== GUARDED_METHOD) {
+    if (SAFE_METHODS.has(request.method)) {
       return true;
     }
 

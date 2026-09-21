@@ -12,7 +12,7 @@ const PASSWORD = "Clinica#2026";
 const ACCESS_COOKIE = "clinicore_access";
 const REFRESH_COOKIE = "clinicore_refresh";
 
-describe("POST /auth/sign-out", () => {
+describe("DELETE /sessions/current", () => {
   let authApp: AuthApp;
 
   beforeAll(async () => {
@@ -30,23 +30,23 @@ describe("POST /auth/sign-out", () => {
   it("drops the session even while the access token is still valid", async () => {
     await createVerifiedUser(authApp, EMAIL, PASSWORD);
     const signIn = await authApp
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: EMAIL, password: PASSWORD })
-      .expect(200);
+      .expect(201);
     const access = cookieNamed(signIn, ACCESS_COOKIE) ?? "";
     const session = await authApp.dataSource
       .getRepository(Session)
       .findOneOrFail({ where: {} });
 
     const response = await authApp
-      .post("/auth/sign-out")
+      .delete("/sessions/current")
       .set("Cookie", [access])
       .expect(204);
 
     expect(cookieNamed(response, ACCESS_COOKIE)).toContain("Max-Age=0");
     expect(cookieNamed(response, REFRESH_COOKIE)).toContain("Max-Age=0");
     expect(cookieNamed(response, REFRESH_COOKIE)).toContain(
-      "Path=/auth/refresh",
+      "Path=/sessions/current/tokens",
     );
 
     expect(
@@ -59,7 +59,7 @@ describe("POST /auth/sign-out", () => {
     ).toBe(1);
 
     const me = await authApp
-      .get("/auth/session")
+      .get("/sessions/current")
       .set("Cookie", [access])
       .expect(401);
     expect(me.body).toMatchObject({
@@ -70,14 +70,17 @@ describe("POST /auth/sign-out", () => {
   it("refuses the repeated sign-out and changes nothing", async () => {
     await createVerifiedUser(authApp, EMAIL, PASSWORD);
     const signIn = await authApp
-      .post("/auth/sign-in")
+      .post("/sessions")
       .send({ email: EMAIL, password: PASSWORD })
-      .expect(200);
+      .expect(201);
     const access = cookieNamed(signIn, ACCESS_COOKIE) ?? "";
 
-    await authApp.post("/auth/sign-out").set("Cookie", [access]).expect(204);
+    await authApp
+      .delete("/sessions/current")
+      .set("Cookie", [access])
+      .expect(204);
     const response = await authApp
-      .post("/auth/sign-out")
+      .delete("/sessions/current")
       .set("Cookie", [access])
       .expect(401);
 
@@ -88,7 +91,7 @@ describe("POST /auth/sign-out", () => {
   });
 
   it("refuses a request without the access cookie", async () => {
-    const response = await authApp.post("/auth/sign-out").expect(401);
+    const response = await authApp.delete("/sessions/current").expect(401);
 
     expect(response.body).toMatchObject({
       type: "tag:clinicore.com.br,2026:invalid-session",
