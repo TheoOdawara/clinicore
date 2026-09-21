@@ -5,7 +5,7 @@ import { SessionRepository } from "../repository/session.repository";
 import { REFRESH_MAX_AGE_IN_SECONDS } from "../utils/session-cookies";
 import {
   composeRefreshToken,
-  createRefreshSecret,
+  createSecret,
   hashSecret,
   hashesMatch,
   parseRefreshToken,
@@ -34,7 +34,7 @@ export class RefreshSessionService {
     }
 
     const presentedHash = hashSecret(parsed.secret);
-    const next = createRefreshSecret();
+    const next = createSecret();
     const expiresAt = new Date(
       Date.now() + REFRESH_MAX_AGE_IN_SECONDS * MILLISECONDS,
     );
