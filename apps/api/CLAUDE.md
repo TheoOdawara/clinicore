@@ -35,6 +35,14 @@ o container de DI, não convenção: o que não está nos `providers` do módulo
   `dto/` com trinta arquivos é o alarme, não a regra.
 - **DTO** é a classe com decorators de `class-validator` em `dto/`; o OpenAPI sai dela pelo plugin de
   CLI do `@nestjs/swagger`, sem `interface` paralela.
+- **Rota entregue é rota documentada.** O plugin cobre só o corpo da requisição; o resto é escrito no
+  controller e faz parte da entrega, nunca de um passe depois: `@ApiOperation` com o resumo,
+  `@ApiOkResponse` e companhia com o `type` da classe de resposta, **cada código de erro do catálogo
+  que a rota pode devolver** apontando para `common/dto/error.response.ts`, e `headers` nas rotas que
+  devolvem `Set-Cookie`. **A resposta é uma classe em `dto/`** — um `type` ou uma `interface` não
+  chega ao documento, e é por isso que `SessionUserResponse` é classe.
+- **`@ApiProperty` existe para o que o `class-validator` não conta**: regra de um decorator próprio
+  (como a política de senha), exemplo e campo nulo. Onde o decorator padrão já diz, não se repete.
 - **Não há dono de tabela.** O repository de uma feature lê e escreve a tabela que a operação dela
   precisa.
 - **Só a API do TypeORM** (`find`, `findOne`, `relations`, `QueryBuilder`, `count` e afins). **Raw SQL é
@@ -152,9 +160,21 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
   com `ECONNREFUSED` sem o container. Com `retryAttempts: 0` a falha é imediata, porque quem ordena a
   dependência é o `healthcheck` do compose, não retry às cegas.
 - **O glob de `entities` casa `.ts` quando o `__dirname` é `src/`**, o que acontece sob o `ts-node` da
-  CLI e sob o Jest. Hoje resolve para lista vazia; quando a #66 trouxer a primeira entity, ela precisa
-  ser carregável nos três contextos — `dist`, `ts-node` e `ts-jest` —, e isso se confere naquela
-  entrega.
+  CLI e sob o Jest. Com as entities da #66 no lugar, os três contextos — `dist`, `ts-node` e `ts-jest`
+  — carregam a mesma lista, e é o que o `migration:run`, o `npm run test` e o `boot.test.ts` provam.
+- **Declarar `enumName` numa coluna de enum cria drift permanente.** O loader do Postgres só devolve
+  `enumName` quando o nome no banco difere do derivado (`<tabela>_<coluna>_enum`); com o nome igual ao
+  derivado ele devolve `undefined`, e o comparador acha diferença contra a entity a cada geração. O
+  arrasto é maior do que parece: trocar o tipo da coluna faz o gerador derrubar e recriar todo índice
+  e unique que a usa. **A coluna de enum não declara nome.**
+- **O gerador de migration sai com código 1 quando não há diferença**, com
+  `No changes in database schema were found`. Por isso o gate de drift do CI decide pela existência do
+  arquivo, nunca pelo código de saída — e **cria o diretório de destino antes**, senão a CLI falha por
+  outro motivo, nenhum arquivo aparece e o gate passa sem ter verificado nada.
+- **As suítes de teste dividem o mesmo Postgres**, e a limpeza de uma derruba os dados da outra. Por
+  isso o Jest da API roda com `maxWorkers: 1`; em paralelo, testes que passam isolados falham juntos.
+- **O `delete({})` do TypeORM 1.1 é recusado** com `Empty criteria(s) are not allowed`. Apagar a tabela
+  inteira é `createQueryBuilder().delete().from(Entity).execute()`.
 - **A DI do Nest depende de `reflect-metadata` e de `emitDecoratorMetadata`.** Faltando qualquer um
   dos dois, a compilação passa e a injeção falha em runtime.
 - **O `class-validator` não tem decorador de CIDR.** Tem `@IsIP`, `@IsPort`, `@IsUrl`, `@IsFQDN` e

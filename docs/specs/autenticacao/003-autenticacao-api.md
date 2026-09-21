@@ -250,9 +250,10 @@ A sessão não é um token único. São dois, com tempos de vida e caminhos dife
 - **Toda revogação escreve na denylist**, sem exceção: logout, reset de senha, troca de senha, reuso de
   refresh detectado e corte pelo teto de 5 sessões (regra 16).
 - **O Redis é dependência dura da requisição autenticada, e a falha é fechada.** Redis inalcançável faz
-  o `JwtStrategy` responder `503` com o código `SERVICE_UNAVAILABLE`, e faz a rota que revoga responder
-  `500` sem revogar pela metade. Responder `204` num logout cujo token continua valendo por 15 minutos
-  é pior do que responder erro.
+  o `JwtStrategy` responder `503` com o código `SERVICE_UNAVAILABLE`, e isso vale também para a rota
+  que revoga: ela é autenticada, então a consulta à denylist acontece antes do service e nada é
+  revogado pela metade — a linha em `session` sobrevive. Responder `204` num logout cujo token continua
+  valendo por 15 minutos é pior do que responder erro.
 
 ### 3. O refresh rotaciona a cada uso, e reusar o antigo derruba a sessão
 
@@ -477,9 +478,11 @@ Uma senha é aceita quando cumpre **todas** as condições:
 
 ### 12. Persistência e Auditoria
 
-- **Cinco tabelas, em duas migrations**, todas escritas à mão em `core/db/migrations/`, com
-  `synchronize: false` em todo ambiente (regra 6 da spec `002`). As entities do TypeORM ficam em
-  `features/auth/entities/`, uma classe por tabela.
+- **Cinco tabelas, em duas migrations**, todas geradas por `typeorm migration:generate` e revisadas
+  antes do commit, em `core/db/migrations/`, com `synchronize: false` em todo ambiente (regra 6 da
+  spec `002`). As entities do TypeORM ficam em `features/auth/entities/`, uma classe por tabela, e
+  são a única fonte do schema: índice, unique e nome de enum nascem nelas, nunca editados no arquivo
+  gerado.
 
   | Tabela | Migration | Colunas |
   | --- | --- | --- |
@@ -493,12 +496,16 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - Os índices em `session.expiresAt`, `verification.expiresAt` e `emailDispatch.createdAt` existem para
   que a limpeza da regra 17 não varra a tabela inteira.
 - **Toda chave primária é UUID**, com `@PrimaryGeneratedColumn("uuid")` na entity e
-  `DEFAULT gen_random_uuid()` escrito na migration — nativo do PostgreSQL 13 em diante, sem extensão.
+  `DEFAULT gen_random_uuid()` na migration — nativo do PostgreSQL 13 em diante, sem extensão. Quem o
+  entrega é `uuidExtension: "pgcrypto"` no `data-source.options.ts`; sem essa opção o gerador escreve
+  `uuid_generate_v4()`, que depende da extensão `uuid-ossp`. Ao lado dela, `installExtensions: false`
+  impede o `CREATE EXTENSION` que o TypeORM roda a cada boot.
   O gate de que a entity e a migration não divergiram é um step do job da API no CI: roda
   `typeorm migration:generate` apontando para um arquivo temporário e **falha se esse arquivo for
   criado**.
 - `provider`, `purpose` e `kind` são colunas de enum do Postgres, criadas pela migration e espelhadas
-  em `features/auth/enums/`.
+  em `features/auth/enums/`. **A coluna não declara `enumName`**: o nome derivado já é
+  `<tabela>_<coluna>_enum`, e declará-lo explicitamente produz drift permanente.
 - **Cadastro por senha e por Google são atômicos**, em `dataSource.transaction()` dentro do
   repository, como manda o contrato: `user`, `account` e, no cadastro por senha, a linha de
   `emailDispatch` da regra 15 são gravados juntos ou nenhum é. **O envio do e-mail fica fora da
@@ -1085,7 +1092,7 @@ E com `NODE_ENV` igual a `development` o mesmo login devolve `HttpOnly` e `SameS
 Dado um usuário logado e o Redis inalcançável
 Quando é feita a requisição `GET /auth/session` com o cookie de acesso válido
 Então o sistema responde `503` com o código `SERVICE_UNAVAILABLE`
-E `POST /auth/sign-out` responde `500` e a linha em `session` continua existindo
+E `POST /auth/sign-out` responde `503` com o mesmo código e a linha em `session` continua existindo
 E `GET /health` continua respondendo `200`
 ```
 
