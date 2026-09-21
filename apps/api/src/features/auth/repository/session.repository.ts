@@ -86,4 +86,12 @@ export class SessionRepository {
       .getRepository(Session)
       .findOne({ where: { id: sessionId } });
   }
+
+  async deleteById(sessionId: string): Promise<boolean> {
+    const result = await this.dataSource
+      .getRepository(Session)
+      .delete({ id: sessionId });
+
+    return result.affected !== 0;
+  }
 }

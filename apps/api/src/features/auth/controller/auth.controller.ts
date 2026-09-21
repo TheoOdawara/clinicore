@@ -33,8 +33,13 @@ import { SignUpDto } from "../dto/sign-up.dto";
 import { RefreshSessionService } from "../service/refresh-session.service";
 import { SessionService } from "../service/session.service";
 import { SignInService } from "../service/sign-in.service";
+import { SignOutService } from "../service/sign-out.service";
 import { SignUpService } from "../service/sign-up.service";
-import { REFRESH_COOKIE, setSessionCookies } from "../utils/session-cookies";
+import {
+  REFRESH_COOKIE,
+  clearSessionCookies,
+  setSessionCookies,
+} from "../utils/session-cookies";
 
 const USER_AGENT_LIMIT = 512;
 const SESSION_COOKIES = {
@@ -68,6 +73,7 @@ export class AuthController {
     private readonly signUpService: SignUpService,
     private readonly signInService: SignInService,
     private readonly refreshSessionService: RefreshSessionService,
+    private readonly signOutService: SignOutService,
     private readonly sessionService: SessionService,
     private readonly environment: EnvironmentService,
   ) {}
@@ -156,6 +162,36 @@ export class AuthController {
     );
 
     setSessionCookies(response, this.environment.get("NODE_ENV"), rotated);
+  }
+
+  @Post("sign-out")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Close the current session",
+    description:
+      "Deletes the session row and denies the access token that is still inside its 15 minutes.",
+  })
+  @ApiNoContentResponse({
+    description: "Signed out, with both cookies expired",
+    headers: SESSION_COOKIES,
+  })
+  @ApiUnauthorizedResponse({
+    description: "INVALID_SESSION",
+    type: ErrorResponse,
+  })
+  @ApiForbiddenResponse({ description: "INVALID_ORIGIN", type: ErrorResponse })
+  @ApiServiceUnavailableResponse({
+    description:
+      "SERVICE_UNAVAILABLE when Redis is unreachable; the session survives",
+    type: ErrorResponse,
+  })
+  async signOut(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.signOutService.signOut(user.sessionId);
+
+    clearSessionCookies(response, this.environment.get("NODE_ENV"));
   }
 
   @Get("session")
