@@ -1,9 +1,13 @@
 import { Session } from "../entities/session.entity";
 import { User } from "../entities/user.entity";
 import {
+  EmailDispatchKind,
+  ageDispatches,
   cookieNamed,
   createAuthApp,
   createVerifiedUser,
+  dispatchCount,
+  tokenFrom,
   type AuthApp,
 } from "./auth-app";
 
@@ -150,6 +154,65 @@ describe("POST /sessions", () => {
       status: 403,
     });
     expect(await authApp.dataSource.getRepository(Session).count()).toBe(0);
+  });
+
+  it("resends the verification link when an unverified user signs in outside the window", async () => {
+    await authApp
+      .post("/users")
+      .send({ name: "Ana Souza", email: EMAIL, password: PASSWORD })
+      .expect(202);
+    await ageDispatches(authApp, EMAIL, 90);
+
+    await authApp
+      .post("/sessions")
+      .send({ email: EMAIL, password: PASSWORD })
+      .expect(403);
+
+    expect(authApp.outbox).toHaveLength(2);
+    expect(authApp.outbox[1]?.subject).toBe("Confirme seu e-mail no Clinicore");
+    tokenFrom(authApp.outbox[1], "/verify-email");
+    expect(
+      await dispatchCount(authApp, EMAIL, EmailDispatchKind.Verification),
+    ).toBe(2);
+    expect(await authApp.dataSource.getRepository(Session).count()).toBe(0);
+  });
+
+  it("answers the held resend with the same 403 and sends nothing", async () => {
+    await authApp
+      .post("/users")
+      .send({ name: "Ana Souza", email: EMAIL, password: PASSWORD })
+      .expect(202);
+    await ageDispatches(authApp, EMAIL, 90);
+
+    const sent = await authApp
+      .post("/sessions")
+      .send({ email: EMAIL, password: PASSWORD })
+      .expect(403);
+    const held = await authApp
+      .post("/sessions")
+      .send({ email: EMAIL, password: PASSWORD })
+      .expect(403);
+
+    expect(held.body).toEqual(sent.body);
+    expect(authApp.outbox).toHaveLength(2);
+  });
+
+  it("sends nothing and records no dispatch on a wrong password of an unverified user", async () => {
+    await authApp
+      .post("/users")
+      .send({ name: "Ana Souza", email: EMAIL, password: PASSWORD })
+      .expect(202);
+    await ageDispatches(authApp, EMAIL, 90);
+
+    await authApp
+      .post("/sessions")
+      .send({ email: EMAIL, password: "Errada#2026" })
+      .expect(401);
+
+    expect(authApp.outbox).toHaveLength(1);
+    expect(
+      await dispatchCount(authApp, EMAIL, EmailDispatchKind.Verification),
+    ).toBe(1);
   });
 
   it("finds the user by the email in any case", async () => {

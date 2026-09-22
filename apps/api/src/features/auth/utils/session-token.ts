@@ -4,7 +4,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 const SECRET_BYTES = 32;
 const SEPARATOR = ".";
 
-export interface RefreshSecret {
+export interface GeneratedSecret {
   secret: string;
   hash: string;
 }
@@ -13,7 +13,7 @@ export function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
 }
 
-export function createRefreshSecret(): RefreshSecret {
+export function createSecret(): GeneratedSecret {
   const secret = randomBytes(SECRET_BYTES).toString("base64url");
 
   return { secret, hash: hashSecret(secret) };

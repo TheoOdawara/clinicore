@@ -94,7 +94,9 @@ o container de DI, não convenção: o que não está nos `providers` do módulo
   gate `npm run test:e2e`. O `test/e2e-setup.ts` fixa o ambiente que os cenários de `Origin` e de log
   exigem, antes de o `AppModule` ser importado — o `ConfigModule.forRoot` lê o `process.env` no
   `require`, e mexer nele depois não muda nada. O destino do Pino é trocado por
-  `overrideProvider(LOGGER)`, que é como o teste lê a linha emitida. Teste unitário existe só para cálculo puro (parcelamento,
+  `overrideProvider(LOGGER)`, que é como o teste lê a linha emitida. **O `MAIL_TRANSPORT` de
+  `core/mail/` é sempre trocado por `overrideProvider`** — o `createAuthApp` troca por um fake que grava
+  cada mensagem —, porque sem isso qualquer cadastro no teste manda e-mail de verdade pelo Gmail. Teste unitário existe só para cálculo puro (parcelamento,
   repasse). Não se faz mock de repository nem de `DataSource`.
 
 ## Pegadinhas da stack
@@ -198,6 +200,14 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
   grava `{<sha256 de "<Controller>-<handler>-<throttler>-<tracker>">:<throttler>}:hits` e o par
   `:blocked`. Um `redis-cli --scan` por `/sessions` não acha nada; o teste calcula a chave pela mesma
   fórmula. Renomear um handler zera o contador dele.
+- **O pool do `pg` abre conexão sob demanda, então corrida em teste pode rodar em série.** Com uma só
+  conexão aberta, a primeira transação de um `Promise.all` termina antes de as outras conexões
+  existirem, e o teste de concorrência passa até com a guarda removida. O teste de corrida abre as
+  conexões antes com `openConnections()` do `auth-app.ts`; foi isso que fez morrer o mutante que
+  trocava `SERIALIZABLE` por `READ COMMITTED` em `registerDispatch`.
+- **O `nodemailer` 10 publica `"type": "module"` e ainda assim serve o Jest em CommonJS**, pela
+  condição `require` do `exports`, e traz os próprios tipos — o `@types/nodemailer` não entra. Aqui a
+  conferência do `"type"` não basta: o que decide é o mapa de `exports`.
 - **O `quit()` do ioredis rejeita quando o cliente não está `ready`.** Com `enableOfflineQueue: false`,
   o Redis fora do ar faz o `quit()` falhar, e o shutdown sai com `ERROR_DURING_SHUTDOWN` e deixa o
   Jest preso na reconexão. O `RedisModule` só chama `quit()` com status `ready`; fora disso,

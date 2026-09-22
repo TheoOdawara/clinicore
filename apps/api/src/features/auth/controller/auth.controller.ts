@@ -27,9 +27,14 @@ import {
 import { ApiProblemResponse } from "../../../common/decorators/api-problem-response.decorator";
 import { Public } from "../../../common/decorators/public.decorator";
 import { EnvironmentService } from "../../../core/config/environment.service";
+import { EmailDto } from "../dto/email.dto";
+import { PasswordResetConfirmationDto } from "../dto/password-reset-confirmation.dto";
 import { SessionResponse } from "../dto/session.response";
 import { SignInDto } from "../dto/sign-in.dto";
 import { SignUpDto } from "../dto/sign-up.dto";
+import { TokenDto } from "../dto/token.dto";
+import { EmailVerificationService } from "../service/email-verification.service";
+import { PasswordResetService } from "../service/password-reset.service";
 import { RefreshSessionService } from "../service/refresh-session.service";
 import { SessionService } from "../service/session.service";
 import { SignInService } from "../service/sign-in.service";
@@ -79,6 +84,8 @@ export class AuthController {
     private readonly refreshSessionService: RefreshSessionService,
     private readonly signOutService: SignOutService,
     private readonly sessionService: SessionService,
+    private readonly emailVerificationService: EmailVerificationService,
+    private readonly passwordResetService: PasswordResetService,
     private readonly environment: EnvironmentService,
   ) {}
 
@@ -211,5 +218,93 @@ export class AuthController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<SessionResponse> {
     return { user: await this.sessionService.currentUser(user.userId) };
+  }
+
+  @Public()
+  @Post("email-verifications")
+  @Throttle({ default: { ttl: ONE_MINUTE, limit: 3 } })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: "Send a new email verification link",
+    description:
+      "Always answers 202 with an empty body. At most one link per address every 60 seconds and five every 24 hours.",
+  })
+  @ApiAcceptedResponse({ description: "Accepted, with no body" })
+  @ApiProblemResponse(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED")
+  @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
+  @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
+  async requestEmailVerification(@Body() body: EmailDto): Promise<void> {
+    await this.emailVerificationService.request(body.email);
+  }
+
+  @Public()
+  @Post("email-verifications/confirmation")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Confirm the email and open a session",
+    description:
+      "Consumes every pending verification token of the address and issues the session cookies.",
+  })
+  @ApiNoContentResponse({
+    description: "Verified and signed in",
+    headers: SESSION_COOKIES,
+  })
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    "INVALID_TOKEN, TOKEN_EXPIRED, or VALIDATION_FAILED",
+  )
+  @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
+  @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
+  async confirmEmailVerification(
+    @Body() body: TokenDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    const opened = await this.emailVerificationService.confirm(
+      body.token,
+      request.ip ?? null,
+      userAgentOf(request),
+    );
+
+    setSessionCookies(response, this.environment.get("NODE_ENV"), opened);
+  }
+
+  @Public()
+  @Post("password-resets")
+  @Throttle({ default: { ttl: ONE_MINUTE, limit: 5 } })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: "Send a password reset link",
+    description:
+      "Always answers 202 with an empty body, whether the address has an account or not. At most one link per address every 60 seconds and five every 24 hours.",
+  })
+  @ApiAcceptedResponse({ description: "Accepted, with no body" })
+  @ApiProblemResponse(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED")
+  @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
+  @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
+  async requestPasswordReset(@Body() body: EmailDto): Promise<void> {
+    await this.passwordResetService.request(body.email);
+  }
+
+  @Public()
+  @Post("password-resets/confirmation")
+  @Throttle({ default: { ttl: ONE_MINUTE, limit: 5 } })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Set a new password with the emailed token",
+    description:
+      "Replaces the password, creating the password login for a Google-only account, and drops every session of the user at once.",
+  })
+  @ApiNoContentResponse({ description: "Password replaced" })
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    "INVALID_TOKEN, or VALIDATION_FAILED with WEAK_PASSWORD at #/newPassword",
+  )
+  @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
+  @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
+  async confirmPasswordReset(
+    @Body() body: PasswordResetConfirmationDto,
+  ): Promise<void> {
+    await this.passwordResetService.confirm(body.token, body.newPassword);
   }
 }

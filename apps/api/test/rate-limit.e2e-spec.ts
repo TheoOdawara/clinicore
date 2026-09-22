@@ -23,6 +23,26 @@ const FORGED = [
   "192.0.2.200",
 ];
 const SIGN_UP_CLIENT = "203.0.113.30";
+const EMAIL_ROUTE_LIMITS = [
+  {
+    path: "/email-verifications",
+    handler: "requestEmailVerification",
+    limit: 3,
+    client: "203.0.113.40",
+  },
+  {
+    path: "/password-resets",
+    handler: "requestPasswordReset",
+    limit: 5,
+    client: "203.0.113.41",
+  },
+  {
+    path: "/password-resets/confirmation",
+    handler: "confirmPasswordReset",
+    limit: 5,
+    client: "203.0.113.42",
+  },
+];
 const REFRESH_CLIENT = "203.0.113.31";
 const SESSION_READ_CLIENT = "203.0.113.32";
 const HEALTH_CLIENT = "203.0.113.33";
@@ -89,6 +109,9 @@ const SUITE_KEYS = [
   ...bothOf(throttleKeys("AuthController", "refresh", REFRESH_CLIENT)),
   ...bothOf(throttleKeys("AuthController", "session", SESSION_READ_CLIENT)),
   ...bothOf(throttleKeys("HealthController", "check", HEALTH_CLIENT)),
+  ...EMAIL_ROUTE_LIMITS.flatMap((route) =>
+    bothOf(throttleKeys("AuthController", route.handler, route.client)),
+  ),
 ];
 
 function forwardedFor(client: string): string {
@@ -194,6 +217,24 @@ describe("rate limit on the whole application", () => {
     expect(statuses).toEqual(repeated(400, 3));
     expect(fourth.body).toEqual(RATE_LIMITED);
   });
+
+  it.each(EMAIL_ROUTE_LIMITS)(
+    "limits $path to $limit attempts per minute, invalid bodies included",
+    async ({ path, limit, client }) => {
+      const send = (): request.Test =>
+        request(probe.server)
+          .post(path)
+          .set("Origin", ORIGIN)
+          .set("X-Forwarded-For", forwardedFor(client))
+          .send({});
+
+      const statuses = await statusesOf(limit, send);
+      const over = await send().expect(429);
+
+      expect(statuses).toEqual(repeated(400, limit));
+      expect(over.body).toEqual(RATE_LIMITED);
+    },
+  );
 
   it("limits the token refresh to thirty per minute", async () => {
     const refresh = (): request.Test =>
