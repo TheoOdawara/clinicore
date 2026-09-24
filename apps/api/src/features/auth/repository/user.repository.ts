@@ -1,8 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import { DataSource, QueryFailedError, type EntityManager } from "typeorm";
+import {
+  DataSource,
+  IsNull,
+  QueryFailedError,
+  type EntityManager,
+} from "typeorm";
 import { Account } from "../entities/account.entity";
 import { User } from "../entities/user.entity";
+import { Verification } from "../entities/verification.entity";
 import { EmailDispatchKind } from "../enums/email-dispatch-kind.enum";
 import { Provider } from "../enums/provider.enum";
 import { VerificationPurpose } from "../enums/verification-purpose.enum";
@@ -10,11 +16,13 @@ import {
   claimDispatch,
   isSerializationFailure,
 } from "./email-dispatch.repository";
+import type { GoogleIdentity } from "../service/google-account.service";
 import type { IssuedToken } from "../utils/verification-token";
 import { insertToken } from "./verification.repository";
 
 const UNIQUE_VIOLATION = "23505";
 const SIGN_UP_ATTEMPTS = 2;
+const GOOGLE_LINK_ATTEMPTS = 2;
 
 export type SignUpOutcome = "created-with-token" | "created" | "duplicate";
 
@@ -62,6 +70,75 @@ async function createAccount(
   return "created-with-token";
 }
 
+async function verifyAndDropForeignPassword(
+  manager: EntityManager,
+  user: User,
+): Promise<void> {
+  await manager.update(User, { id: user.id }, { emailVerified: true });
+  user.emailVerified = true;
+  await manager.delete(Account, {
+    userId: user.id,
+    provider: Provider.Credential,
+  });
+  await manager.update(
+    Verification,
+    {
+      identifier: user.email,
+      purpose: VerificationPurpose.EmailVerification,
+      consumedAt: IsNull(),
+    },
+    { consumedAt: new Date() },
+  );
+}
+
+async function linkGoogleAccount(
+  manager: EntityManager,
+  identity: GoogleIdentity,
+): Promise<User> {
+  const linked = await manager.findOne(Account, {
+    where: { provider: Provider.Google, providerAccountId: identity.subject },
+    relations: { user: true },
+  });
+
+  if (linked !== null) {
+    return linked.user;
+  }
+
+  const existing = await manager.findOne(User, {
+    where: { email: identity.email },
+  });
+
+  if (existing === null) {
+    const created = await manager.save(
+      manager.create(User, {
+        name: identity.name,
+        email: identity.email,
+        emailVerified: true,
+        image: identity.image,
+      }),
+    );
+    await manager.insert(Account, {
+      userId: created.id,
+      provider: Provider.Google,
+      providerAccountId: identity.subject,
+    });
+
+    return created;
+  }
+
+  if (!existing.emailVerified) {
+    await verifyAndDropForeignPassword(manager, existing);
+  }
+
+  await manager.insert(Account, {
+    userId: existing.id,
+    provider: Provider.Google,
+    providerAccountId: identity.subject,
+  });
+
+  return existing;
+}
+
 @Injectable()
 export class UserRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
@@ -82,6 +159,23 @@ export class UserRepository {
           return "duplicate";
         }
         if (isSerializationFailure(error) && attempt < SIGN_UP_ATTEMPTS) {
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
+  async linkOrCreateGoogleAccount(identity: GoogleIdentity): Promise<User> {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.dataSource.transaction("SERIALIZABLE", (manager) =>
+          linkGoogleAccount(manager, identity),
+        );
+      } catch (error) {
+        const concurrent =
+          isUniqueViolation(error) || isSerializationFailure(error);
+        if (concurrent && attempt < GOOGLE_LINK_ATTEMPTS) {
           continue;
         }
         throw error;

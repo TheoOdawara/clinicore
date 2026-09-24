@@ -3,6 +3,7 @@ import {
   cookieNamed,
   createAuthApp,
   createVerifiedUser,
+  openConnections,
   REVOKED_KEY_PREFIX,
   type AuthApp,
 } from "./auth-app";
@@ -98,6 +99,7 @@ describe("the cap of active sessions", () => {
     for (let attempt = 0; attempt < SESSION_CAP; attempt += 1) {
       await signIn();
     }
+    await openConnections(authApp, 2);
     await Promise.all([signIn(), signIn()]);
 
     expect(await authApp.dataSource.getRepository(Session).count()).toBe(

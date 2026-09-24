@@ -43,6 +43,18 @@ const EMAIL_ROUTE_LIMITS = [
     client: "203.0.113.42",
   },
 ];
+const GOOGLE_ROUTE_LIMITS = [
+  {
+    path: "/oauth/google",
+    handler: "startGoogleSignIn",
+    client: "203.0.113.43",
+  },
+  {
+    path: "/oauth/google/callback",
+    handler: "completeGoogleSignIn",
+    client: "203.0.113.44",
+  },
+];
 const REFRESH_CLIENT = "203.0.113.31";
 const SESSION_READ_CLIENT = "203.0.113.32";
 const HEALTH_CLIENT = "203.0.113.33";
@@ -110,6 +122,9 @@ const SUITE_KEYS = [
   ...bothOf(throttleKeys("AuthController", "session", SESSION_READ_CLIENT)),
   ...bothOf(throttleKeys("HealthController", "check", HEALTH_CLIENT)),
   ...EMAIL_ROUTE_LIMITS.flatMap((route) =>
+    bothOf(throttleKeys("AuthController", route.handler, route.client)),
+  ),
+  ...GOOGLE_ROUTE_LIMITS.flatMap((route) =>
     bothOf(throttleKeys("AuthController", route.handler, route.client)),
   ),
 ];
@@ -233,6 +248,22 @@ describe("rate limit on the whole application", () => {
 
       expect(statuses).toEqual(repeated(400, limit));
       expect(over.body).toEqual(RATE_LIMITED);
+    },
+  );
+
+  it.each(GOOGLE_ROUTE_LIMITS)(
+    "limits $path to ten navigations per minute",
+    async ({ path, client }) => {
+      const navigate = (): request.Test =>
+        request(probe.server)
+          .get(path)
+          .set("X-Forwarded-For", forwardedFor(client));
+
+      const statuses = await statusesOf(10, navigate);
+      const eleventh = await navigate().expect(429);
+
+      expect(statuses).toEqual(repeated(302, 10));
+      expect(eleventh.body).toEqual(RATE_LIMITED);
     },
   );
 

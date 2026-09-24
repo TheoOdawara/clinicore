@@ -19,6 +19,7 @@ import {
   createDummyPasswordHash,
 } from "./service/dummy-password-hash";
 import { EmailVerificationService } from "./service/email-verification.service";
+import { GoogleAccountService } from "./service/google-account.service";
 import { OpenSessionService } from "./service/open-session.service";
 import { PasswordResetService } from "./service/password-reset.service";
 import { RefreshSessionService } from "./service/refresh-session.service";
@@ -26,6 +27,7 @@ import { SessionService } from "./service/session.service";
 import { SignInService } from "./service/sign-in.service";
 import { SignOutService } from "./service/sign-out.service";
 import { SignUpService } from "./service/sign-up.service";
+import { GoogleStrategy } from "./strategy/google.strategy";
 import { JwtStrategy } from "./strategy/jwt.strategy";
 import { ACCESS_MAX_AGE_IN_SECONDS } from "./utils/session-cookies";
 
@@ -62,7 +64,9 @@ import { ACCESS_MAX_AGE_IN_SECONDS } from "./utils/session-cookies";
     RefreshSessionService,
     SignOutService,
     SessionService,
+    GoogleAccountService,
     JwtStrategy,
+    GoogleStrategy,
     { provide: DUMMY_PASSWORD_HASH, useFactory: createDummyPasswordHash },
   ],
 })

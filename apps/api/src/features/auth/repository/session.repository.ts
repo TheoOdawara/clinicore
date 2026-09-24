@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource, In } from "typeorm";
 import { Session } from "../entities/session.entity";
+import { User } from "../entities/user.entity";
 import type { SessionClient } from "../enums/session-client.enum";
 import { RevokedSessionRepository } from "./revoked-session.repository";
 
@@ -28,6 +29,10 @@ export class SessionRepository {
     client: SessionClient,
   ): Promise<Session> {
     return this.dataSource.transaction(async (manager) => {
+      await manager.findOne(User, {
+        where: { id: userId },
+        lock: { mode: "pessimistic_write" },
+      });
       const session = await manager.save(
         manager.create(Session, {
           userId,
