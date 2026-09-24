@@ -1,8 +1,25 @@
 import { isUUID } from "class-validator";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { SessionClient } from "../enums/session-client.enum";
+import { REFRESH_MAX_AGE_IN_SECONDS } from "./session-cookies";
 
 const SECRET_BYTES = 32;
 const SEPARATOR = ".";
+const MILLISECONDS = 1000;
+
+export const REFRESH_TOKEN_FORMAT =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/;
+
+const SESSION_LIFETIME_IN_SECONDS: Record<SessionClient, number> = {
+  [SessionClient.Web]: REFRESH_MAX_AGE_IN_SECONDS,
+  [SessionClient.Mobile]: 604800,
+};
+
+export function sessionExpiresAt(client: SessionClient): Date {
+  return new Date(
+    Date.now() + SESSION_LIFETIME_IN_SECONDS[client] * MILLISECONDS,
+  );
+}
 
 export interface GeneratedSecret {
   secret: string;

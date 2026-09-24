@@ -1,12 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { validateEnv } from "../core/config/env.validation";
 import { freePort } from "./free-port";
 
 const ENTRY = resolve(__dirname, "../../dist/main.js");
+const OUTSIDE_THE_APP = resolve(__dirname, "../../..");
 
 const VALID_ENVIRONMENT = {
   ALLOWED_ORIGINS: "http://localhost:3000",
@@ -39,7 +39,7 @@ interface BootFailure {
 
 function spawnApi(environment: Record<string, string>): ChildProcess {
   return spawn(process.execPath, [ENTRY], {
-    cwd: tmpdir(),
+    cwd: OUTSIDE_THE_APP,
     env: { PATH: process.env.PATH ?? "", ...environment },
   });
 }

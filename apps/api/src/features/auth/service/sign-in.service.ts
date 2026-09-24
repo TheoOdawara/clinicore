@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { verify } from "@node-rs/argon2";
 import { BusinessError } from "../../../common/exceptions/business-error";
+import type { SessionClient } from "../enums/session-client.enum";
 import { UserRepository } from "../repository/user.repository";
 import { DUMMY_PASSWORD_HASH } from "./dummy-password-hash";
 import { EmailVerificationService } from "./email-verification.service";
@@ -20,6 +21,7 @@ export class SignInService {
     password: string,
     ipAddress: string | null,
     userAgent: string | null,
+    client: SessionClient,
   ): Promise<OpenedSession> {
     const found = await this.users.findByEmailWithCredentialAccount(
       email.toLowerCase(),
@@ -40,6 +42,6 @@ export class SignInService {
       throw BusinessError.forbidden("EMAIL_NOT_VERIFIED", "Email not verified");
     }
 
-    return this.openSession.open(found.user, ipAddress, userAgent);
+    return this.openSession.open(found.user, ipAddress, userAgent, client);
   }
 }

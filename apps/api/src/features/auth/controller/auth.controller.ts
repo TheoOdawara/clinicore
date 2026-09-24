@@ -13,6 +13,7 @@ import {
 import {
   ApiAcceptedResponse,
   ApiCreatedResponse,
+  ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -26,10 +27,21 @@ import {
 } from "../../../common/decorators/current-user.decorator";
 import { ApiProblemResponse } from "../../../common/decorators/api-problem-response.decorator";
 import { Public } from "../../../common/decorators/public.decorator";
+import {
+  SESSION_CLIENT_HEADER,
+  SessionClient,
+  type SessionClientKind,
+} from "../../../common/decorators/session-client.decorator";
+import { BusinessError } from "../../../common/exceptions/business-error";
 import { EnvironmentService } from "../../../core/config/environment.service";
 import { EmailDto } from "../dto/email.dto";
 import { PasswordResetConfirmationDto } from "../dto/password-reset-confirmation.dto";
-import { SessionResponse } from "../dto/session.response";
+import { RefreshTokenDto } from "../dto/refresh-token.dto";
+import {
+  RefreshResponse,
+  SessionResponse,
+  SessionTokensResponse,
+} from "../dto/session.response";
 import { SignInDto } from "../dto/sign-in.dto";
 import { SignUpDto } from "../dto/sign-up.dto";
 import { TokenDto } from "../dto/token.dto";
@@ -40,7 +52,9 @@ import { SessionService } from "../service/session.service";
 import { SignInService } from "../service/sign-in.service";
 import { SignOutService } from "../service/sign-out.service";
 import { SignUpService } from "../service/sign-up.service";
+import { SESSION_CLIENT_BY_KIND } from "../enums/session-client.enum";
 import {
+  ACCESS_MAX_AGE_IN_SECONDS,
   REFRESH_COOKIE,
   clearSessionCookies,
   setSessionCookies,
@@ -74,7 +88,25 @@ function refreshTokenOf(request: Request): string | undefined {
   return cookies?.[REFRESH_COOKIE];
 }
 
+function tokensOf(session: {
+  accessToken: string;
+  refreshToken: string;
+}): SessionTokensResponse {
+  return {
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+    accessTokenExpiresIn: ACCESS_MAX_AGE_IN_SECONDS,
+  };
+}
+
 @ApiTags("Auth")
+@ApiHeader({
+  name: SESSION_CLIENT_HEADER,
+  required: false,
+  enum: ["mobile"],
+  description:
+    "mobile moves the session to the body and the Authorization header; absent keeps the cookies; any other value answers 400 INVALID_CLIENT",
+})
 @ApiProblemResponse(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED")
 @Controller()
 export class AuthController {
@@ -114,9 +146,13 @@ export class AuthController {
   @Throttle({ default: { ttl: ONE_MINUTE, limit: 5 } })
   @HttpCode(HttpStatus.CREATED)
   @Header("Location", CURRENT_SESSION_PATH)
-  @ApiOperation({ summary: "Open a session and issue the session cookies" })
+  @ApiOperation({
+    summary: "Open a session",
+    description:
+      "Issues the session cookies, or the tokens in the body with Clinicore-Client: mobile.",
+  })
   @ApiCreatedResponse({
-    description: "The signed-in user",
+    description: "The signed-in user, and the tokens for the mobile app",
     type: SessionResponse,
     headers: {
       ...SESSION_COOKIES,
@@ -126,7 +162,10 @@ export class AuthController {
       },
     },
   })
-  @ApiProblemResponse(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED")
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    "VALIDATION_FAILED, or INVALID_CLIENT",
+  )
   @ApiProblemResponse(
     HttpStatus.UNAUTHORIZED,
     "INVALID_CREDENTIALS, for both a wrong password and an unknown email",
@@ -138,6 +177,7 @@ export class AuthController {
   @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
   async signIn(
     @Body() body: SignInDto,
+    @SessionClient() client: SessionClientKind,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<SessionResponse> {
@@ -146,7 +186,12 @@ export class AuthController {
       body.password,
       request.ip ?? null,
       userAgentOf(request),
+      SESSION_CLIENT_BY_KIND[client],
     );
+
+    if (client === "mobile") {
+      return { user: opened.user, tokens: tokensOf(opened) };
+    }
 
     setSessionCookies(response, this.environment.get("NODE_ENV"), opened);
 
@@ -160,12 +205,20 @@ export class AuthController {
   @ApiOperation({
     summary: "Rotate the refresh token",
     description:
-      "Authenticated by the clinicore_refresh cookie. Presenting a token that was already rotated drops the whole session.",
+      "Authenticated by the clinicore_refresh cookie, or by refreshToken in the body with Clinicore-Client: mobile. Presenting a token that was already rotated drops the whole session.",
   })
   @ApiNoContentResponse({
     description: "Rotated, with both cookies replaced",
     headers: SESSION_COOKIES,
   })
+  @ApiOkResponse({
+    description: "Rotated for the mobile app, with the new tokens",
+    type: RefreshResponse,
+  })
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    "VALIDATION_FAILED at #/refreshToken, or INVALID_CLIENT",
+  )
   @ApiProblemResponse(
     HttpStatus.UNAUTHORIZED,
     "INVALID_SESSION, or SESSION_REUSED when the old token comes back",
@@ -173,14 +226,32 @@ export class AuthController {
   @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
   @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
   async refresh(
+    @Body() body: RefreshTokenDto,
+    @SessionClient() client: SessionClientKind,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<void> {
+  ): Promise<RefreshResponse | undefined> {
+    if (client === "mobile") {
+      if (body.refreshToken === undefined) {
+        throw BusinessError.invalid("VALIDATION_FAILED", "Validation failed", [
+          { pointer: "#/refreshToken", code: "IS_DEFINED" },
+        ]);
+      }
+
+      const rotated = await this.refreshSessionService.refresh(
+        body.refreshToken,
+      );
+      response.status(HttpStatus.OK);
+
+      return { tokens: tokensOf(rotated) };
+    }
+
     const rotated = await this.refreshSessionService.refresh(
       refreshTokenOf(request),
     );
-
     setSessionCookies(response, this.environment.get("NODE_ENV"), rotated);
+
+    return undefined;
   }
 
   @Delete("sessions/current")
@@ -191,7 +262,8 @@ export class AuthController {
       "Deletes the session row and denies the access token that is still inside its 15 minutes.",
   })
   @ApiNoContentResponse({
-    description: "Signed out, with both cookies expired",
+    description:
+      "Signed out, with both cookies expired; no cookie for the mobile app",
     headers: SESSION_COOKIES,
   })
   @ApiProblemResponse(HttpStatus.UNAUTHORIZED, "INVALID_SESSION")
@@ -202,9 +274,14 @@ export class AuthController {
   )
   async signOut(
     @CurrentUser() user: AuthenticatedUser,
+    @SessionClient() client: SessionClientKind,
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
     await this.signOutService.signOut(user.sessionId);
+
+    if (client === "mobile") {
+      return;
+    }
 
     clearSessionCookies(response, this.environment.get("NODE_ENV"));
   }

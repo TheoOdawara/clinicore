@@ -166,7 +166,10 @@ do WebAuthn, como sai de `generateRegistrationOptions`. **`201 Created` —
   mudança: o segredo é o mesmo `<sessionId>.<segredo>`, gravado como SHA-256.
 - **Logout** — `DELETE /sessions/current` com Bearer apaga a sessão e grava a denylist, como na regra 2
   da 003, e responde `204` sem `Set-Cookie`.
-- O JWT é o mesmo: `sub`, `sid` e `exp`, 900 segundos, a mesma denylist no Redis.
+- O JWT ganha o claim `cli`, com o cliente gravado na sessão (`web` ou `mobile`), ao lado de `sub`, `sid` e
+  `exp`: 900 segundos, a mesma denylist no Redis. A strategy recusa com `401 INVALID_SESSION` o token cujo
+  `cli` difere do transporte declarado — é o que impede o token do app de autenticar pelo cookie, e o do web
+  pelo Bearer. Um access token emitido antes do claim cai uma vez em `401` e o web o renova pelo refresh.
 - `accessTokenExpiresIn` é sempre `900`. O app não decodifica o JWT.
 
 ### 3. A sessão do app vive 7 dias de inatividade; a do web continua em 24 horas

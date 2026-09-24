@@ -20,6 +20,10 @@ export class OriginGuard implements CanActivate {
     }
 
     const origin = request.headers.origin;
+    if (origin === undefined && request.headers.cookie === undefined) {
+      return true;
+    }
+
     const allowed = this.environment.get("ALLOWED_ORIGINS");
     if (origin === undefined || !allowed.includes(origin)) {
       throw BusinessError.forbidden("INVALID_ORIGIN", "Invalid origin");

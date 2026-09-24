@@ -15,11 +15,11 @@
     "fix": "npm run lint:fix && npm run format:fix",
     "typecheck": "tsc --noEmit",
     "build": "nest build",
-    "test": "npm run build && node --env-file-if-exists=.env.test ./node_modules/.bin/jest",
-    "migration:generate": "node --env-file-if-exists=.env ./node_modules/.bin/typeorm-ts-node-commonjs migration:generate -d src/core/db/data-source.ts",
-    "migration:run": "node --env-file-if-exists=.env ./node_modules/.bin/typeorm-ts-node-commonjs migration:run -d src/core/db/data-source.ts",
-    "migration:revert": "node --env-file-if-exists=.env ./node_modules/.bin/typeorm-ts-node-commonjs migration:revert -d src/core/db/data-source.ts",
-    "test:e2e": "node --env-file-if-exists=.env.test ./node_modules/.bin/jest --config test/jest-e2e.json"
+    "test": "npm run build && node --env-file-if-exists=.env.test ./node_modules/jest/bin/jest.js",
+    "migration:generate": "node --env-file-if-exists=.env ./node_modules/typeorm/cli-ts-node-commonjs.js migration:generate -d src/core/db/data-source.ts",
+    "migration:run": "node --env-file-if-exists=.env ./node_modules/typeorm/cli-ts-node-commonjs.js migration:run -d src/core/db/data-source.ts",
+    "migration:revert": "node --env-file-if-exists=.env ./node_modules/typeorm/cli-ts-node-commonjs.js migration:revert -d src/core/db/data-source.ts",
+    "test:e2e": "node --env-file-if-exists=.env.test ./node_modules/jest/bin/jest.js --config test/jest-e2e.json"
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "1.2.0",

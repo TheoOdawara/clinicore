@@ -2,12 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { SessionUserResponse } from "../dto/session.response";
 import type { User } from "../entities/user.entity";
+import type { SessionClient } from "../enums/session-client.enum";
 import { SessionRepository } from "../repository/session.repository";
-import { REFRESH_MAX_AGE_IN_SECONDS } from "../utils/session-cookies";
-import { composeRefreshToken, createSecret } from "../utils/session-token";
+import {
+  composeRefreshToken,
+  createSecret,
+  sessionExpiresAt,
+} from "../utils/session-token";
 import { toSessionUser } from "./session.service";
-
-const MILLISECONDS = 1000;
 
 export interface OpenedSession {
   user: SessionUserResponse;
@@ -26,22 +28,25 @@ export class OpenSessionService {
     user: User,
     ipAddress: string | null,
     userAgent: string | null,
+    client: SessionClient,
   ): Promise<OpenedSession> {
     const refresh = createSecret();
-    const expiresAt = new Date(
-      Date.now() + REFRESH_MAX_AGE_IN_SECONDS * MILLISECONDS,
-    );
     const session = await this.sessions.createSession(
       user.id,
       refresh.hash,
-      expiresAt,
+      sessionExpiresAt(client),
       ipAddress,
       userAgent,
+      client,
     );
 
     return {
       user: toSessionUser(user),
-      accessToken: this.jwt.sign({ sub: user.id, sid: session.id }),
+      accessToken: this.jwt.sign({
+        sub: user.id,
+        sid: session.id,
+        cli: client,
+      }),
       refreshToken: composeRefreshToken(session.id, refresh.secret),
     };
   }

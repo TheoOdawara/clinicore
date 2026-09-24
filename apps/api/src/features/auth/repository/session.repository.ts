@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
 import { DataSource, In } from "typeorm";
 import { Session } from "../entities/session.entity";
+import type { SessionClient } from "../enums/session-client.enum";
 import { RevokedSessionRepository } from "./revoked-session.repository";
 
 export const SESSION_CAP = 5;
@@ -24,6 +25,7 @@ export class SessionRepository {
     expiresAt: Date,
     ipAddress: string | null,
     userAgent: string | null,
+    client: SessionClient,
   ): Promise<Session> {
     return this.dataSource.transaction(async (manager) => {
       const session = await manager.save(
@@ -33,6 +35,7 @@ export class SessionRepository {
           expiresAt,
           ipAddress,
           userAgent,
+          client,
         }),
       );
 
@@ -57,7 +60,7 @@ export class SessionRepository {
     sessionId: string,
     matchesStoredHash: (storedHash: string) => boolean,
     refreshTokenHash: string,
-    expiresAt: Date,
+    expiresAtFor: (client: SessionClient) => Date,
   ): Promise<RotationOutcome> {
     return this.dataSource.transaction(async (manager) => {
       const session = await manager.findOne(Session, {
@@ -76,7 +79,7 @@ export class SessionRepository {
       }
 
       session.refreshTokenHash = refreshTokenHash;
-      session.expiresAt = expiresAt;
+      session.expiresAt = expiresAtFor(session.client);
 
       return { status: "rotated", session: await manager.save(session) };
     });

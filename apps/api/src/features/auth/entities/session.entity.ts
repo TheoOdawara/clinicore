@@ -9,6 +9,7 @@ import {
   Unique,
   UpdateDateColumn,
 } from "typeorm";
+import { SessionClient } from "../enums/session-client.enum";
 import { User } from "./user.entity";
 
 @Entity("session")
@@ -33,6 +34,9 @@ export class Session {
 
   @Column({ type: "varchar", length: 512, nullable: true })
   userAgent!: string | null;
+
+  @Column({ type: "enum", enum: SessionClient, default: SessionClient.Web })
+  client!: SessionClient;
 
   @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
