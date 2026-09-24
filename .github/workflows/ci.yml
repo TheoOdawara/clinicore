@@ -115,3 +115,20 @@ jobs:
         run: grep -Eq '<h1[^>]*>Clinicore</h1>' .next/server/app/index.html
       - name: no test gate until apps/site has logic to test
         run: "true"
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.5
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze --fatal-infos
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: flutter test
