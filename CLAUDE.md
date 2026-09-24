@@ -8,39 +8,38 @@ O produto — problema, escopo, go-live da clínica piloto e critérios de aceit
 
 ## Stack
 
-Três apps **independentes** em `apps/`, cada um com o próprio `package.json` e o próprio lockfile. Sem
+Quatro apps **independentes** em `apps/`, cada um com o próprio manifesto e o próprio lockfile. Sem
 manifest na raiz, sem workspaces, sem código ou tipo compartilhado por import. A fronteira entre eles é
 o contrato HTTP.
 
-**Os três apps usam npm sobre Node 26.** É estado decidido, não transitório.
+**`apps/api`, `apps/web` e `apps/site` usam npm sobre Node 26.** É estado decidido, não transitório.
 
-**Um quarto app, `apps/mobile`, está decidido e ainda não existe:** app nativo iOS e Android em Flutter,
-com paridade de telas com o web, offline com fila de escrita e cliente HTTP gerado do OpenAPI da API —
-gerar do contrato não é importar código. A coluna dele na Stack, a linha nos Comandos e a pasta na
-Arquitetura entram no scaffold. Decisão em `docs/decisions/0007-app-nativo-em-flutter-com-offline.md`.
+**`apps/mobile` é o app nativo iOS e Android em Flutter**, com paridade de telas com o web, offline com
+fila de escrita e cliente HTTP gerado do OpenAPI da API — gerar do contrato não é importar código.
+Decisão em `docs/decisions/0007-app-nativo-em-flutter-com-offline.md`.
 
 Cada app tem o seu domínio: `clinicore.com.br` é a landing pública, `app.clinicore.com.br` é o sistema e
 `api.clinicore.com.br` é a API. Os três compartilham o mesmo domínio registrável, e é isso que mantém o
 cookie de sessão em `SameSite=Lax`.
 
-| | `apps/api` | `apps/web` | `apps/site` |
-|---|---|---|---|
-| Papel | o contrato HTTP | sistema da clínica, PWA instalável, só usuário autenticado | landing pública e indexável |
-| Runtime e pacotes | Node 26 · npm | Node 26 · npm | Node 26 · npm |
-| Tipos | TypeScript 6.0 | TypeScript 6.0 | TypeScript 6.0 |
-| Lint e formato | ESLint 10 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · `eslint-config-next` 16.3 · Prettier 3 |
-| Framework | NestJS 11 sobre Express, validação e DTO em `class-validator` e `class-transformer`, OpenAPI por `@nestjs/swagger`, health check por `@nestjs/terminus` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Next.js 16.3 com App Router e `output: "standalone"` · `next/image` e `next/font` |
-| Dados | PostgreSQL 18 · TypeORM 1.1 com `@nestjs/typeorm` e `pg` | TanStack Query 5.102 · axios 1 · Zod 4.6 | — |
-| Formulário | — | TanStack Form 1.33 com schema Zod | — |
-| Estilo | — | Tailwind 4.3 · shadcn/ui sobre Radix e CVA · `tw-animate-css` | Tailwind 4.3 · shadcn/ui, com cópia própria |
-| Auth | `@nestjs/passport`, `@nestjs/jwt` e `@node-rs/argon2`; access token curto e refresh na tabela `session` | axios contra `/users` e `/sessions` da API, com o refresh no interceptor | — |
-| Fila e agendamento | `@nestjs/bullmq` · `@nestjs/schedule` | — | — |
-| Redis 8 | fila, contagem do limite por IP e denylist de revogação de sessão | — | — |
-| HTTP de saída | `@nestjs/axios` sobre axios 1 | — | — |
-| Configuração | `@nestjs/config`, validada por `class-validator` no boot | — | — |
-| E-mail | Nodemailer pelo SMTP do Gmail (`smtp.gmail.com:587`), em todos os ambientes | — | — |
-| Log | Pino 10 atrás de um `LoggerService` do Nest, JSON em stdout, com `redact` | — | — |
-| Testes | Jest 30 · `ts-jest` · supertest · `@nestjs/testing` | Jest 30 · `@swc/jest` · jsdom · Testing Library | — |
+| | `apps/api` | `apps/web` | `apps/site` | `apps/mobile` |
+|---|---|---|---|---|
+| Papel | o contrato HTTP | sistema da clínica, PWA instalável, só usuário autenticado | landing pública e indexável | app nativo iOS e Android, só usuário autenticado |
+| Runtime e pacotes | Node 26 · npm | Node 26 · npm | Node 26 · npm | Flutter 3.47 · pub |
+| Tipos | TypeScript 6.0 | TypeScript 6.0 | TypeScript 6.0 | Dart 3.13, com `strict-casts`, `strict-inference` e `strict-raw-types` |
+| Lint e formato | ESLint 10 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · `eslint-config-next` 16.3 · Prettier 3 | `flutter_lints` 6 · `dart format` |
+| Framework | NestJS 11 sobre Express, validação e DTO em `class-validator` e `class-transformer`, OpenAPI por `@nestjs/swagger`, health check por `@nestjs/terminus` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Next.js 16.3 com App Router e `output: "standalone"` · `next/image` e `next/font` | Flutter 3.47 · `go_router` 18.0 |
+| Dados | PostgreSQL 18 · TypeORM 1.1 com `@nestjs/typeorm` e `pg` | TanStack Query 5.102 · axios 1 · Zod 4.6 | — | cliente Retrofit sobre `dio` 5.11, gerado por `swagger_parser` 1.44 com `json_serializable` |
+| Formulário | — | TanStack Form 1.33 com schema Zod | — | — |
+| Estilo | — | Tailwind 4.3 · shadcn/ui sobre Radix e CVA · `tw-animate-css` | Tailwind 4.3 · shadcn/ui, com cópia própria | — |
+| Auth | `@nestjs/passport`, `@nestjs/jwt` e `@node-rs/argon2`; access token curto e refresh na tabela `session` | axios contra `/users` e `/sessions` da API, com o refresh no interceptor | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
+| Fila e agendamento | `@nestjs/bullmq` · `@nestjs/schedule` | — | — | — |
+| Redis 8 | fila, contagem do limite por IP e denylist de revogação de sessão | — | — | — |
+| HTTP de saída | `@nestjs/axios` sobre axios 1 | — | — | — |
+| Configuração | `@nestjs/config`, validada por `class-validator` no boot | — | — | `--dart-define-from-file`, lida e validada em `lib/shared/env/env.dart` |
+| E-mail | Nodemailer pelo SMTP do Gmail (`smtp.gmail.com:587`), em todos os ambientes | — | — | — |
+| Log | Pino 10 atrás de um `LoggerService` do Nest, JSON em stdout, com `redact` | — | — | — |
+| Testes | Jest 30 · `ts-jest` · supertest · `@nestjs/testing` | Jest 30 · `@swc/jest` · jsdom · Testing Library | — | `flutter_test` |
 
 As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0001-api-em-nestjs-typeorm-e-redis.md`,
@@ -56,15 +55,15 @@ As decisões que trouxeram esta stack, o que foi descartado e por quê:
 
 Cada comando roda de dentro do diretório do seu app.
 
-| Gate | `apps/api` | `apps/web` | `apps/site` |
-|---|---|---|---|
-| Análise estática e formato | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` |
-| Tipos | `npm run typecheck` | `npm run typecheck` | `npm run typecheck` |
-| Build | `npm run build` | `npm run build` | `npm run build` |
-| Testes | `npm run test` | `npm run test` | — enquanto não houver lógica a testar |
-| Testes e2e | `npm run test:e2e` | — | — |
+| Gate | `apps/api` | `apps/web` | `apps/site` | `apps/mobile` |
+|---|---|---|---|---|
+| Análise estática e formato | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` | `flutter analyze --fatal-infos` · `dart format --output=none --set-exit-if-changed .` |
+| Tipos | `npm run typecheck` | `npm run typecheck` | `npm run typecheck` | dentro do `flutter analyze` |
+| Build | `npm run build` | `npm run build` | `npm run build` | — fora do CI até a publicação |
+| Testes | `npm run test` | `npm run test` | — enquanto não houver lógica a testar | `flutter test` |
+| Testes e2e | `npm run test:e2e` | — | — | — |
 
-Instalação: `npm ci` nos três apps.
+Instalação: `npm ci` nos três apps Node e `flutter pub get --enforce-lockfile` no `apps/mobile`.
 
 O gate de tipos do web exige o `src/routeTree.gen.ts`, gerado pelo plugin do TanStack Router.
 Ele é commitado, então só um `src/routes/` alterado sem `vite build` ou `vite dev` desde a alteração
@@ -110,13 +109,22 @@ apps/
 │       │   └── __tests__/
 │       ├── styles/          globals.css é manifesto; regra por concern em arquivo próprio
 │       └── shared/          UI base do shadcn, http, env — sem regra de negócio
-└── site/                    Next.js standalone · :4321 · clinicore.com.br
-    └── src/
-        ├── app/             App Router: a pasta é a URL, layout.tsx e page.tsx por rota
-        ├── sections/        blocos da landing: hero, preços, dúvidas
-        ├── components/      UI base do shadcn e o que for copiado
-        ├── assets/          imagem e vídeo da landing
-        └── styles/
+├── site/                    Next.js standalone · :4321 · clinicore.com.br
+│   └── src/
+│       ├── app/             App Router: a pasta é a URL, layout.tsx e page.tsx por rota
+│       ├── sections/        blocos da landing: hero, preços, dúvidas
+│       ├── components/      UI base do shadcn e o que for copiado
+│       ├── assets/          imagem e vídeo da landing
+│       └── styles/
+└── mobile/                  Flutter · iOS e Android · br.com.clinicore.dev
+    ├── config/              example.json commitado; <ambiente>.json fora do git
+    ├── android/ ios/        projeto nativo
+    ├── test/                espelha lib/
+    └── lib/
+        ├── main.dart        só boot
+        ├── app/             MaterialApp e o GoRouter
+        ├── features/<feature>/
+        └── shared/          env, http e api — o cliente gerado, nunca editado à mão
 compose.yaml                 stack inteira: site, web, api, worker, Postgres e Redis
 docs/
 ```
@@ -125,8 +133,8 @@ docs/
 produção, `app.clinicore.com.br` e `api.clinicore.com.br`. Por isso o `enableCors()` da API libera as
 origens de `ALLOWED_ORIGINS` com `credentials: true`, e o web chama com `withCredentials: true`.
 
-**A regra de cada app mora no `CLAUDE.md` dele** — `apps/api/CLAUDE.md`, `apps/web/CLAUDE.md` e
-`apps/site/CLAUDE.md` carregam as camadas, a forma da URL e as pegadinhas da stack daquele app,
+**A regra de cada app mora no `CLAUDE.md` dele** — `apps/api/CLAUDE.md`, `apps/web/CLAUDE.md`,
+`apps/site/CLAUDE.md` e `apps/mobile/CLAUDE.md` carregam as camadas, a forma da URL e as pegadinhas da stack daquele app,
 e só entram em contexto quando o trabalho toca a pasta.
 
 **`apps/site` tem servidor, mas não tem sessão.** O processo Node do standalone serve a landing e

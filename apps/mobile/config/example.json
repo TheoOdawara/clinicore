@@ -1,0 +1,5 @@
+{
+  "API_URL": "http://10.0.2.2:3333",
+  "GOOGLE_SERVER_CLIENT_ID": "<web-client-id>.apps.googleusercontent.com",
+  "GOOGLE_IOS_CLIENT_ID": "<ios-client-id>.apps.googleusercontent.com"
+}
