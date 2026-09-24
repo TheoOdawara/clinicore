@@ -4,6 +4,7 @@ import { EnvironmentService } from "../../../core/config/environment.service";
 import { MailService } from "../../../core/mail/mail.service";
 import { verificationMail } from "../../../core/mail/templates";
 import { EmailDispatchKind } from "../enums/email-dispatch-kind.enum";
+import { SessionClient } from "../enums/session-client.enum";
 import { VerificationPurpose } from "../enums/verification-purpose.enum";
 import { EmailDispatchRepository } from "../repository/email-dispatch.repository";
 import { UserRepository } from "../repository/user.repository";
@@ -72,6 +73,11 @@ export class EmailVerificationService {
       throw BusinessError.invalid("INVALID_TOKEN", "Invalid token");
     }
 
-    return this.openSession.open(confirmation.user, ipAddress, userAgent);
+    return this.openSession.open(
+      confirmation.user,
+      ipAddress,
+      userAgent,
+      SessionClient.Web,
+    );
   }
 }

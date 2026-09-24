@@ -4,6 +4,9 @@ const COOKIE = "session=do-not-leak-cookie";
 const AUTHORIZATION = "Bearer do-not-leak-token";
 const SET_COOKIE = "session=do-not-leak-set-cookie";
 const PASSWORD = "do-not-leak-password";
+const REFRESH_TOKEN = "do-not-leak-refresh-token";
+const ID_TOKEN = "do-not-leak-id-token";
+const WEBAUTHN_RESPONSE = "do-not-leak-webauthn-response";
 
 function capture(
   emit: (logger: ReturnType<typeof createLogger>) => void,
@@ -35,6 +38,9 @@ describe("createLogger", () => {
               newPassword: PASSWORD,
               currentPassword: PASSWORD,
               token: PASSWORD,
+              refreshToken: REFRESH_TOKEN,
+              idToken: ID_TOKEN,
+              response: { signature: WEBAUTHN_RESPONSE },
             },
           },
           res: { statusCode: 200, headers: { "set-cookie": SET_COOKIE } },
@@ -47,6 +53,9 @@ describe("createLogger", () => {
     expect(written).not.toContain(AUTHORIZATION);
     expect(written).not.toContain(SET_COOKIE);
     expect(written).not.toContain(PASSWORD);
+    expect(written).not.toContain(REFRESH_TOKEN);
+    expect(written).not.toContain(ID_TOKEN);
+    expect(written).not.toContain(WEBAUTHN_RESPONSE);
   });
 
   it("keeps the method, the path and the status", () => {

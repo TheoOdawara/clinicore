@@ -63,6 +63,7 @@ describe("request log", () => {
   it("logs the request the guard rejected", async () => {
     await request(probe.server)
       .post("/probe/sign-in")
+      .set("Origin", "https://evil.example")
       .send(CREDENTIALS)
       .expect(403);
 

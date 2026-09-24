@@ -1,5 +1,5 @@
 import request from "supertest";
-import { createProbeApp, type Probe } from "./probe-app";
+import { PROBE_COOKIE, createProbeApp, type Probe } from "./probe-app";
 
 const CREDENTIALS = {
   email: "person@clinicore.com.br",
@@ -50,9 +50,10 @@ describe("OriginGuard", () => {
     });
   });
 
-  it("rejects a POST without the Origin header", async () => {
+  it("rejects a POST without the Origin header that carries a cookie", async () => {
     const response = await request(probe.server)
       .post("/probe/sign-in")
+      .set("Cookie", PROBE_COOKIE)
       .send(CREDENTIALS)
       .expect(403);
 
@@ -62,10 +63,11 @@ describe("OriginGuard", () => {
   });
 
   it.each(["delete", "put", "patch"] as const)(
-    "rejects a %s without the Origin header",
+    "rejects a %s without the Origin header that carries a cookie",
     async (method) => {
       const response = await request(probe.server)
         [method]("/probe/resource")
+        .set("Cookie", PROBE_COOKIE)
         .expect(403);
 
       expect(response.body).toMatchObject({
@@ -83,6 +85,34 @@ describe("OriginGuard", () => {
         .expect(200, { status: "ok" });
     },
   );
+
+  it("lets a POST without Origin and without Cookie through", async () => {
+    await request(probe.server)
+      .post("/probe/sign-in")
+      .send(CREDENTIALS)
+      .expect(201);
+  });
+
+  it.each(["delete", "put", "patch"] as const)(
+    "lets a %s without Origin and without Cookie through",
+    async (method) => {
+      await request(probe.server)
+        [method]("/probe/resource")
+        .expect(200, { status: "ok" });
+    },
+  );
+
+  it("rejects a POST from an origin outside the list even without a cookie", async () => {
+    const response = await request(probe.server)
+      .post("/probe/sign-in")
+      .set("Origin", "https://evil.example")
+      .send(CREDENTIALS)
+      .expect(403);
+
+    expect(response.body).toMatchObject({
+      type: "tag:clinicore.com.br,2026:invalid-origin",
+    });
+  });
 
   it("answers a HEAD without the Origin header", async () => {
     await request(probe.server).head("/probe/resource").expect(200);

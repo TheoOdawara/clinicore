@@ -8,6 +8,7 @@ export type ErrorCode =
   | "SESSION_REUSED"
   | "EMAIL_NOT_VERIFIED"
   | "INVALID_ORIGIN"
+  | "INVALID_CLIENT"
   | "RATE_LIMITED"
   | "SERVICE_UNAVAILABLE";
 

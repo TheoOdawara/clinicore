@@ -3,7 +3,7 @@ import type Redis from "ioredis";
 import request from "supertest";
 import { freePort } from "../src/__tests__/free-port";
 import { REDIS } from "../src/core/redis/redis";
-import { createProbeApp, type Probe } from "./probe-app";
+import { PROBE_COOKIE, createProbeApp, type Probe } from "./probe-app";
 
 const ORIGIN = "https://app.clinicore.com.br";
 const PROXY_HOP = "10.0.0.1";
@@ -267,6 +267,7 @@ describe("rate limit on the whole application", () => {
     const statuses = await statusesOf(6, () =>
       request(probe.server)
         .post("/sessions")
+        .set("Cookie", PROBE_COOKIE)
         .set("X-Forwarded-For", forwardedFor(CROSS_ORIGIN_CLIENT))
         .send(UNKNOWN_ACCOUNT),
     );

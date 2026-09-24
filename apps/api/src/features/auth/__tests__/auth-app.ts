@@ -10,6 +10,7 @@ import { DataSource } from "typeorm";
 import { BusinessErrorFilter } from "../../../common/filters/business-error.filter";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { OriginGuard } from "../../../common/guards/origin.guard";
+import { SessionClientGuard } from "../../../common/guards/session-client.guard";
 import { validationPipe } from "../../../common/pipes/validation.pipe";
 import { EnvironmentService } from "../../../core/config/environment.service";
 import { validateEnv } from "../../../core/config/env.validation";
@@ -192,6 +193,7 @@ export async function createAuthApp(): Promise<AuthApp> {
     imports: [CoreModule, AuthModule],
     providers: [
       { provide: APP_FILTER, useClass: BusinessErrorFilter },
+      { provide: APP_GUARD, useClass: SessionClientGuard },
       { provide: APP_GUARD, useClass: OriginGuard },
       { provide: APP_GUARD, useClass: JwtAuthGuard },
       { provide: APP_PIPE, useFactory: validationPipe },

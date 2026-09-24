@@ -81,6 +81,7 @@ describe("POST /sessions", () => {
     const session = await authApp.dataSource
       .getRepository(Session)
       .findOneOrFail({ where: { userId: user.id } });
+    expect(session.client).toBe("web");
     const lifetime = session.expiresAt.getTime() - session.createdAt.getTime();
     expect(Math.abs(lifetime - DAY_IN_MILLISECONDS)).toBeLessThanOrEqual(
       TOLERANCE_IN_MILLISECONDS,

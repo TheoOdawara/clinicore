@@ -18,6 +18,9 @@ export function createLogger(
         "req.body.newPassword",
         "req.body.currentPassword",
         "req.body.token",
+        "req.body.refreshToken",
+        "req.body.idToken",
+        "req.body.response",
       ],
       serializers: {
         req: (request: { method: string; url: string }) => ({
