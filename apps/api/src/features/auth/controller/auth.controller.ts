@@ -9,10 +9,13 @@ import {
   Post,
   Req,
   Res,
+  UseFilters,
+  UseGuards,
 } from "@nestjs/common";
 import {
   ApiAcceptedResponse,
   ApiCreatedResponse,
+  ApiFoundResponse,
   ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
@@ -33,6 +36,11 @@ import {
   type SessionClientKind,
 } from "../../../common/decorators/session-client.decorator";
 import { BusinessError } from "../../../common/exceptions/business-error";
+import { GoogleRedirectFilter } from "../../../common/filters/google-redirect.filter";
+import {
+  GoogleAuthGuard,
+  GoogleCallbackGuard,
+} from "../../../common/guards/google-auth.guard";
 import { EnvironmentService } from "../../../core/config/environment.service";
 import { EmailDto } from "../dto/email.dto";
 import { PasswordResetConfirmationDto } from "../dto/password-reset-confirmation.dto";
@@ -46,6 +54,10 @@ import { SignInDto } from "../dto/sign-in.dto";
 import { SignUpDto } from "../dto/sign-up.dto";
 import { TokenDto } from "../dto/token.dto";
 import { EmailVerificationService } from "../service/email-verification.service";
+import {
+  GoogleAccountService,
+  type GoogleIdentity,
+} from "../service/google-account.service";
 import { PasswordResetService } from "../service/password-reset.service";
 import { RefreshSessionService } from "../service/refresh-session.service";
 import { SessionService } from "../service/session.service";
@@ -118,6 +130,7 @@ export class AuthController {
     private readonly sessionService: SessionService,
     private readonly emailVerificationService: EmailVerificationService,
     private readonly passwordResetService: PasswordResetService,
+    private readonly googleAccountService: GoogleAccountService,
     private readonly environment: EnvironmentService,
   ) {}
 
@@ -383,5 +396,63 @@ export class AuthController {
     @Body() body: PasswordResetConfirmationDto,
   ): Promise<void> {
     await this.passwordResetService.confirm(body.token, body.newPassword);
+  }
+
+  @Public()
+  @Get("oauth/google")
+  @Throttle({ default: { ttl: ONE_MINUTE, limit: 10 } })
+  @UseGuards(GoogleAuthGuard)
+  @ApiOperation({
+    summary: "Start the sign-in with Google",
+    description:
+      "A top-level browser navigation. Writes nothing to the database: the OAuth state travels in the clinicore_oauth_state cookie.",
+  })
+  @ApiFoundResponse({
+    description: "Redirect to the Google consent screen",
+    headers: {
+      Location: {
+        description:
+          "https://accounts.google.com/o/oauth2/v2/auth with prompt=select_account",
+        schema: { type: "string" },
+      },
+      "Set-Cookie": {
+        description:
+          "clinicore_oauth_state on Path=/oauth/google for 600s, HttpOnly and SameSite=Lax",
+        schema: { type: "string" },
+      },
+    },
+  })
+  startGoogleSignIn(): void {
+    throw new Error("GoogleAuthGuard redirects before the handler runs");
+  }
+
+  @Public()
+  @Get("oauth/google/callback")
+  @Throttle({ default: { ttl: ONE_MINUTE, limit: 10 } })
+  @UseGuards(GoogleCallbackGuard)
+  @UseFilters(GoogleRedirectFilter)
+  @ApiOperation({
+    summary: "Finish the sign-in with Google",
+    description:
+      "Links Google to the account with the same email, or creates a verified account. Refusals redirect to the web login with the code in ?error=.",
+  })
+  @ApiFoundResponse({
+    description:
+      "Redirect to APP_ORIGIN/app with the session cookies, or to APP_ORIGIN/login?error=INVALID_STATE or ?error=UNVERIFIED_PROVIDER_EMAIL",
+    headers: SESSION_COOKIES,
+  })
+  async completeGoogleSignIn(
+    @Req() request: Request,
+    @Res() response: Response,
+  ): Promise<void> {
+    const opened = await this.googleAccountService.signIn(
+      request.user as GoogleIdentity,
+      request.ip ?? null,
+      userAgentOf(request),
+      SESSION_CLIENT_BY_KIND.web,
+    );
+
+    setSessionCookies(response, this.environment.get("NODE_ENV"), opened);
+    response.redirect(`${this.environment.get("APP_ORIGIN")}/app`);
   }
 }
