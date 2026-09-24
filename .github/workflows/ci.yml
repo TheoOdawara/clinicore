@@ -93,3 +93,25 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: npm run test
+
+  site:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/site
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: apps/site/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run build
+      - run: npm run typecheck
+      - name: prerendered html has the landing content
+        run: grep -Eq '<h1[^>]*>Clinicore</h1>' .next/server/app/index.html
+      - name: no test gate until apps/site has logic to test
+        run: "true"

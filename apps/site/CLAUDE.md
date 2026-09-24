@@ -16,8 +16,8 @@ isto: `next/image` otimizando a mídia da landing, e rota dinâmica sem trocar o
 - **O texto que precisa ser indexado é renderizado no servidor.** Componente cliente que só mostra
   conteúdo depois de montar deixa o HTML do build sem esse conteúdo, com o build verde.
 - **Imagem entra por `next/image` com import estático**, que dá `width` e `height` sozinho e mantém o
-  `CLS = 0` do contrato global. Imagem acima da dobra leva `preload`; o `priority` está obsoleto no
-  16.3 e o `no-deprecated` reprova.
+  `CLS = 0` do contrato global. Imagem acima da dobra leva `preload`, nunca `priority`, que está
+  obsoleto no 16.3.
 - **Fonte entra por `next/font`**, servida do próprio domínio.
 - **Vídeo não passa por build nenhum.** Encode, poster e `preload` são decisão de quem escreve a seção.
 - **Aqui não há restrição de categoria do React Bits**, e animação de rolagem que atravessa várias
@@ -45,4 +45,10 @@ Verificadas em 2026-09-24, contra `next@16.3.6`.
 - **O `sharp` vem como dependência opcional do `next`** e é empacotado no standalone. Um `npm ci` com
   `--omit=optional` tira ele, e o `next/image` deixa de otimizar.
 - **O `eslint-config-next` não substitui o `typescript-eslint`.** Os dois entram juntos, para manter o
-  `@typescript-eslint/no-deprecated` que a ADR 0004 exige nos três apps.
+  `@typescript-eslint/no-deprecated` que a ADR 0004 exige nos três apps. O bloco do Next vem primeiro
+  no `eslint.config.mjs`: depois dos presets do `typescript-eslint`, o parser próprio dele assume os
+  arquivos `.mjs` e o lint type-aware aborta.
+- **O `no-deprecated` não pega prop obsoleta em JSX.** Medido: `"abc".substr(1)` reprova, e
+  `<Image priority />` passa verde. Prop obsoleta de componente é conferida no review.
+- **O `next dev` escreve regras de agente no `CLAUDE.md` do app** a cada subida, em inglês e dentro
+  de um comentário HTML. O `agentRules: false` do `next.config.ts` desliga isso e não sai.
