@@ -176,9 +176,10 @@ validada sem consumidor nem destino é dívida, não preparação.
   parando no primeiro que falhar. O `site` não tem gate de testes enquanto não houver lógica a testar, e
   a ausência é declarada no job, não omitida em silêncio.
 - **O job `site` tem um gate a mais que os outros dois: a conferência do HTML prerenderizado.** Depois
-  do build, ele procura um texto conhecido da landing dentro do `dist/index.html` e falha se não achar.
-  Sem isso, uma `prerender()` que parou de rodar deixa o job verde e a landing sai do índice do
-  buscador sem ninguém perceber.
+  do build, ele procura um texto conhecido da landing dentro do `.next/server/app/index.html` e falha se
+  não achar. O `next build` já falha quando uma página lança erro no prerender; sem a conferência, um
+  componente cliente que só renderiza depois de montar deixa o job verde e o texto fora do HTML que o
+  buscador indexa. A troca do Vite pelo Next é da ADR 0008.
 - O job `api` sobe um serviço `postgres:18` com healthcheck `pg_isready`; as variáveis do job apontam
   para esse serviço efêmero.
 - **Os três jobs usam `actions/setup-node` com Node 26**, pela ADR 0005; o Bun não entra em nenhum.
@@ -309,17 +310,25 @@ E o mesmo vale para qualquer par entre `apps/api`, `apps/web` e `apps/site`
 
 ```gherkin
 Dado o `apps/site` construído
-Quando o arquivo `dist/index.html` é lido
+Quando o arquivo `.next/server/app/index.html` é lido
 Então ele contém o texto `Clinicore` fora de qualquer atributo
-E ele não é apenas o elemento de montagem vazio do Vite
 ```
 
-### Cenário 10 — O prerender quebrado reprova o build (exceção)
+### Cenário 10 — O prerender quebrado reprova o job (exceção)
 
 ```gherkin
 Dado um componente da landing que lê `window` fora de um efeito
 Quando o job `site` roda
-Então o build pode sair com código 0
+Então o `next build` sai com código diferente de 0
+E o job `site` termina vermelho
+```
+
+### Cenário 11 — A página gerada sem o texto reprova o job (exceção)
+
+```gherkin
+Dado que o texto `Clinicore` da rota `/` só é renderizado por um componente cliente depois de montar
+Quando o job `site` roda
+Então o `next build` sai com código 0
 E a conferência do HTML prerenderizado falha por não achar o texto esperado
 E o job `site` termina vermelho
 ```
@@ -357,7 +366,8 @@ E o job `site` termina vermelho
 
 As tasks 1, 2 e 4 são refeitas na stack de #72 e viraram as sub-issues #73, #74 e #75; as issues originais
 (#57, #58, #60) ficam fechadas como histórico do que foi entregue na stack anterior. A task 3 é do
-web, já entregue em #59, e **não muda**. A task 5 nasce com a ADR 0002.
+web, já entregue em #59, e **não muda**. A task 5 nasce com a ADR 0002 e é refeita em Next.js pela
+ADR 0008, antes de começar.
 
 | # | Issue | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- | --- |
@@ -365,4 +375,4 @@ web, já entregue em #59, e **não muda**. A task 5 nasce com a ADR 0002.
 | 2 | #74 | Add the development Postgres and the TypeORM DataSource to apps/api | `apps/api/compose.yaml`, `src/core/db/` com `data-source.ts`, `db.module.ts`, `migrations/` e `__tests__` | Cenário 4 verde; `tsc --noEmit` sai com código 0 | task 1 |
 | 3 | #59 — entregue | Create apps/web with green gates and the root route | `apps/web`: entregue em Bun, Vite e TanStack Router pela ADR 0002; o lint e o TypeScript foram trocados depois pela ADR 0004, e o gerenciador de pacotes pela ADR 0005 | Cenários 3 e 5 verdes; os quatro gates do web saem com código 0 | — |
 | 4 | #75 | Update the CI workflow for the npm toolchain of both apps | `.github/workflows/ci.yml`: jobs `api` e `web` com `setup-node` e `npm ci`, sem Bun em nenhum, com lint e formato em passos separados; `apps/web` migrado para npm pela ADR 0005; `WEB_ORIGIN` trocada por `APP_ORIGIN` e `ALLOWED_ORIGINS` no ambiente do job `api` | Cenários 6, 7 e 8 verdes, observados em um pull request real | tasks 1 e 2 |
-| 5 | #76 | Create apps/site with green gates and the prerendered landing shell | `apps/site`: `package.json`, `tsconfig.json`, `vite.config.ts` com `vite-prerender-plugin` e `vite-imagetools`, `eslint.config.mjs`, `.prettierrc`, TypeScript 6, `src/main.tsx`, `src/prerender.tsx`, `src/routes/index.tsx` e `src/styles/`; `.github/workflows/ci.yml` com o job `site` e a conferência do HTML | Cenários 6 a 10 verdes; os gates do site saem com código 0 e o `dist/index.html` tem conteúdo | task 4 |
+| 5 | #76 | Create apps/site on Next.js with green gates and the landing shell | `apps/site`: `package.json`, `tsconfig.json`, `next.config.ts` com `output: "standalone"`, `postcss.config.mjs`, `eslint.config.mjs` com `typescript-eslint` e `eslint-config-next`, `.prettierrc`, TypeScript 6, `src/app/layout.tsx`, `src/app/page.tsx` e `src/styles/`; `.github/workflows/ci.yml` com o job `site` e a conferência do HTML | Cenários 6 a 11 verdes; os gates do site saem com código 0 e o `.next/server/app/index.html` tem conteúdo | task 4 |
