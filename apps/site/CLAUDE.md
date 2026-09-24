@@ -1,44 +1,54 @@
-# Clinicore `apps/site` — estático e pegadinhas
+# Clinicore `apps/site` — páginas públicas e pegadinhas
 
 Aditivo ao `CLAUDE.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este
 arquivo apenas onde ela falar do mesmo assunto. A raiz tem a stack, os comandos, a visão geral da
 arquitetura, as branches e o idioma.
 
-## Estático
+## Páginas públicas
 
-Mesma stack do `web`, outro produto. A ADR 0002 escolheu assim para que fundir os dois, se isso for
-decidido, seja mover pasta e não reescrever.
+Next.js com App Router, entregue como servidor standalone. A ADR 0008 trocou o Vite da 0002 por
+isto: `next/image` otimizando a mídia da landing, e rota dinâmica sem trocar o deploy.
 
-- **Uma página por arquivo em `routes/`**, composta a partir de `sections/`. O conteúdo da landing mora
-  na seção, não na rota.
-- **O HTML da indexação sai do build, não do servidor.** `src/prerender.tsx` exporta a função
-  `prerender()` que o `vite-prerender-plugin` chama: ela monta o router com `createMemoryHistory`,
-  renderiza para string e devolve `{ html, links, head }`. **Nada nesse caminho pode tocar `window`,
-  `document` ou `localStorage` fora de efeito** — se tocar, o build sai verde com HTML vazio e a página
-  deixa de ser indexável sem avisar.
-- **Imagem entra por `vite-imagetools`**, com o tamanho e o formato pedidos no import, e o componente
-  escreve `width` e `height` à mão, porque o plugin não escreve. Sem isso o `CLS = 0` do contrato
-  global cai.
+- **Uma pasta por página em `src/app/`**, com a página composta a partir de `sections/`. O conteúdo
+  da landing mora na seção, não na rota.
+- **Página é Server Component por padrão.** `"use client"` entra só no componente que precisa de
+  estado, efeito ou evento, e o mais fundo possível na árvore — nunca na página nem no layout.
+- **O texto que precisa ser indexado é renderizado no servidor.** Componente cliente que só mostra
+  conteúdo depois de montar deixa o HTML do build sem esse conteúdo, com o build verde.
+- **Imagem entra por `next/image` com import estático**, que dá `width` e `height` sozinho e mantém o
+  `CLS = 0` do contrato global. Imagem acima da dobra leva `preload`, nunca `priority`, que está
+  obsoleto no 16.3.
+- **Fonte entra por `next/font`**, servida do próprio domínio.
 - **Vídeo não passa por build nenhum.** Encode, poster e `preload` são decisão de quem escreve a seção.
 - **Aqui não há restrição de categoria do React Bits**, e animação de rolagem que atravessa várias
-  seções é escrita com o GSAP direto no DOM, num efeito da rota, não repartida entre componentes.
+  seções é escrita com o GSAP direto no DOM, num efeito de um único componente cliente, não repartida
+  entre componentes.
 - **Sem CMS e sem banco.** O conteúdo mora no repo e muda por commit.
-- **Nada de sessão.** O site não lê cookie, não chama rota autenticada e nunca é destino de
-  redirecionamento de autenticação.
+- **Nada de sessão nem de segredo.** O servidor do site não lê cookie, não chama rota autenticada e
+  nunca é destino de redirecionamento de autenticação. O código do app não lê variável de ambiente; o
+  `PORT` e o `HOSTNAME` do container são lidos pelo `server.js` do standalone, não por nós.
 - **URL é pt-BR, sem acento e sem cedilha**, porque aqui o caminho é conteúdo indexável e é o que a
-  pessoa lê antes de clicar: `/precos`, `/funcionalidades`, `/para-clinicas`. Como o nome do arquivo
-  em `routes/` é a URL, este é o único lugar do repo onde nome de arquivo não é inglês — componente,
-  prop e variável do site continuam sendo.
+  pessoa lê antes de clicar: `/precos`, `/funcionalidades`, `/para-clinicas`. Como o nome da pasta em
+  `src/app/` é a URL, este é o único lugar do repo onde nome de pasta não é inglês — componente, prop,
+  variável e os arquivos de convenção do Next (`page.tsx`, `layout.tsx`) continuam sendo.
 
 ## Pegadinhas da stack
 
-Verificadas em 2026-09-15, contra as versões desta stack.
+Verificadas em 2026-09-24, contra `next@16.3.6`.
 
-- **Build verde não significa página indexável.** O `vite-prerender-plugin` chama a `prerender()` do
-  app; se ela lançar, o que sobra é o `index.html` do Vite, que é uma `<div>` vazia. O `tsc` não pega,
-  o Biome não pega e o build sai com código 0. Por isso o gate do site confere o conteúdo do HTML
-  gerado, e não só que o build passou.
-- **`window` fora de efeito é o jeito mais comum de derrubar o prerender**, porque a `prerender()` roda
-  em Node. Vale para código copiado do React Bits, que costuma ler `window` na montagem.
-- **O `vite-imagetools` não escreve `width` nem `height`.** Ele entrega o arquivo otimizado e mais nada;
-  a dimensão no HTML é trabalho do componente.
+- **Build verde não garante página com conteúdo.** O `next build` falha quando uma página lança erro no
+  prerender, mas não quando um componente cliente renderiza vazio no servidor. Por isso o gate do site
+  confere o texto dentro de `.next/server/app/index.html`, e não só que o build passou.
+- **O standalone não copia os arquivos estáticos.** `.next/standalone/` sai sem `.next/static/` e sem
+  `public/`; quem monta a imagem de container copia os dois, senão a página sobe sem CSS e sem
+  JavaScript.
+- **O `sharp` vem como dependência opcional do `next`** e é empacotado no standalone. Um `npm ci` com
+  `--omit=optional` tira ele, e o `next/image` deixa de otimizar.
+- **O `eslint-config-next` não substitui o `typescript-eslint`.** Os dois entram juntos, para manter o
+  `@typescript-eslint/no-deprecated` que a ADR 0004 exige nos três apps. O bloco do Next vem primeiro
+  no `eslint.config.mjs`: depois dos presets do `typescript-eslint`, o parser próprio dele assume os
+  arquivos `.mjs` e o lint type-aware aborta.
+- **O `no-deprecated` não pega prop obsoleta em JSX.** Medido: `"abc".substr(1)` reprova, e
+  `<Image priority />` passa verde. Prop obsoleta de componente é conferida no review.
+- **O `next dev` escreve regras de agente no `CLAUDE.md` do app** a cada subida, em inglês e dentro
+  de um comentário HTML. O `agentRules: false` do `next.config.ts` desliga isso e não sai.

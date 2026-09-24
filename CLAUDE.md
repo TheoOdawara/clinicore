@@ -28,8 +28,8 @@ cookie de sessão em `SameSite=Lax`.
 | Papel | o contrato HTTP | sistema da clínica, PWA instalável, só usuário autenticado | landing pública e indexável |
 | Runtime e pacotes | Node 26 · npm | Node 26 · npm | Node 26 · npm |
 | Tipos | TypeScript 6.0 | TypeScript 6.0 | TypeScript 6.0 |
-| Lint e formato | ESLint 10 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 |
-| Framework | NestJS 11 sobre Express, validação e DTO em `class-validator` e `class-transformer`, OpenAPI por `@nestjs/swagger`, health check por `@nestjs/terminus` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Vite 8.3 · TanStack Router 1.170, com `vite-prerender-plugin` 0.5 e `vite-imagetools` 12 no build |
+| Lint e formato | ESLint 10 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · `eslint-config-next` 16.3 · Prettier 3 |
+| Framework | NestJS 11 sobre Express, validação e DTO em `class-validator` e `class-transformer`, OpenAPI por `@nestjs/swagger`, health check por `@nestjs/terminus` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Next.js 16.3 com App Router e `output: "standalone"` · `next/image` e `next/font` |
 | Dados | PostgreSQL 18 · TypeORM 1.1 com `@nestjs/typeorm` e `pg` | TanStack Query 5.102 · axios 1 · Zod 4.6 | — |
 | Formulário | — | TanStack Form 1.33 com schema Zod | — |
 | Estilo | — | Tailwind 4.3 · shadcn/ui sobre Radix e CVA · `tw-animate-css` | Tailwind 4.3 · shadcn/ui, com cópia própria |
@@ -48,8 +48,9 @@ As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0003-design-system-com-shadcn-ui-e-react-bits.md`,
 `docs/decisions/0004-lint-do-front-em-eslint.md`,
 `docs/decisions/0005-front-em-npm-sobre-node.md`,
-`docs/decisions/0006-api-rest-e-problem-details.md` e
-`docs/decisions/0007-app-nativo-em-flutter-com-offline.md`.
+`docs/decisions/0006-api-rest-e-problem-details.md`,
+`docs/decisions/0007-app-nativo-em-flutter-com-offline.md` e
+`docs/decisions/0008-site-em-next-standalone.md`.
 
 ## Comandos
 
@@ -65,12 +66,12 @@ Cada comando roda de dentro do diretório do seu app.
 
 Instalação: `npm ci` nos três apps.
 
-O gate de tipos do web e do site exige o `src/routeTree.gen.ts`, gerado pelo plugin do TanStack Router.
+O gate de tipos do web exige o `src/routeTree.gen.ts`, gerado pelo plugin do TanStack Router.
 Ele é commitado, então só um `src/routes/` alterado sem `vite build` ou `vite dev` desde a alteração
 deixa o `tsc` olhando para uma árvore velha.
 
-**O build do site tem um passo a mais que o `npm run build`:** o job confere que o HTML gerado tem
-conteúdo. É o que denuncia um prerender que parou de rodar.
+**O build do site tem um passo a mais que o `npm run build`:** o job confere que o
+`.next/server/app/index.html` tem conteúdo. É o que denuncia uma página que o prerender gerou vazia.
 
 ## Arquitetura
 
@@ -109,16 +110,14 @@ apps/
 │       │   └── __tests__/
 │       ├── styles/          globals.css é manifesto; regra por concern em arquivo próprio
 │       └── shared/          UI base do shadcn, http, env — sem regra de negócio
-└── site/                    Vite · :4321 · clinicore.com.br
+└── site/                    Next.js standalone · :4321 · clinicore.com.br
     └── src/
-        ├── main.tsx
-        ├── prerender.tsx    exporta prerender(); só o build a chama
-        ├── routes/          uma página por arquivo, prerenderizada
+        ├── app/             App Router: a pasta é a URL, layout.tsx e page.tsx por rota
         ├── sections/        blocos da landing: hero, preços, dúvidas
         ├── components/      UI base do shadcn e o que for copiado
         ├── assets/          imagem e vídeo da landing
         └── styles/
-compose.yaml                 stack inteira: web, api, worker, Postgres e Redis
+compose.yaml                 stack inteira: site, web, api, worker, Postgres e Redis
 docs/
 ```
 
@@ -130,7 +129,8 @@ origens de `ALLOWED_ORIGINS` com `credentials: true`, e o web chama com `withCre
 `apps/site/CLAUDE.md` carregam as camadas, a forma da URL e as pegadinhas da stack daquele app,
 e só entram em contexto quando o trabalho toca a pasta.
 
-**`apps/site` é estático e não tem servidor.** Ele não participa de sessão nem lê cookie; se um dia
+**`apps/site` tem servidor, mas não tem sessão.** O processo Node do standalone serve a landing e
+otimiza a imagem dela; ele não participa de sessão, não lê cookie e não recebe segredo. Se um dia
 chamar a API — formulário de contato, pedido de demonstração, código de convite —, é por rota pública e
 a origem dele entra em `ALLOWED_ORIGINS`. Redirecionamento de autenticação nunca aponta para ele.
 

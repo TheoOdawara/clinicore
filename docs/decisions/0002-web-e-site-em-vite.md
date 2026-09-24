@@ -1,7 +1,8 @@
 # 0002. Web e site em Vite, com prerender no site
 
 - Status: accepted, emendada pela 0004 no ferramental de lint e na versão do TypeScript, e pela 0007 no
-  offline, que passa a ser exclusivo do app nativo
+  offline, que passa a ser exclusivo do app nativo, e pela 0008 no `apps/site`, que passa a Next.js
+  standalone
 - Date: 2026-09-20
 
 ## Context
