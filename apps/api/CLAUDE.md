@@ -158,6 +158,14 @@ TypeScript e boot foram reconfirmadas em 2026-09-20, já com o código da #73 de
   `npx jest` cru não enxerga arquivo nenhum, e quem fizer isso cai no `validateEnv` dos testes. **A
   flag não passa por `NODE_OPTIONS`** (`--env-file-if-exists= is not allowed`), e é por isso que o
   script invoca `node` com o binário do Jest como argumento em vez de chamar `jest` direto.
+- **Os scripts apontam para o JS da CLI, nunca para o shim de `node_modules/.bin/`.** No Windows o
+  shim é um shell script, e o `node` morre nele com `SyntaxError: missing ) after argument list`. Por
+  isso o `test` chama `node_modules/jest/bin/jest.js` e o `migration:*` chama
+  `node_modules/typeorm/cli-ts-node-commonjs.js`.
+- **O glob de `entities` e `migrations` quebra quando o `cwd` está em outro drive do Windows.** O
+  `tinyglobby` do TypeORM devolve o caminho relativo ao `cwd`, que entre drives vira `../F:/…`, e o
+  boot cai com `Cannot find module 'C:\F:\…'`. Por isso o `boot.test.ts` sobe a API com o `cwd` em
+  `apps/`, fora do app e no mesmo drive do repo, e não no `tmpdir()`.
 - **A suíte inteira exige o ambiente inteiro, não só a `DATABASE_URL`.** Subir o `ConfigModule` num
   teste roda o `validateEnv`, que cobra as cinco variáveis. Por isso o teste que precisa do ambiente
   chama `validateEnv(process.env)` no topo do módulo: a mensagem que falta uma variável chega no
