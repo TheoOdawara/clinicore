@@ -6,13 +6,6 @@ import { User } from "../entities/user.entity";
 import type { SessionClient } from "../enums/session-client.enum";
 import { RevokedSessionRepository } from "./revoked-session.repository";
 
-export const SESSION_CAP = 5;
-
-export type RotationOutcome =
-  | { status: "rotated"; session: Session }
-  | { status: "reused" }
-  | { status: "invalid" };
-
 @Injectable()
 export class SessionRepository {
   constructor(
@@ -28,6 +21,8 @@ export class SessionRepository {
     userAgent: string | null,
     client: SessionClient,
   ): Promise<Session> {
+    const sessionCap = 5;
+
     return this.dataSource.transaction(async (manager) => {
       await manager.findOne(User, {
         where: { id: userId },
@@ -47,7 +42,7 @@ export class SessionRepository {
       const surplus = await manager.find(Session, {
         where: { userId },
         order: { createdAt: "DESC", id: "DESC" },
-        skip: SESSION_CAP,
+        skip: sessionCap,
         select: { id: true },
       });
 
@@ -66,7 +61,11 @@ export class SessionRepository {
     matchesStoredHash: (storedHash: string) => boolean,
     refreshTokenHash: string,
     expiresAtFor: (client: SessionClient) => Date,
-  ): Promise<RotationOutcome> {
+  ): Promise<
+    | { status: "rotated"; session: Session }
+    | { status: "reused" }
+    | { status: "invalid" }
+  > {
     return this.dataSource.transaction(async (manager) => {
       const session = await manager.findOne(Session, {
         where: { id: sessionId },

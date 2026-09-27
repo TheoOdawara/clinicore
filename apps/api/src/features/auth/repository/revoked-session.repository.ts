@@ -4,7 +4,6 @@ import { BusinessError } from "../../../common/exceptions/business-error";
 import { REDIS } from "../../../core/redis/redis";
 
 const KEY_PREFIX = "auth:revoked:";
-const TTL_IN_SECONDS = 900;
 
 function unavailable(): BusinessError {
   return BusinessError.unavailable(
@@ -18,12 +17,14 @@ export class RevokedSessionRepository {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
   async revoke(sessionId: string): Promise<void> {
+    const ttlInSeconds = 900;
+
     try {
       await this.redis.set(
         `${KEY_PREFIX}${sessionId}`,
         "1",
         "EX",
-        TTL_IN_SECONDS,
+        ttlInSeconds,
       );
     } catch {
       throw unavailable();

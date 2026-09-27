@@ -2,8 +2,6 @@ import { Inject, Injectable, type LoggerService } from "@nestjs/common";
 import type { Logger } from "pino";
 import { LOGGER } from "./logger";
 
-const STACK_FORMAT = /^(.)+\n\s+at .+:\d+:\d+/;
-
 interface Payload {
   context?: string;
   stack?: string;
@@ -18,20 +16,6 @@ function toPayload(parameters: unknown[]): Payload {
   return { context: last };
 }
 
-function toErrorPayload(parameters: unknown[]): Payload {
-  const [first] = parameters;
-  if (typeof first !== "string") {
-    return toPayload(parameters);
-  }
-  if (parameters.length === 1 && STACK_FORMAT.test(first)) {
-    return { stack: first };
-  }
-  if (parameters.length === 1) {
-    return { context: first };
-  }
-  return { ...toPayload(parameters), stack: first };
-}
-
 @Injectable()
 export class PinoLoggerService implements LoggerService {
   constructor(@Inject(LOGGER) private readonly logger: Logger) {}
@@ -41,7 +25,21 @@ export class PinoLoggerService implements LoggerService {
   }
 
   error(message: unknown, ...parameters: unknown[]): void {
-    const payload = toErrorPayload(parameters);
+    const stackFormat = /^(.)+\n\s+at .+:\d+:\d+/;
+    const toErrorPayload = (): Payload => {
+      const [first] = parameters;
+      if (typeof first !== "string") {
+        return toPayload(parameters);
+      }
+      if (parameters.length === 1 && stackFormat.test(first)) {
+        return { stack: first };
+      }
+      if (parameters.length === 1) {
+        return { context: first };
+      }
+      return { ...toPayload(parameters), stack: first };
+    };
+    const payload = toErrorPayload();
     if (message instanceof Error) {
       this.logger.error({ ...payload, err: message }, message.message);
       return;

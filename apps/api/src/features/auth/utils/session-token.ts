@@ -3,35 +3,26 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { SessionClient } from "../enums/session-client.enum";
 import { REFRESH_MAX_AGE_IN_SECONDS } from "./session-cookies";
 
-const SECRET_BYTES = 32;
 const SEPARATOR = ".";
-const MILLISECONDS = 1000;
 
 export const REFRESH_TOKEN_FORMAT =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/;
 
-const SESSION_LIFETIME_IN_SECONDS: Record<SessionClient, number> = {
-  [SessionClient.Web]: REFRESH_MAX_AGE_IN_SECONDS,
-  [SessionClient.Mobile]: 604800,
-};
-
 export function sessionExpiresAt(client: SessionClient): Date {
-  return new Date(
-    Date.now() + SESSION_LIFETIME_IN_SECONDS[client] * MILLISECONDS,
-  );
-}
+  const lifetimeInSeconds: Record<SessionClient, number> = {
+    [SessionClient.Web]: REFRESH_MAX_AGE_IN_SECONDS,
+    [SessionClient.Mobile]: 604800,
+  };
 
-export interface GeneratedSecret {
-  secret: string;
-  hash: string;
+  return new Date(Date.now() + lifetimeInSeconds[client] * 1000);
 }
 
 export function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
 }
 
-export function createSecret(): GeneratedSecret {
-  const secret = randomBytes(SECRET_BYTES).toString("base64url");
+export function createSecret(): { secret: string; hash: string } {
+  const secret = randomBytes(32).toString("base64url");
 
   return { secret, hash: hashSecret(secret) };
 }

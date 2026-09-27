@@ -22,8 +22,6 @@ const ACCESS_COOKIE = "clinicore_access";
 const REFRESH_COOKIE = "clinicore_refresh";
 const TOKEN_ORIGIN = "https://oauth2.googleapis.com";
 const TOKEN_PATH = "/token";
-const USERINFO_ORIGIN = "https://www.googleapis.com";
-const USERINFO_PATH = "/oauth2/v3/userinfo";
 const ACCOUNT_COLUMNS = [
   "createdAt",
   "id",
@@ -42,11 +40,6 @@ interface GoogleUserinfo {
   picture?: string;
 }
 
-interface StartedSignIn {
-  state: string;
-  stateCookie: string;
-}
-
 const ANA_AT_GOOGLE: GoogleUserinfo = {
   sub: GOOGLE_SUBJECT,
   email: EMAIL,
@@ -62,13 +55,15 @@ function stubGoogle(userinfo: GoogleUserinfo): void {
     token_type: "Bearer",
     expires_in: 3599,
   });
-  nock(USERINFO_ORIGIN)
-    .get(USERINFO_PATH)
+  nock("https://www.googleapis.com")
+    .get("/oauth2/v3/userinfo")
     .query({ access_token: "google-access-token" })
     .reply(200, userinfo);
 }
 
-async function startSignIn(authApp: AuthApp): Promise<StartedSignIn> {
+async function startSignIn(
+  authApp: AuthApp,
+): Promise<{ state: string; stateCookie: string }> {
   const response = await authApp.get("/oauth/google").expect(302);
   const state = new URL(response.headers.location ?? "").searchParams.get(
     "state",

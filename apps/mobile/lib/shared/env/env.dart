@@ -37,7 +37,18 @@ ConfigurationResult readConfiguration() {
 }
 
 ConfigurationResult parseConfiguration(Map<String, String> values) {
-  final apiUrl = _absoluteUrlWithoutTrailingSlash(values['API_URL']);
+  Uri? absoluteUrlWithoutTrailingSlash(String? value) {
+    if (value == null || value.endsWith('/')) {
+      return null;
+    }
+    final url = Uri.tryParse(value);
+    if (url == null || !url.isAbsolute || url.host.isEmpty) {
+      return null;
+    }
+    return url;
+  }
+
+  final apiUrl = absoluteUrlWithoutTrailingSlash(values['API_URL']);
   final googleServerClientId = values['GOOGLE_SERVER_CLIENT_ID'] ?? '';
   final googleIosClientId = values['GOOGLE_IOS_CLIENT_ID'] ?? '';
 
@@ -57,15 +68,4 @@ ConfigurationResult parseConfiguration(Map<String, String> values) {
       googleIosClientId: googleIosClientId,
     ),
   );
-}
-
-Uri? _absoluteUrlWithoutTrailingSlash(String? value) {
-  if (value == null || value.endsWith('/')) {
-    return null;
-  }
-  final url = Uri.tryParse(value);
-  if (url == null || !url.isAbsolute || url.host.isEmpty) {
-    return null;
-  }
-  return url;
 }

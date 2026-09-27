@@ -3,9 +3,9 @@ import { PinoLoggerService } from "../pino-logger.service";
 
 const STACK = "Error: connection refused\n    at connect (/app/db.ts:10:5)";
 
-type LogLine = Record<string, unknown>;
-
-function capture(emit: (service: PinoLoggerService) => void): LogLine {
+function capture(
+  emit: (service: PinoLoggerService) => void,
+): Record<string, unknown> {
   const written: string[] = [];
   const logger = createLogger("info", {
     write(line: string): void {
@@ -15,7 +15,7 @@ function capture(emit: (service: PinoLoggerService) => void): LogLine {
 
   emit(new PinoLoggerService(logger));
 
-  return JSON.parse(written.join("")) as LogLine;
+  return JSON.parse(written.join("")) as Record<string, unknown>;
 }
 
 describe("PinoLoggerService.error", () => {

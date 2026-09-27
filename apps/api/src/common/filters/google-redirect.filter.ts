@@ -6,11 +6,6 @@ import { LOGGER } from "../../core/logger/logger";
 import { BusinessError, type ErrorCode } from "../exceptions/business-error";
 import { BusinessErrorFilter } from "./business-error.filter";
 
-const REDIRECTED_CODES = new Set<ErrorCode>([
-  "INVALID_STATE",
-  "UNVERIFIED_PROVIDER_EMAIL",
-]);
-
 @Catch(BusinessError)
 export class GoogleRedirectFilter extends BusinessErrorFilter {
   constructor(
@@ -21,7 +16,11 @@ export class GoogleRedirectFilter extends BusinessErrorFilter {
   }
 
   override catch(exception: BusinessError, host: ArgumentsHost): void {
-    if (!REDIRECTED_CODES.has(exception.code)) {
+    const redirectedCodes = new Set<ErrorCode>([
+      "INVALID_STATE",
+      "UNVERIFIED_PROVIDER_EMAIL",
+    ]);
+    if (!redirectedCodes.has(exception.code)) {
       super.catch(exception, host);
       return;
     }

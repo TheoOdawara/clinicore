@@ -30,8 +30,6 @@ validateEnv(process.env);
 
 export const REVOKED_KEY_PREFIX = "auth:revoked:";
 
-const TOKEN_PATTERN = "([A-Za-z0-9_-]{43})";
-
 export interface SentMail {
   to: string;
   subject: string;
@@ -48,19 +46,19 @@ interface LogWaiter {
   resolve: (line: LogLine) => void;
 }
 
-function textOf(value: unknown, field: string): string {
-  if (typeof value !== "string") {
-    throw new Error(`the mail ${field} is not a string`);
-  }
-
-  return value;
-}
-
 class RecordingTransport implements MailTransport {
   readonly outbox: SentMail[] = [];
   behavior: TransportBehavior = "deliver";
 
   sendMail(options: SendMailOptions): Promise<void> {
+    const textOf = (value: unknown, field: string): string => {
+      if (typeof value !== "string") {
+        throw new Error(`the mail ${field} is not a string`);
+      }
+
+      return value;
+    };
+
     this.outbox.push({
       to: textOf(options.to, "to"),
       subject: textOf(options.subject, "subject"),
@@ -245,7 +243,9 @@ export function tokenFrom(mail: SentMail | undefined, path: string): string {
     throw new Error(`no mail was sent, expected a link to ${path}`);
   }
 
-  const found = new RegExp(`${path}\\?token=${TOKEN_PATTERN}`).exec(mail.text);
+  const found = new RegExp(`${path}\\?token=([A-Za-z0-9_-]{43})`).exec(
+    mail.text,
+  );
   const token = found?.[1];
   if (token === undefined) {
     throw new Error(`the mail has no link to ${path}`);

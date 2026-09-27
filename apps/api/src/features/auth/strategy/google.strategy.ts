@@ -15,31 +15,14 @@ import type { GoogleIdentity } from "../service/google-account.service";
 
 const GOOGLE_STRATEGY = "google";
 const STATE_COOKIE = "clinicore_oauth_state";
-const STATE_PATH = "/oauth/google";
-const STATE_MAX_AGE_IN_MILLISECONDS = 600_000;
-const STATE_BYTES = 32;
-const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const NAME_LIMIT = 100;
-const IMAGE_LIMIT = 2048;
 
 function stateCookieOptions(nodeEnv: Environment["NODE_ENV"]): CookieOptions {
   return {
     httpOnly: true,
     sameSite: "lax",
     secure: nodeEnv === "production",
-    path: STATE_PATH,
+    path: "/oauth/google",
   };
-}
-
-function sameState(expected: string, received: string): boolean {
-  const expectedBytes = Buffer.from(expected);
-  const receivedBytes = Buffer.from(received);
-
-  if (expectedBytes.length !== receivedBytes.length) {
-    return false;
-  }
-
-  return timingSafeEqual(expectedBytes, receivedBytes);
 }
 
 class CookieStateStore implements StateStore {
@@ -61,10 +44,10 @@ class CookieStateStore implements StateStore {
       throw new Error("the OAuth state store was called without a callback");
     }
 
-    const state = randomBytes(STATE_BYTES).toString("base64url");
+    const state = randomBytes(32).toString("base64url");
     request.res?.cookie(STATE_COOKIE, state, {
       ...stateCookieOptions(this.nodeEnv),
-      maxAge: STATE_MAX_AGE_IN_MILLISECONDS,
+      maxAge: 600_000,
     });
     done(null, state);
   }
@@ -100,54 +83,14 @@ class CookieStateStore implements StateStore {
       return;
     }
 
-    done(null, sameState(expected, state), state);
+    const expectedBytes = Buffer.from(expected);
+    const receivedBytes = Buffer.from(state);
+    const sameState =
+      expectedBytes.length === receivedBytes.length &&
+      timingSafeEqual(expectedBytes, receivedBytes);
+
+    done(null, sameState, state);
   }
-}
-
-function textField(
-  json: Record<string, unknown>,
-  field: string,
-): string | null {
-  const value = json[field];
-
-  if (typeof value !== "string" || value === "") {
-    return null;
-  }
-
-  return value;
-}
-
-function nameOf(json: Record<string, unknown>, email: string): string {
-  const name = textField(json, "name") ?? email.slice(0, email.indexOf("@"));
-
-  return name.slice(0, NAME_LIMIT);
-}
-
-function imageOf(json: Record<string, unknown>): string | null {
-  const picture = textField(json, "picture");
-
-  if (picture === null || picture.length > IMAGE_LIMIT) {
-    return null;
-  }
-
-  return picture;
-}
-
-function identityOf(json: Record<string, unknown>): GoogleIdentity {
-  const subject = textField(json, "sub");
-  const email = textField(json, "email")?.toLowerCase() ?? null;
-
-  if (subject === null || email === null) {
-    throw new Error("Google returned a profile without sub or email");
-  }
-
-  return {
-    subject,
-    email,
-    emailVerified: json.email_verified === true,
-    name: nameOf(json, email),
-    image: imageOf(json),
-  };
 }
 
 @Injectable()
@@ -160,7 +103,7 @@ export class GoogleStrategy extends PassportStrategy(
       clientID: environment.get("GOOGLE_CLIENT_ID"),
       clientSecret: environment.get("GOOGLE_CLIENT_SECRET"),
       callbackURL: `${environment.get("API_URL")}/oauth/google/callback`,
-      tokenURL: GOOGLE_TOKEN_URL,
+      tokenURL: "https://oauth2.googleapis.com/token",
       scope: ["openid", "email", "profile"],
       passReqToCallback: false,
       store: new CookieStateStore(environment.get("NODE_ENV")),
@@ -178,6 +121,43 @@ export class GoogleStrategy extends PassportStrategy(
       throw new Error("Google returned a profile that is not an object");
     }
 
-    return identityOf(json as Record<string, unknown>);
+    const profileJson = json as Record<string, unknown>;
+    const textField = (field: string): string | null => {
+      const value = profileJson[field];
+
+      if (typeof value !== "string" || value === "") {
+        return null;
+      }
+
+      return value;
+    };
+    const nameOf = (email: string): string => {
+      const name = textField("name") ?? email.slice(0, email.indexOf("@"));
+
+      return name.slice(0, 100);
+    };
+    const imageOf = (): string | null => {
+      const picture = textField("picture");
+
+      if (picture === null || picture.length > 2048) {
+        return null;
+      }
+
+      return picture;
+    };
+    const subject = textField("sub");
+    const email = textField("email")?.toLowerCase() ?? null;
+
+    if (subject === null || email === null) {
+      throw new Error("Google returned a profile without sub or email");
+    }
+
+    return {
+      subject,
+      email,
+      emailVerified: profileJson.email_verified === true,
+      name: nameOf(email),
+      image: imageOf(),
+    };
   }
 }

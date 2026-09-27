@@ -3,27 +3,18 @@ import type { NextFunction, Request, Response } from "express";
 import type { Logger } from "pino";
 import { LOGGER } from "./logger";
 
-const UNLOGGED_METHOD = "GET";
-const UNLOGGED_PATH = "/health";
-const NANOSECONDS_PER_MILLISECOND = 1e6;
-
-function millisecondsSince(startedAt: bigint): number {
-  const elapsed = process.hrtime.bigint() - startedAt;
-  return Number((Number(elapsed) / NANOSECONDS_PER_MILLISECOND).toFixed(3));
-}
-
-function pathOf(request: Request): string {
-  const [path] = request.originalUrl.split("?");
-  return path ?? request.originalUrl;
-}
-
 @Injectable()
 export class RequestLogMiddleware implements NestMiddleware {
   constructor(@Inject(LOGGER) private readonly logger: Logger) {}
 
   use(request: Request, response: Response, next: NextFunction): void {
-    const path = pathOf(request);
-    if (request.method === UNLOGGED_METHOD && path === UNLOGGED_PATH) {
+    const nanosecondsPerMillisecond = 1e6;
+    const millisecondsSince = (startedAt: bigint): number => {
+      const elapsed = process.hrtime.bigint() - startedAt;
+      return Number((Number(elapsed) / nanosecondsPerMillisecond).toFixed(3));
+    };
+    const path = request.originalUrl.split("?")[0] ?? request.originalUrl;
+    if (request.method === "GET" && path === "/health") {
       next();
       return;
     }

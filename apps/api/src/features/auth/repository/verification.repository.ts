@@ -9,24 +9,15 @@ import { Provider } from "../enums/provider.enum";
 import { VerificationPurpose } from "../enums/verification-purpose.enum";
 import type { IssuedToken } from "../utils/verification-token";
 
-export type EmailConfirmation =
-  | { status: "confirmed"; user: User }
-  | { status: "invalid" }
-  | { status: "expired" };
-
-export type PasswordResetOutcome =
-  { status: "reset"; revokedSessionIds: string[] } | { status: "invalid" };
-
-type ConsumedToken =
-  | { status: "consumed"; identifier: string }
-  | { status: "invalid" }
-  | { status: "expired" };
-
 async function consumeToken(
   manager: EntityManager,
   tokenHash: string,
   purpose: VerificationPurpose,
-): Promise<ConsumedToken> {
+): Promise<
+  | { status: "consumed"; identifier: string }
+  | { status: "invalid" }
+  | { status: "expired" }
+> {
   const verification = await manager.findOne(Verification, {
     where: { tokenHash, purpose },
     lock: { mode: "pessimistic_write" },
@@ -75,7 +66,13 @@ export class VerificationRepository {
     await insertToken(this.dataSource.manager, identifier, purpose, token);
   }
 
-  confirmEmail(tokenHash: string): Promise<EmailConfirmation> {
+  confirmEmail(
+    tokenHash: string,
+  ): Promise<
+    | { status: "confirmed"; user: User }
+    | { status: "invalid" }
+    | { status: "expired" }
+  > {
     return this.dataSource.transaction(async (manager) => {
       const consumed = await consumeToken(
         manager,
@@ -114,7 +111,9 @@ export class VerificationRepository {
   resetPassword(
     tokenHash: string,
     passwordHash: string,
-  ): Promise<PasswordResetOutcome> {
+  ): Promise<
+    { status: "reset"; revokedSessionIds: string[] } | { status: "invalid" }
+  > {
     return this.dataSource.transaction(async (manager) => {
       const consumed = await consumeToken(
         manager,

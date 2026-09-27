@@ -75,10 +75,8 @@ import {
   setSessionCookies,
 } from "../utils/session-cookies";
 
-const USER_AGENT_LIMIT = 512;
 const ONE_MINUTE = 60_000;
 const REDIS_UNAVAILABLE = "SERVICE_UNAVAILABLE when Redis is unreachable";
-const CURRENT_SESSION_PATH = "/sessions/current";
 const SESSION_COOKIES = {
   "Set-Cookie": {
     description:
@@ -94,13 +92,7 @@ function userAgentOf(request: Request): string | null {
     return null;
   }
 
-  return userAgent.slice(0, USER_AGENT_LIMIT);
-}
-
-function refreshTokenOf(request: Request): string | undefined {
-  const cookies = request.cookies as Record<string, string> | undefined;
-
-  return cookies?.[REFRESH_COOKIE];
+  return userAgent.slice(0, 512);
 }
 
 function tokensOf(session: {
@@ -162,7 +154,7 @@ export class AuthController {
   @Post("sessions")
   @Throttle({ default: { ttl: ONE_MINUTE, limit: 5 } })
   @HttpCode(HttpStatus.CREATED)
-  @Header("Location", CURRENT_SESSION_PATH)
+  @Header("Location", "/sessions/current")
   @ApiOperation({
     summary: "Open a session",
     description:
@@ -175,7 +167,7 @@ export class AuthController {
       ...SESSION_COOKIES,
       Location: {
         description: "The session that was opened",
-        schema: { type: "string", example: CURRENT_SESSION_PATH },
+        schema: { type: "string", example: "/sessions/current" },
       },
     },
   })
@@ -263,8 +255,9 @@ export class AuthController {
       return { tokens: tokensOf(rotated) };
     }
 
+    const cookies = request.cookies as Record<string, string> | undefined;
     const rotated = await this.refreshSessionService.refresh(
-      refreshTokenOf(request),
+      cookies?.[REFRESH_COOKIE],
     );
     setSessionCookies(response, this.environment.get("NODE_ENV"), rotated);
 

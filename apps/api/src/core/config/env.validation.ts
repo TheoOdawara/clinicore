@@ -28,34 +28,6 @@ const LOG_LEVELS = [
   "silent",
 ] as const;
 
-const EXPECTED_FORMAT = {
-  ALLOWED_ORIGINS:
-    "expected a comma-separated list of absolute URLs with no trailing slash (https://…)",
-  API_URL: "expected an absolute URL with no trailing slash (https://…)",
-  APP_ORIGIN: "expected an absolute URL with no trailing slash (https://…)",
-  DATABASE_URL: "expected a PostgreSQL connection string (postgresql://…)",
-  GOOGLE_CLIENT_ID: "expected a non-empty string",
-  GOOGLE_CLIENT_SECRET: "expected a non-empty string",
-  JWT_SECRET: "expected a string with at least 32 characters",
-  LOG_LEVEL: `expected one of: ${LOG_LEVELS.join(", ")}`,
-  MAIL_FROM: "expected an email address equal to SMTP_USER",
-  NODE_ENV: `expected one of ${NODE_ENVIRONMENTS.join(", ")}`,
-  PORT: "expected an integer between 1 and 65535",
-  REDIS_URL: "expected a Redis connection string (redis://…)",
-  SMTP_HOST: "expected a hostname",
-  SMTP_PASSWORD: "expected a non-empty string",
-  SMTP_PORT: "expected an integer between 1 and 65535",
-  SMTP_USER: "expected an email address",
-  TRUSTED_PROXIES:
-    "expected a comma-separated list of CIDR blocks (10.0.0.0/8,…)",
-} as const;
-
-type VariableName = keyof typeof EXPECTED_FORMAT;
-
-const POSTGRES_PROTOCOLS = ["postgresql:", "postgres:"];
-const ORIGIN_PROTOCOLS = ["http:", "https:"];
-const DIGITS_ONLY = /^[0-9]+$/;
-
 function isPostgresUrl(value: unknown): boolean {
   if (typeof value !== "string") {
     return false;
@@ -64,7 +36,10 @@ function isPostgresUrl(value: unknown): boolean {
   if (parsed === null) {
     return false;
   }
-  return POSTGRES_PROTOCOLS.includes(parsed.protocol) && parsed.hostname !== "";
+  return (
+    ["postgresql:", "postgres:"].includes(parsed.protocol) &&
+    parsed.hostname !== ""
+  );
 }
 
 function isRedisUrl(value: unknown): boolean {
@@ -86,7 +61,7 @@ function isAbsoluteOrigin(value: unknown): boolean {
   if (parsed === null) {
     return false;
   }
-  if (!ORIGIN_PROTOCOLS.includes(parsed.protocol)) {
+  if (!["http:", "https:"].includes(parsed.protocol)) {
     return false;
   }
   return parsed.origin === value;
@@ -192,30 +167,19 @@ export class Environment {
   TRUSTED_PROXIES!: string[];
 }
 
-function toList(raw: unknown): unknown {
-  if (typeof raw !== "string") {
-    return raw;
-  }
-  return raw.split(",").map((item) => item.trim());
-}
-
-function toPort(raw: unknown): unknown {
-  if (typeof raw !== "string" || !DIGITS_ONLY.test(raw)) {
-    return raw;
-  }
-  return Number(raw);
-}
-
-function describeRejection(rejected: Set<string>): string {
-  const names = Object.keys(EXPECTED_FORMAT) as VariableName[];
-  const lines = names
-    .filter((name) => rejected.has(name))
-    .sort()
-    .map((name) => `  ${name}: ${EXPECTED_FORMAT[name]}`);
-  return ["Invalid environment:", ...lines].join("\n");
-}
-
 export function validateEnv(source: Record<string, unknown>): Environment {
+  const toList = (raw: unknown): unknown => {
+    if (typeof raw !== "string") {
+      return raw;
+    }
+    return raw.split(",").map((item) => item.trim());
+  };
+  const toPort = (raw: unknown): unknown => {
+    if (typeof raw !== "string" || !/^[0-9]+$/.test(raw)) {
+      return raw;
+    }
+    return Number(raw);
+  };
   const candidate = plainToInstance(Environment, {
     ALLOWED_ORIGINS: toList(source.ALLOWED_ORIGINS),
     API_URL: source.API_URL,
@@ -238,9 +202,36 @@ export function validateEnv(source: Record<string, unknown>): Environment {
 
   const errors = validateSync(candidate, { forbidUnknownValues: true });
   if (errors.length > 0) {
-    throw new Error(
-      describeRejection(new Set(errors.map((error) => error.property))),
-    );
+    const expectedFormat = {
+      ALLOWED_ORIGINS:
+        "expected a comma-separated list of absolute URLs with no trailing slash (https://…)",
+      API_URL: "expected an absolute URL with no trailing slash (https://…)",
+      APP_ORIGIN: "expected an absolute URL with no trailing slash (https://…)",
+      DATABASE_URL: "expected a PostgreSQL connection string (postgresql://…)",
+      GOOGLE_CLIENT_ID: "expected a non-empty string",
+      GOOGLE_CLIENT_SECRET: "expected a non-empty string",
+      JWT_SECRET: "expected a string with at least 32 characters",
+      LOG_LEVEL: `expected one of: ${LOG_LEVELS.join(", ")}`,
+      MAIL_FROM: "expected an email address equal to SMTP_USER",
+      NODE_ENV: `expected one of ${NODE_ENVIRONMENTS.join(", ")}`,
+      PORT: "expected an integer between 1 and 65535",
+      REDIS_URL: "expected a Redis connection string (redis://…)",
+      SMTP_HOST: "expected a hostname",
+      SMTP_PASSWORD: "expected a non-empty string",
+      SMTP_PORT: "expected an integer between 1 and 65535",
+      SMTP_USER: "expected an email address",
+      TRUSTED_PROXIES:
+        "expected a comma-separated list of CIDR blocks (10.0.0.0/8,…)",
+    } as const;
+    const rejected = new Set(errors.map((error) => error.property));
+    const names = Object.keys(
+      expectedFormat,
+    ) as (keyof typeof expectedFormat)[];
+    const lines = names
+      .filter((name) => rejected.has(name))
+      .sort()
+      .map((name) => `  ${name}: ${expectedFormat[name]}`);
+    throw new Error(["Invalid environment:", ...lines].join("\n"));
   }
 
   return candidate;

@@ -1,13 +1,13 @@
 import pino, { type DestinationStream } from "pino";
 import type { Environment } from "../config/env.validation";
 
-const STDOUT = 1;
-
 export function destinationFor(
   nodeEnvironment: Environment["NODE_ENV"],
 ): DestinationStream {
+  const stdout = 1;
+
   if (nodeEnvironment !== "development") {
-    return pino.destination(STDOUT);
+    return pino.destination(stdout);
   }
 
   return pino.transport({

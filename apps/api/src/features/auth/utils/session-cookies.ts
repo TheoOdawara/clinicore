@@ -5,7 +5,6 @@ export const ACCESS_COOKIE = "clinicore_access";
 export const REFRESH_COOKIE = "clinicore_refresh";
 export const ACCESS_MAX_AGE_IN_SECONDS = 900;
 export const REFRESH_MAX_AGE_IN_SECONDS = 86400;
-const MILLISECONDS = 1000;
 const REFRESH_PATH = "/sessions/current/tokens";
 
 function baseOptions(nodeEnv: Environment["NODE_ENV"]): CookieOptions {
@@ -21,15 +20,17 @@ export function setSessionCookies(
   nodeEnv: Environment["NODE_ENV"],
   tokens: { accessToken: string; refreshToken: string },
 ): void {
+  const milliseconds = 1000;
+
   response.cookie(ACCESS_COOKIE, tokens.accessToken, {
     ...baseOptions(nodeEnv),
     path: "/",
-    maxAge: ACCESS_MAX_AGE_IN_SECONDS * MILLISECONDS,
+    maxAge: ACCESS_MAX_AGE_IN_SECONDS * milliseconds,
   });
   response.cookie(REFRESH_COOKIE, tokens.refreshToken, {
     ...baseOptions(nodeEnv),
     path: REFRESH_PATH,
-    maxAge: REFRESH_MAX_AGE_IN_SECONDS * MILLISECONDS,
+    maxAge: REFRESH_MAX_AGE_IN_SECONDS * milliseconds,
   });
 }
 

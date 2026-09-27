@@ -16,7 +16,6 @@ const ACCESS_COOKIE = "clinicore_access";
 const REFRESH_COOKIE = "clinicore_refresh";
 const MOBILE_LIFETIME_IN_MILLISECONDS = 604800 * 1000;
 const WEB_LIFETIME_IN_MILLISECONDS = 86400 * 1000;
-const TOLERANCE_IN_MILLISECONDS = 60 * 1000;
 
 interface Tokens {
   accessToken: string;
@@ -35,8 +34,10 @@ function tokensOf(response: request.Response): Tokens {
 }
 
 function expectExpiryAhead(expiresAt: Date, lifetime: number): void {
+  const toleranceInMilliseconds = 60 * 1000;
+
   expect(Math.abs(expiresAt.getTime() - (Date.now() + lifetime))).toBeLessThan(
-    TOLERANCE_IN_MILLISECONDS,
+    toleranceInMilliseconds,
   );
 }
 

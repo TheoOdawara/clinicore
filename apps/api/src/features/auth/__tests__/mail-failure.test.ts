@@ -12,11 +12,12 @@ import {
 
 const EMAIL = "ana@exemplo.com";
 const PASSWORD = "Clinica#2026";
-const PINO_ERROR = 50;
 const RESPONSE_DEADLINE_IN_MILLISECONDS = 2000;
 
 function isMailFailure(line: LogLine): boolean {
-  return line.level === PINO_ERROR && line.email === EMAIL;
+  const pinoError = 50;
+
+  return line.level === pinoError && line.email === EMAIL;
 }
 
 describe("mail delivery failure", () => {

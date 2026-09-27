@@ -5,8 +5,6 @@ import { LOGGER } from "../logger/logger";
 import { MAIL_TRANSPORT, type MailTransport } from "./mail";
 import type { MailMessage } from "./templates";
 
-const SENDER_NAME = "Clinicore";
-
 @Injectable()
 export class MailService {
   constructor(
@@ -16,9 +14,17 @@ export class MailService {
   ) {}
 
   send(to: string, message: MailMessage): void {
+    const reasonOf = (error: unknown): string => {
+      if (error instanceof Error) {
+        return error.message;
+      }
+
+      return String(error);
+    };
+
     this.transport
       .sendMail({
-        from: { name: SENDER_NAME, address: this.environment.get("MAIL_FROM") },
+        from: { name: "Clinicore", address: this.environment.get("MAIL_FROM") },
         to,
         subject: message.subject,
         html: message.html,
@@ -31,12 +37,4 @@ export class MailService {
         );
       });
   }
-}
-
-function reasonOf(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
 }
