@@ -151,6 +151,10 @@ export class AuthApp {
     return request(this.server).post(path).set("Origin", this.origin);
   }
 
+  put(path: string): request.Test {
+    return request(this.server).put(path).set("Origin", this.origin);
+  }
+
   delete(path: string): request.Test {
     return request(this.server).delete(path).set("Origin", this.origin);
   }

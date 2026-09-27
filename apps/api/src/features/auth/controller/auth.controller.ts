@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Put,
   Req,
   Res,
   UseFilters,
@@ -43,6 +44,7 @@ import {
 } from "../../../common/guards/google-auth.guard";
 import { EnvironmentService } from "../../../core/config/environment.service";
 import { EmailDto } from "../dto/email.dto";
+import { PasswordChangeDto } from "../dto/password-change.dto";
 import { PasswordResetConfirmationDto } from "../dto/password-reset-confirmation.dto";
 import { RefreshTokenDto } from "../dto/refresh-token.dto";
 import {
@@ -58,6 +60,7 @@ import {
   GoogleAccountService,
   type GoogleIdentity,
 } from "../service/google-account.service";
+import { PasswordChangeService } from "../service/password-change.service";
 import { PasswordResetService } from "../service/password-reset.service";
 import { RefreshSessionService } from "../service/refresh-session.service";
 import { SessionService } from "../service/session.service";
@@ -131,6 +134,7 @@ export class AuthController {
     private readonly emailVerificationService: EmailVerificationService,
     private readonly passwordResetService: PasswordResetService,
     private readonly googleAccountService: GoogleAccountService,
+    private readonly passwordChangeService: PasswordChangeService,
     private readonly environment: EnvironmentService,
   ) {}
 
@@ -454,5 +458,33 @@ export class AuthController {
 
     setSessionCookies(response, this.environment.get("NODE_ENV"), opened);
     response.redirect(`${this.environment.get("APP_ORIGIN")}/app`);
+  }
+
+  @Put("users/me/password")
+  @Throttle({ default: { ttl: ONE_MINUTE, limit: 3 } })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Change the password of the signed-in user",
+    description:
+      "Checks currentPassword, replaces the password and drops every other session of the user at once. The current session and its cookies stay valid.",
+  })
+  @ApiNoContentResponse({ description: "Password changed" })
+  @ApiProblemResponse(
+    HttpStatus.BAD_REQUEST,
+    "INVALID_PASSWORD, or VALIDATION_FAILED with WEAK_PASSWORD at #/newPassword",
+  )
+  @ApiProblemResponse(HttpStatus.UNAUTHORIZED, "INVALID_SESSION")
+  @ApiProblemResponse(HttpStatus.FORBIDDEN, "INVALID_ORIGIN")
+  @ApiProblemResponse(HttpStatus.SERVICE_UNAVAILABLE, REDIS_UNAVAILABLE)
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: PasswordChangeDto,
+  ): Promise<void> {
+    await this.passwordChangeService.change(
+      user.userId,
+      user.sessionId,
+      body.currentPassword,
+      body.newPassword,
+    );
   }
 }

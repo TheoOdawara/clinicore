@@ -3,10 +3,13 @@ import { InjectDataSource } from "@nestjs/typeorm";
 import {
   DataSource,
   IsNull,
+  In,
+  Not,
   QueryFailedError,
   type EntityManager,
 } from "typeorm";
 import { Account } from "../entities/account.entity";
+import { Session } from "../entities/session.entity";
 import { User } from "../entities/user.entity";
 import { Verification } from "../entities/verification.entity";
 import { EmailDispatchKind } from "../enums/email-dispatch-kind.enum";
@@ -207,5 +210,51 @@ export class UserRepository {
 
   findById(id: string): Promise<User | null> {
     return this.dataSource.getRepository(User).findOne({ where: { id } });
+  }
+
+  async findCredentialHash(userId: string): Promise<string | null> {
+    const account = await this.dataSource.getRepository(Account).findOne({
+      where: { userId, provider: Provider.Credential },
+      select: { passwordHash: true },
+    });
+
+    return account?.passwordHash ?? null;
+  }
+
+  changePassword(
+    userId: string,
+    keptSessionId: string,
+    currentHash: string,
+    newHash: string,
+  ): Promise<
+    { status: "changed"; revokedSessionIds: string[] } | { status: "invalid" }
+  > {
+    return this.dataSource.transaction(async (manager) => {
+      const updated = await manager.update(
+        Account,
+        {
+          userId,
+          provider: Provider.Credential,
+          passwordHash: currentHash,
+        },
+        { passwordHash: newHash },
+      );
+
+      if (updated.affected === 0) {
+        return { status: "invalid" };
+      }
+
+      const sessions = await manager.find(Session, {
+        where: { userId, id: Not(keptSessionId) },
+        select: { id: true },
+      });
+      const revokedSessionIds = sessions.map((session) => session.id);
+
+      if (revokedSessionIds.length > 0) {
+        await manager.delete(Session, { id: In(revokedSessionIds) });
+      }
+
+      return { status: "changed", revokedSessionIds };
+    });
   }
 }
