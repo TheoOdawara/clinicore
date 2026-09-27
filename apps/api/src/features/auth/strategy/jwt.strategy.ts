@@ -12,34 +12,26 @@ import { EnvironmentService } from "../../../core/config/environment.service";
 import { RevokedSessionRepository } from "../repository/revoked-session.repository";
 import { ACCESS_COOKIE } from "../utils/session-cookies";
 
-interface AccessTokenPayload {
-  sub: string;
-  sid: string;
-  cli: SessionClientKind;
-}
-
-const fromBearerHeader = ExtractJwt.fromAuthHeaderAsBearerToken();
-
-function fromAccessCookie(request: Request): string | null {
-  const cookies = request.cookies as Record<string, string> | undefined;
-
-  return cookies?.[ACCESS_COOKIE] ?? null;
-}
-
-function fromDeclaredTransport(request: Request): string | null {
-  if (sessionClientOf(request) === "mobile") {
-    return fromBearerHeader(request);
-  }
-
-  return fromAccessCookie(request);
-}
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     environment: EnvironmentService,
     private readonly revoked: RevokedSessionRepository,
   ) {
+    const fromBearerHeader = ExtractJwt.fromAuthHeaderAsBearerToken();
+    const fromAccessCookie = (request: Request): string | null => {
+      const cookies = request.cookies as Record<string, string> | undefined;
+
+      return cookies?.[ACCESS_COOKIE] ?? null;
+    };
+    const fromDeclaredTransport = (request: Request): string | null => {
+      if (sessionClientOf(request) === "mobile") {
+        return fromBearerHeader(request);
+      }
+
+      return fromAccessCookie(request);
+    };
+
     super({
       jwtFromRequest: fromDeclaredTransport,
       secretOrKey: environment.get("JWT_SECRET"),
@@ -50,7 +42,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(
     request: Request,
-    payload: AccessTokenPayload,
+    payload: { sub: string; sid: string; cli: SessionClientKind },
   ): Promise<AuthenticatedUser> {
     if (payload.cli !== sessionClientOf(request)) {
       throw BusinessError.unauthorized("INVALID_SESSION", "Invalid session");

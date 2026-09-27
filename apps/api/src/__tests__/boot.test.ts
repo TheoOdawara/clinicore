@@ -6,7 +6,6 @@ import { validateEnv } from "../core/config/env.validation";
 import { freePort } from "./free-port";
 
 const ENTRY = resolve(__dirname, "../../dist/main.js");
-const OUTSIDE_THE_APP = resolve(__dirname, "../../..");
 
 const VALID_ENVIRONMENT = {
   ALLOWED_ORIGINS: "http://localhost:3000",
@@ -29,7 +28,6 @@ const VALID_ENVIRONMENT = {
 };
 
 const BOOT_TIMEOUT_MS = 30_000;
-const POLL_INTERVAL_MS = 50;
 
 interface BootFailure {
   code: number | null;
@@ -39,7 +37,7 @@ interface BootFailure {
 
 function spawnApi(environment: Record<string, string>): ChildProcess {
   return spawn(process.execPath, [ENTRY], {
-    cwd: OUTSIDE_THE_APP,
+    cwd: resolve(__dirname, "../../.."),
     env: { PATH: process.env.PATH ?? "", ...environment },
   });
 }
@@ -71,23 +69,6 @@ function settleOf(child: ChildProcess): Promise<BootFailure> {
   });
 }
 
-async function untilListening(origin: string, child: ChildProcess) {
-  const deadline = Date.now() + BOOT_TIMEOUT_MS;
-
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) {
-      throw new Error(`the api exited with ${String(child.exitCode)} on boot`);
-    }
-    const reached = await fetch(`${origin}/health`).catch(() => null);
-    if (reached !== null) {
-      return;
-    }
-    await delay(POLL_INTERVAL_MS);
-  }
-
-  throw new Error(`the api did not listen on ${origin} in time`);
-}
-
 async function documentationStatus(nodeEnvironment: string): Promise<number> {
   const port = await freePort();
   const child = spawnApi({
@@ -96,9 +77,28 @@ async function documentationStatus(nodeEnvironment: string): Promise<number> {
     PORT: String(port),
   });
   const origin = `http://127.0.0.1:${String(port)}`;
+  const untilListening = async (): Promise<void> => {
+    const pollIntervalInMilliseconds = 50;
+    const deadline = Date.now() + BOOT_TIMEOUT_MS;
+
+    while (Date.now() < deadline) {
+      if (child.exitCode !== null) {
+        throw new Error(
+          `the api exited with ${String(child.exitCode)} on boot`,
+        );
+      }
+      const reached = await fetch(`${origin}/health`).catch(() => null);
+      if (reached !== null) {
+        return;
+      }
+      await delay(pollIntervalInMilliseconds);
+    }
+
+    throw new Error(`the api did not listen on ${origin} in time`);
+  };
 
   try {
-    await untilListening(origin, child);
+    await untilListening();
     const response = await fetch(`${origin}/api`);
     return response.status;
   } finally {

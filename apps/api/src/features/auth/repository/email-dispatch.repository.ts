@@ -9,15 +9,12 @@ import {
 import { EmailDispatch } from "../entities/email-dispatch.entity";
 import { EmailDispatchKind } from "../enums/email-dispatch-kind.enum";
 
-const REPEAT_WINDOW_IN_MILLISECONDS = 60 * 1000;
-const DAILY_WINDOW_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
-const DAILY_CAP = 5;
-const SERIALIZATION_FAILURE = "40001";
-
 export function isSerializationFailure(error: unknown): boolean {
+  const serializationFailure = "40001";
+
   return (
     error instanceof QueryFailedError &&
-    (error.driverError as { code?: string }).code === SERIALIZATION_FAILURE
+    (error.driverError as { code?: string }).code === serializationFailure
   );
 }
 
@@ -26,25 +23,28 @@ export async function claimDispatch(
   email: string,
   kind: EmailDispatchKind,
 ): Promise<boolean> {
+  const repeatWindowInMilliseconds = 60 * 1000;
+  const dailyWindowInMilliseconds = 24 * 60 * 60 * 1000;
+  const dailyCap = 5;
   const now = Date.now();
   const recent = await manager.find(EmailDispatch, {
     where: {
       email,
       kind,
-      createdAt: MoreThan(new Date(now - DAILY_WINDOW_IN_MILLISECONDS)),
+      createdAt: MoreThan(new Date(now - dailyWindowInMilliseconds)),
     },
     order: { createdAt: "DESC" },
     select: { createdAt: true },
   });
 
-  if (recent.length >= DAILY_CAP) {
+  if (recent.length >= dailyCap) {
     return false;
   }
 
   const latest = recent[0];
   if (
     latest !== undefined &&
-    latest.createdAt.getTime() > now - REPEAT_WINDOW_IN_MILLISECONDS
+    latest.createdAt.getTime() > now - repeatWindowInMilliseconds
   ) {
     return false;
   }

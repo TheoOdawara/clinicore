@@ -4,21 +4,6 @@ export interface MailMessage {
   text: string;
 }
 
-const HTML_ENTITIES: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
-
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>"']/g,
-    (character) => HTML_ENTITIES[character] ?? character,
-  );
-}
-
 function compose(
   subject: string,
   name: string,
@@ -26,6 +11,18 @@ function compose(
   action: string,
   link: string,
 ): MailMessage {
+  const htmlEntities: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+  const escapeHtml = (value: string): string =>
+    value.replace(
+      /[&<>"']/g,
+      (character) => htmlEntities[character] ?? character,
+    );
   const greeting = `Olá, ${name}.`;
   const html = [
     `<p>${escapeHtml(greeting)}</p>`,

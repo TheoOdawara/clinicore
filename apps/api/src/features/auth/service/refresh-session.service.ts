@@ -11,11 +11,6 @@ import {
   sessionExpiresAt,
 } from "../utils/session-token";
 
-export interface RotatedSession {
-  accessToken: string;
-  refreshToken: string;
-}
-
 @Injectable()
 export class RefreshSessionService {
   constructor(
@@ -23,7 +18,9 @@ export class RefreshSessionService {
     private readonly jwt: JwtService,
   ) {}
 
-  async refresh(presentedToken: string | undefined): Promise<RotatedSession> {
+  async refresh(
+    presentedToken: string | undefined,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const parsed =
       presentedToken === undefined ? null : parseRefreshToken(presentedToken);
 

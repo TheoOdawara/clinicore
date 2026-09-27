@@ -21,6 +21,7 @@ import {
 import { EmailVerificationService } from "./service/email-verification.service";
 import { GoogleAccountService } from "./service/google-account.service";
 import { OpenSessionService } from "./service/open-session.service";
+import { PasswordChangeService } from "./service/password-change.service";
 import { PasswordResetService } from "./service/password-reset.service";
 import { RefreshSessionService } from "./service/refresh-session.service";
 import { SessionService } from "./service/session.service";
@@ -59,6 +60,7 @@ import { ACCESS_MAX_AGE_IN_SECONDS } from "./utils/session-cookies";
     OpenSessionService,
     EmailVerificationService,
     PasswordResetService,
+    PasswordChangeService,
     SignUpService,
     SignInService,
     RefreshSessionService,
