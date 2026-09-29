@@ -49,7 +49,7 @@ abstract class AuthClient {
   ///
   /// [clinicoreClient] - mobile moves the session to the body and the Authorization header; absent keeps the cookies; any other value answers 400 invalid-client.
   @GET('/sessions/current')
-  Future<SessionResponse> current({
+  Future<SessionResponse> readCurrentSession({
     @Header('Clinicore-Client') ClinicoreClient? clinicoreClient,
   });
 

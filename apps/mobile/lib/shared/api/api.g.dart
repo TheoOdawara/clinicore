@@ -245,7 +245,9 @@ class _AuthClient implements AuthClient {
   }
 
   @override
-  Future<SessionResponse> current({ClinicoreClient? clinicoreClient}) async {
+  Future<SessionResponse> readCurrentSession({
+    ClinicoreClient? clinicoreClient,
+  }) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
     queryParameters.removeWhere((k, v) => v == null);
