@@ -5,6 +5,10 @@ apenas onde ela falar do mesmo assunto. A decisão está em
 `docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md` e a migração em
 `docs/specs/005-migrar-api-para-rust.md`. Na #121 esta pasta vira `apps/api`, e este arquivo vai junto.
 
+**A paridade com o NestJS é do comportamento que o cliente observa, nunca da implementação.** Status,
+corpo, códigos de `errors[].code`, cookies, limites e e-mail enviado ficam iguais; schema, transação,
+validação e nomes internos seguem o idioma do Rust, do axum e do Postgres.
+
 ## Comandos
 
 Cada comando roda de dentro do `apps/api-rs`. A toolchain é a do `rust-toolchain.toml` (Rust 1.98.1,
@@ -16,7 +20,7 @@ edition 2024).
 | Análise estática | `cargo clippy --all-targets -- -D warnings`                                                                             |
 | Build            | `cargo build`                                                                                                           |
 | Schema           | `infisical run --path=/api -- sqlx migrate run` · `infisical run --path=/api -- cargo sqlx prepare --workspace --check` |
-| Testes           | `cargo test`                                                                                                            |
+| Testes           | `infisical run --path=/api -- cargo test`                                                                               |
 
 O `sqlx-cli` é instalado com
 `cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls`,
@@ -33,13 +37,27 @@ repository não compila.
 - **As pastas são `crates/http`, `crates/app` e `crates/infra`; os pacotes têm o prefixo `api-`.** Um
   pacote chamado `http` colidiria com o crate `http` do crates.io, que o axum usa, e o `cargo -p http`
   ficaria ambíguo.
-- **`api-http`** é o binário `api`: boot, `Router`, handlers, extractors, DTO, OpenAPI, `ApiError` e
-  telemetria. Não tem regra de negócio.
+- **`api-http`** é o binário `api`: boot, `Router`, handlers, extractors, corpos de requisição e
+  resposta, OpenAPI, `ApiError` e telemetria. Não tem regra de negócio.
 - **`api-app`** tem os services, o domínio e o `AppError`. Ele reexporta o `config` do `api-infra`,
   porque é o único caminho do `api-http` até ele.
 - **`api-infra`** tem a configuração, os repositories, o Postgres, o Redis e o e-mail. O `PgPool` não é
   `pub`, então um service não abre consulta.
-- **A feature é um módulo dentro de cada crate**, nunca um crate próprio.
+- **Dependência nova entra em `[workspace.dependencies]` do `Cargo.toml` da raiz**, com a versão
+  exata e as features comuns; o crate declara `nome.workspace = true` e só acrescenta a feature que é
+  dele.
+
+- **A ordem de uma rota limitada é origem, limite, validação.** O guard de `Origin` é `route_layer` do
+  `serve_layers`, o limite é `route_layer` da própria rota e a validação é o extractor `ValidJson`, então
+  uma origem recusada não conta no limite e um corpo inválido conta.
+- **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O código do
+  `validator` já é o `code` do contrato (`IS_EMAIL`, `LENGTH`, `WEAK_PASSWORD`); campo desconhecido
+  sai como `WHITELIST_VALIDATION`, tipo errado como `IS_STRING`, JSON malformado como `400 about:blank`
+  e content-type que não é JSON como `415`. O tipo Rust é `<Operação>Request`, e o nome do schema no
+  OpenAPI é fixado por `#[schema(as = …)]` onde o cliente Dart depende dele.
+- **Concorrência se resolve no Postgres, sem retry na aplicação.** Unicidade por
+  `ON CONFLICT … DO NOTHING`, e a serialização por chave (o registro de envio por endereço) por
+  `pg_advisory_xact_lock` dentro da transação.
 - **SQL só nos repositories do `api-infra`, e só por `query!` ou `query_as!`.** SQL montado por
   `format!` ou concatenação é proibido. Transação só no repository. O `.sqlx/` é commitado, e o CI
   roda o `prepare --check`.
@@ -53,6 +71,54 @@ repository não compila.
     pelo `AppError::Internal`.
   - `AppError::Internal` e panic viram `500` sem detalhe, com a causa logada em `error`.
 
+## Estrutura
+
+```
+crates/
+├── infra/templates/  mail.html  mail.txt              layout do e-mail, em askama
+├── infra/src/
+│   ├── lib.rs
+│   ├── config.rs  db.rs  redis.rs  mail.rs        plataforma
+│   ├── auth.rs                                     declara os submódulos da feature
+│   └── auth/  user.rs  email_dispatch.rs  verification.rs
+├── app/src/
+│   ├── lib.rs                                      Services e os reexports do infra
+│   ├── error.rs  rate_limit.rs                     plataforma
+│   ├── auth.rs                                     o service Auth
+│   └── auth/  password.rs  token.rs  messages.rs
+└── http/
+    ├── src/
+    │   ├── main.rs  lib.rs
+    │   ├── error.rs  telemetry.rs  openapi.rs  client_ip.rs  validation.rs
+    │   ├── middleware.rs
+    │   ├── middleware/  origin.rs  rate_limit.rs
+    │   ├── health.rs
+    │   ├── auth.rs                                 Router e handlers
+    │   └── auth/  requests.rs
+    └── tests/api/
+        ├── main.rs  support.rs
+        ├── boot.rs  errors.rs  health.rs  openapi.rs  request_log.rs
+        ├── auth.rs
+        └── auth/  sign_up.rs
+migrations/  .sqlx/
+```
+
+- **A raiz de cada crate só tem plataforma**, o que serve a qualquer feature: configuração, banco,
+  Redis, e-mail, erro, telemetria, extractor e middleware.
+- **A feature é um módulo com o mesmo nome nos três crates**, nunca um crate próprio.
+- **O módulo começa como `<feature>.rs` e ganha a pasta `<feature>/` quando tiver o segundo arquivo com
+  responsabilidade própria.** O `<feature>.rs` fica ao lado da pasta e declara os submódulos; `mod.rs`
+  não é usado.
+- **No `infra`, um arquivo por tabela** que a feature escreve. **No `app`, o service fica no
+  `<feature>.rs`**, e o que ele usa com consumidor próprio (hash, token, texto de e-mail) vai para a pasta.
+  **No `http`, o `<feature>.rs` tem o `Router` e os handlers**, e os corpos ficam em `requests.rs` e
+  `responses.rs`.
+- **O `infra` monta o e-mail e o `app` escreve o texto.** O layout é o `askama`, em
+  `crates/infra/templates/`, e o `mail::compose` o renderiza; o conteúdo
+  de cada e-mail mora em `<feature>/messages.rs` do `app`.
+- **Os testes de integração são um binário só, `tests/api/main.rs`**, com um módulo por feature e o
+  `support.rs` com os helpers. Arquivo solto em `tests/` vira outro binário e é proibido.
+
 ## Segredos
 
 - **Os valores de desenvolvimento moram no Infisical, no plano grátis, no ambiente `dev` do projeto `Clinicore`, na pasta `/api`.**
@@ -65,8 +131,7 @@ repository não compila.
   compartilhado. É o caso de uma porta que já está ocupada.
 - **O `.env.example` é a lista dos nomes e do formato.** Variável nova entra nele, no `config.rs` e no
   Infisical ao mesmo tempo.
-- **O agente não roda comando dentro do `infisical run` sem necessidade.** O `cargo test` não precisa de
-  segredo. E nunca roda `infisical secrets`, `infisical export`, `env`, `printenv` nem
+- **O agente não roda comando dentro do `infisical run` sem necessidade.** E nunca roda `infisical secrets`, `infisical export`, `env`, `printenv` nem
   `docker compose config`, porque todos imprimem os valores.
 
 ## Configuração
@@ -88,6 +153,15 @@ repository não compila.
 - **O `LOG_LEVEL` vale para os crates `api-*`.** As dependências ficam em `warn` no máximo, para o trace
   do hyper não entrar no log.
 
+## Testes
+
+- **O `cargo test` precisa do Postgres e do Redis de pé e roda dentro do `infisical run`.** O
+  `#[sqlx::test(migrations = "../../migrations")]` cria um banco por teste a partir da `DATABASE_URL`.
+- **O Redis dos testes é o de dev, sem flush.** Cada requisição de teste sai de um `fresh_client()`, um
+  /64 de documentação novo por chamada, então nenhum contador de limite atravessa testes nem execuções.
+- **A consulta do teste é `sqlx::query_scalar` em runtime, com SQL literal.** O `.sqlx/` cobre só as
+  consultas dos repositories.
+
 ## Pegadinhas da stack
 
 - **O `sqlx-cli` procura um `.env` subindo pelos diretórios pais, e o erro de parse dele imprime a
@@ -100,11 +174,21 @@ repository não compila.
   `500` do panic sair com os headers de CORS.
 - **Rota nova entra antes do `serve_layers`.** O `method_not_allowed_fallback` só pega as rotas que já
   existem quando ele é chamado, e as camadas só envolvem o que está no `Router` naquele momento. O
-  teste que precisa de uma rota própria faz `serve_layers(routes(&config).route(...), &config)`.
+  teste que precisa de uma rota própria faz `serve_layers(routes(&config, lazy_services(&config)).route(...), &config)`.
 - **Método não aceito responde `404 about:blank`, não 405**, porque é o que o Express respondia e o
   contrato não muda.
 - **O corpo JSON do contrato é uma struct, nunca `json!`.** O `serde_json` sem `preserve_order` ordena
   as chaves do `json!` em ordem alfabética, e a ordem deixa de ser a do contrato.
 - **O `utoipa-swagger-ui` usa a feature `vendored`.** Sem ela, o build baixa a UI da internet.
+- **O IP do cliente vem do `axum-client-ip`, pela fonte em `CLIENT_IP_SOURCE`.** Sem proxy na frente é
+  `ConnectInfo`, o socket, que não se forja. Atrás de proxy é o header que só ele escreve
+  (`RightmostXForwardedFor`, `CfConnectingIp`, …), e a API só pode ser alcançável por ele: exposta
+  direto, o header vem do cliente.
+- **O bind em `::` entrega o IPv4 como `::ffff:a.b.c.d`.** O `client_ip` passa o endereço por
+  `to_canonical()` antes de montar a chave do limite, e agrupa o IPv6 em /64.
+- **O `MockConnectInfo` do axum não põe `ConnectInfo` nas extensions**, só o extractor o enxerga. O
+  teste insere `ConnectInfo` direto na requisição, porque o `client_ip` lê as extensions.
+- **Postgres e Redis conectam sob demanda.** O boot não espera nenhum dos dois, e com o Redis fora a
+  rota limitada responde `503` enquanto o `/health` continua `200`.
 - **O teste de boot roda o binário com `env_clear()`**, para não enxergar o ambiente de quem roda a
   suíte.

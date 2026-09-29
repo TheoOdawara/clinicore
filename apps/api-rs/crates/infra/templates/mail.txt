@@ -1,0 +1,7 @@
+Olá, {{ content.name }}.
+
+{% for paragraph in content.paragraphs -%}
+{{ paragraph }}
+
+{% endfor -%}
+{{ content.action }}: {{ content.link }}

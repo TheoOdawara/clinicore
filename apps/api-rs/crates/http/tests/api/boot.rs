@@ -1,10 +1,8 @@
-mod common;
-
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use common::environment_with;
+use crate::support::environment_with;
 
 struct Exit {
     code: Option<i32>,
@@ -60,13 +58,13 @@ fn every_rejected_variable_is_listed_in_alphabetical_order() {
 fn an_incomplete_environment_names_what_is_missing_and_a_mail_from_that_is_not_the_smtp_user() {
     let exit = boot(&[
         ("JWT_SECRET", None),
-        ("TRUSTED_PROXIES", None),
+        ("CLIENT_IP_SOURCE", None),
         ("MAIL_FROM", Some("someone-else@example.com")),
     ]);
 
     assert_eq!(exit.code, Some(1));
     assert_eq!(
         exit.stderr,
-        "Invalid environment:\n  JWT_SECRET: expected a string with at least 32 characters\n  MAIL_FROM: expected an email address equal to SMTP_USER\n  TRUSTED_PROXIES: expected a comma-separated list of CIDR blocks (10.0.0.0/8,…)\n"
+        "Invalid environment:\n  CLIENT_IP_SOURCE: expected one of: CfConnectingIp, CloudFrontViewerAddress, ConnectInfo, FlyClientIp, RightmostXForwardedFor, TrueClientIp, XEnvoyExternalAddress, XRealIp\n  JWT_SECRET: expected a string with at least 32 characters\n  MAIL_FROM: expected an email address equal to SMTP_USER\n"
     );
 }

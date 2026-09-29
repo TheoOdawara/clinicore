@@ -19,6 +19,7 @@ jobs:
         working-directory: apps/api-rs
     env:
       DATABASE_URL: postgresql://clinicore:local@localhost:5432/clinicore
+      REDIS_URL: redis://localhost:6379
     services:
       postgres:
         image: postgres:18

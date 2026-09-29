@@ -1,27 +1,33 @@
 pub mod error;
 pub mod telemetry;
 
+mod auth;
+mod client_ip;
 mod health;
+mod middleware;
 mod openapi;
-mod origin;
+mod validation;
 
+use api_app::Services;
 use api_app::config::{AppEnv, Config};
 use axum::Router;
+use axum::extract::DefaultBodyLimit;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderValue, Method, StatusCode};
-use axum::middleware;
 use axum::response::Response;
 use axum::routing::get;
 use tower::ServiceBuilder;
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub fn app(config: &Config) -> Router {
-    serve_layers(routes(config), config)
+pub fn app(config: &Config, services: Services) -> Router {
+    serve_layers(routes(config, services), config)
 }
 
-pub fn routes(config: &Config) -> Router {
-    let router = Router::new().route("/health", get(health::check));
+pub fn routes(config: &Config, services: Services) -> Router {
+    let router = Router::new()
+        .route("/health", get(health::check))
+        .merge(auth::routes(&services));
     if config.app_env == AppEnv::Production {
         return router;
     }
@@ -44,8 +50,10 @@ pub fn serve_layers(router: Router, config: &Config) -> Router {
             Method::OPTIONS,
         ])
         .allow_headers([CONTENT_TYPE]);
-    let origin_guard =
-        middleware::from_fn_with_state(origin::AllowedOrigins::from(config), origin::guard);
+    let origin_guard = axum::middleware::from_fn_with_state(
+        middleware::origin::AllowedOrigins::from(config),
+        middleware::origin::guard,
+    );
 
     router
         .route_layer(origin_guard)
@@ -55,7 +63,9 @@ pub fn serve_layers(router: Router, config: &Config) -> Router {
             ServiceBuilder::new()
                 .layer(telemetry::request_log())
                 .layer(cors)
-                .layer(CatchPanicLayer::custom(error::panic_response)),
+                .layer(CatchPanicLayer::custom(error::panic_response))
+                .layer(config.client_ip_source.clone().into_extension())
+                .layer(DefaultBodyLimit::max(100 * 1024)),
         )
 }
 

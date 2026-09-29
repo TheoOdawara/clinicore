@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO email_dispatches (email, kind) VALUES ($1, 'verification')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "24d063689f474f1ddf7e4062ece13e107040d7a038b65641880984f9620c10a6"
+}

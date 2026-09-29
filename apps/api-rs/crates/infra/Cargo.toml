@@ -8,6 +8,12 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-email_address = "0.2.9"
-ipnet = "2.12.2"
-url = "2.5.8"
+askama.workspace = true
+axum-client-ip.workspace = true
+email_address.workspace = true
+lettre.workspace = true
+redis.workspace = true
+sqlx.workspace = true
+tokio = { workspace = true, features = ["rt"] }
+tracing.workspace = true
+url.workspace = true

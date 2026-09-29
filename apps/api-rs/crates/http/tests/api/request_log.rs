@@ -1,6 +1,4 @@
-mod common;
-
-use common::{CapturedLog, config_with, send};
+use crate::support::{CapturedLog, config_with, send};
 
 #[tokio::test]
 async fn health_is_not_logged_and_any_other_request_is() {
@@ -12,9 +10,14 @@ async fn health_is_not_logged_and_any_other_request_is() {
             writer.clone()
         }));
 
-    send(api_http::app(&config), "GET", "/health").await;
-    send(api_http::app(&config), "HEAD", "/health").await;
-    send(api_http::app(&config), "GET", "/rota-inexistente?secret=1").await;
+    send(crate::support::app(&config), "GET", "/health").await;
+    send(crate::support::app(&config), "HEAD", "/health").await;
+    send(
+        crate::support::app(&config),
+        "GET",
+        "/rota-inexistente?secret=1",
+    )
+    .await;
 
     let lines = log.lines();
     assert_eq!(lines.len(), 1, "{lines:?}");

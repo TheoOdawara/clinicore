@@ -70,6 +70,10 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
   mesmo corpo JSON, mesmos cookies com os mesmos atributos e os mesmos headers de contrato.
 - Os limites continuam iguais: os por IP da regra 11 da 003 e da regra 8 da 004, o limite por
   endereço da regra 15 da 003, e o teto de 5 sessões da regra 16 da 003.
+- **O IP do cliente muda de mecanismo.** `TRUSTED_PROXIES` e o percurso do `trust proxy` do Express
+  saem; entra `CLIENT_IP_SOURCE`, lida pelo `axum-client-ip`: `ConnectInfo` sem proxy, ou o header que
+  o proxy escreve. O Cenário 26 da 003 é portado com `RightmostXForwardedFor`, e o IP contado é o
+  último salto do `x-forwarded-for`, o que o proxy acrescentou.
 - **Validação:** cada cenário Gherkin das specs 002, 003 e 004 cuja rota existe hoje é portado para um
   teste de integração em `crates/http/tests/` e passa contra a API Rust. Ficam de fora a regra 17 da
   003 (#71) e as regras 5 a 9 da 004 (#94 e #100), que não estão implementadas.
@@ -105,6 +109,7 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 | `API_URL` | "expected an absolute URL with no trailing slash (https://…)" |
 | `APP_ENV` | "expected one of development, production, test" |
 | `APP_ORIGIN` | "expected an absolute URL with no trailing slash (https://…)" |
+| `CLIENT_IP_SOURCE` | "expected one of: CfConnectingIp, CloudFrontViewerAddress, ConnectInfo, FlyClientIp, RightmostXForwardedFor, TrueClientIp, XEnvoyExternalAddress, XRealIp" |
 | `DATABASE_URL` | "expected a PostgreSQL connection string (postgresql://…)" |
 | `GOOGLE_CLIENT_ID` | "expected a non-empty string" |
 | `GOOGLE_CLIENT_SECRET` | "expected a non-empty string" |
@@ -117,7 +122,6 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 | `SMTP_PASSWORD` | "expected a non-empty string" |
 | `SMTP_PORT` | "expected an integer between 1 and 65535" |
 | `SMTP_USER` | "expected an email address" |
-| `TRUSTED_PROXIES` | "expected a comma-separated list of CIDR blocks (10.0.0.0/8,…)" |
 
 ### 4. O log
 
@@ -165,8 +169,9 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 
 ### 8. Persistência e Auditoria
 
-- **Tabelas/colunas:** as mesmas de hoje, criadas por uma única migration sqlx em `migrations/`,
-  equivalente ao resultado das três migrations do TypeORM. Nenhum dado é migrado.
+- **Modelo de dados:** o mesmo de hoje, com as mesmas entidades, relações, unicidades e enums, criado
+  por uma única migration sqlx em `migrations/` no idioma do Postgres: tabelas no plural, colunas em
+  snake_case, `text` e `timestamptz`. Nenhum dado é migrado.
 - **Auditoria:** a mesma da regra 12 da 003, sem mudança.
 - **Eventos/integrações disparados:** os mesmos de hoje, que são o e-mail pelo SMTP do Gmail e o
   OAuth do Google.

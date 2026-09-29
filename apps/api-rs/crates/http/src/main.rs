@@ -1,7 +1,9 @@
 use std::io;
+use std::net::SocketAddr;
 use std::process::ExitCode;
 
 use api_app::config::Config;
+use api_app::{Database, Mailer, Redis, Services};
 use tokio::net::TcpListener;
 use tokio::signal;
 
@@ -18,6 +20,14 @@ async fn main() -> ExitCode {
     tracing::subscriber::set_global_default(api_http::telemetry::subscriber(&config, io::stdout))
         .expect("the only global subscriber");
 
+    let services = match connect(&config) {
+        Ok(services) => services,
+        Err(error) => {
+            tracing::error!(error = %error, "could not set up the clients");
+            return ExitCode::FAILURE;
+        }
+    };
+
     let listener = match TcpListener::bind(("::", config.port)).await {
         Ok(listener) => listener,
         Err(error) => {
@@ -26,14 +36,27 @@ async fn main() -> ExitCode {
         }
     };
 
-    if let Err(error) = axum::serve(listener, api_http::app(&config))
-        .with_graceful_shutdown(shutdown_signal())
-        .await
+    let app = api_http::app(&config, services);
+    if let Err(error) = axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
     {
         tracing::error!(error = %error, "the server stopped");
         return ExitCode::FAILURE;
     }
     ExitCode::SUCCESS
+}
+
+fn connect(config: &Config) -> Result<Services, Box<dyn std::error::Error + Send + Sync>> {
+    Ok(Services::new(
+        config,
+        Database::connect_lazy(config)?,
+        Redis::connect_lazy(config)?,
+        Mailer::smtp(config)?,
+    ))
 }
 
 async fn shutdown_signal() {

@@ -1,10 +1,8 @@
-mod common;
-
+use crate::support::{CapturedLog, config_with, content_type, json_body, send_with_headers};
 use api_app::error::AppError;
 use api_http::error::ApiError;
 use axum::http::StatusCode;
 use axum::routing::get;
-use common::{CapturedLog, config_with, content_type, json_body, send_with_headers};
 use serde_json::json;
 
 async fn panicking() -> &'static str {
@@ -25,7 +23,7 @@ async fn an_unhandled_error_answers_500_without_detail_through_cors_and_logs_the
             writer.clone()
         }));
     let app = api_http::serve_layers(
-        api_http::routes(&config)
+        api_http::routes(&config, crate::support::lazy_services(&config))
             .route("/boom", get(panicking))
             .route("/boom-internal", get(failing)),
         &config,

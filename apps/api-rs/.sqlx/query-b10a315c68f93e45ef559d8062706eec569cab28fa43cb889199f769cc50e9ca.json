@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"total!\",\n            coalesce(max(created_at) > now() - interval '60 seconds', false) AS \"recent!\"\n        FROM email_dispatches\n        WHERE email = $1 AND kind = 'verification' AND created_at > now() - interval '24 hours'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "recent!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "b10a315c68f93e45ef559d8062706eec569cab28fa43cb889199f769cc50e9ca"
+}

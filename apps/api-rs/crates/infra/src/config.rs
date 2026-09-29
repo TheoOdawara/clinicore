@@ -1,7 +1,7 @@
 use std::fmt;
 
+use axum_client_ip::ClientIpSource;
 use email_address::EmailAddress;
-use ipnet::IpNet;
 use url::Url;
 
 const ABSOLUTE_URL: &str = "expected an absolute URL with no trailing slash (https://…)";
@@ -31,6 +31,7 @@ pub struct Config {
     pub api_url: String,
     pub app_env: AppEnv,
     pub app_origin: String,
+    pub client_ip_source: ClientIpSource,
     pub database_url: String,
     pub google_client_id: String,
     pub google_client_secret: String,
@@ -43,7 +44,6 @@ pub struct Config {
     pub smtp_password: String,
     pub smtp_port: u16,
     pub smtp_user: String,
-    pub trusted_proxies: Vec<IpNet>,
 }
 
 pub struct InvalidEnvironment {
@@ -110,6 +110,11 @@ impl Config {
             },
         );
         let app_origin = reader.require("APP_ORIGIN", ABSOLUTE_URL, absolute_origin);
+        let client_ip_source = reader.require(
+            "CLIENT_IP_SOURCE",
+            "expected one of: CfConnectingIp, CloudFrontViewerAddress, ConnectInfo, FlyClientIp, RightmostXForwardedFor, TrueClientIp, XEnvoyExternalAddress, XRealIp",
+            |raw| raw.parse::<ClientIpSource>().ok(),
+        );
         let database_url = reader.require(
             "DATABASE_URL",
             "expected a PostgreSQL connection string (postgresql://…)",
@@ -154,17 +159,13 @@ impl Config {
         });
         let smtp_password = reader.require("SMTP_PASSWORD", NON_EMPTY, non_empty);
         let smtp_port = reader.require("SMTP_PORT", PORT_RANGE, parse_port);
-        let trusted_proxies = reader.require(
-            "TRUSTED_PROXIES",
-            "expected a comma-separated list of CIDR blocks (10.0.0.0/8,…)",
-            |raw| list_of(&raw, |block| block.parse::<IpNet>().ok()),
-        );
 
         let (
             Some(allowed_origins),
             Some(api_url),
             Some(app_env),
             Some(app_origin),
+            Some(client_ip_source),
             Some(database_url),
             Some(google_client_id),
             Some(google_client_secret),
@@ -177,12 +178,12 @@ impl Config {
             Some(smtp_password),
             Some(smtp_port),
             Some(smtp_user),
-            Some(trusted_proxies),
         ) = (
             allowed_origins,
             api_url,
             app_env,
             app_origin,
+            client_ip_source,
             database_url,
             google_client_id,
             google_client_secret,
@@ -195,7 +196,6 @@ impl Config {
             smtp_password,
             smtp_port,
             smtp_user,
-            trusted_proxies,
         )
         else {
             return Err(InvalidEnvironment {
@@ -208,6 +208,7 @@ impl Config {
             api_url,
             app_env,
             app_origin,
+            client_ip_source,
             database_url,
             google_client_id,
             google_client_secret,
@@ -220,7 +221,6 @@ impl Config {
             smtp_password,
             smtp_port,
             smtp_user,
-            trusted_proxies,
         })
     }
 }
@@ -290,6 +290,7 @@ mod tests {
             ("API_URL", "http://localhost:3333"),
             ("APP_ENV", "development"),
             ("APP_ORIGIN", "http://localhost:3000"),
+            ("CLIENT_IP_SOURCE", "RightmostXForwardedFor"),
             ("DATABASE_URL", "postgresql://app:local@localhost:5432/app"),
             ("GOOGLE_CLIENT_ID", "client-id"),
             ("GOOGLE_CLIENT_SECRET", "client-secret"),
@@ -302,7 +303,6 @@ mod tests {
             ("SMTP_PASSWORD", "password"),
             ("SMTP_PORT", "587"),
             ("SMTP_USER", "person@example.com"),
-            ("TRUSTED_PROXIES", "10.0.0.0/8, 172.16.0.0/12"),
         ];
         let read = |name: &str| {
             environment
@@ -324,11 +324,8 @@ mod tests {
         assert_eq!(config.port, 3333);
         assert_eq!(config.smtp_port, 587);
         assert_eq!(
-            config.trusted_proxies,
-            [
-                "10.0.0.0/8".parse::<IpNet>().expect("a CIDR block"),
-                "172.16.0.0/12".parse::<IpNet>().expect("a CIDR block"),
-            ]
+            config.client_ip_source,
+            ClientIpSource::RightmostXForwardedFor
         );
     }
 }
