@@ -25,7 +25,7 @@ num só lugar, e devolver ao cliente o controle dos próprios dados.
 | Responsável por estoque / laboratório | Movimentação de estoque e pedidos ao laboratório protético |
 | Paciente | **Não opera o sistema.** Interage só via WhatsApp e documentos recebidos |
 
-Decisor do produto: Theo. Clínicas piloto: clínica da mãe e clínica dos tios (clientes separados).
+Decisor do produto: Theo. Clínicas piloto: duas clínicas odontológicas da família, cada uma operando como cliente independente.
 
 ## 3. Escopo
 

@@ -3,13 +3,21 @@
 SaaS de gestão para clínicas odontológicas: agenda, prontuário clínico e estético, financeiro, estoque e
 laboratório num só lugar, multi-tenant, para redes de clínicas e dentistas autônomos.
 
-> **Em desenvolvimento.** A API já tem a autenticação completa; os módulos de produto vêm em seguida.
+> **Em desenvolvimento.** A API já tem a autenticação completa e está sendo migrada de NestJS para Rust,
+> sem mudar o contrato HTTP; os módulos de produto vêm em seguida.
+
+## Motivação
+
+O Clinicore nasceu da convivência com a rotina de duas clínicas odontológicas da família: agenda,
+prontuário, financeiro e convênio espalhados entre um sistema legado, papel e planilha, e a exportação
+de dados que nunca vinha completa. Essas duas clínicas são as pilotos do produto, cada uma operando como
+cliente independente, e é contra a rotina real delas que cada módulo é validado antes do lançamento.
 
 ## Stack
 
 | App | Papel | Tecnologia |
 |---|---|---|
-| `apps/api` | contrato HTTP | NestJS 11 · TypeScript · PostgreSQL 18 com TypeORM · Redis 8 · Passport/JWT · Pino · Swagger |
+| `apps/api` | contrato HTTP | Rust com axum e sqlx, em migração a partir do NestJS 11 com TypeORM · PostgreSQL 18 · Redis 8 |
 | `apps/web` | sistema da clínica (PWA) | React 19 · Vite · TanStack Router/Query/Form · Zod · Tailwind + shadcn/ui |
 | `apps/site` | landing pública | Next.js 16 standalone · React 19 |
 | `apps/mobile` | app iOS e Android | Flutter · Dio · cliente HTTP gerado do OpenAPI da API |
@@ -54,5 +62,5 @@ reprova o build quando as entidades divergem das migrations.
 ## Documentação
 
 - `docs/requirements.md`: problema, escopo e critérios de aceite
-- `docs/decisions/`: ADRs da stack e da arquitetura
+- `docs/decisions/`: ADRs da stack e da arquitetura, incluindo a migração da API para Rust (ADR 0009)
 - `docs/specs/`: especificações por entrega
