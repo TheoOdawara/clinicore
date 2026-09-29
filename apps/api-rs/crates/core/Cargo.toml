@@ -1,5 +1,5 @@
 [package]
-name = "api-infra"
+name = "clinicore-core"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true

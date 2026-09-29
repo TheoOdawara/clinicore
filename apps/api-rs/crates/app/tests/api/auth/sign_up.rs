@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::support::{
-    CapturedLog, config_with, eventually, fresh_client, post_json, services, text_body,
+    CapturedLog, config_with, eventually, fresh_client, post_json, state, text_body,
 };
 use axum::http::StatusCode;
 use lettre::transport::stub::AsyncStubTransport;
@@ -32,7 +32,7 @@ async fn assert_accepted(response: axum::response::Response) {
 async fn sign_up_creates_the_user_and_delivers_the_link(pool: PgPool) {
     let config = config_with(&[]);
     let mail = AsyncStubTransport::new_ok();
-    let app = api_http::app(&config, services(&config, pool.clone(), mail.clone()));
+    let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
 
     assert_accepted(post_json(app, "/users", &sign_up_body(EMAIL), fresh_client()).await).await;
 
@@ -62,14 +62,14 @@ async fn sign_up_creates_the_user_and_delivers_the_link(pool: PgPool) {
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_repeated_sign_up_writes_nothing_sends_nothing_and_answers_the_same(pool: PgPool) {
     let config = config_with(&[]);
-    let setup = api_http::app(
+    let setup = clinicore_app::app(
         &config,
-        services(&config, pool.clone(), AsyncStubTransport::new_ok()),
+        state(&config, pool.clone(), AsyncStubTransport::new_ok()),
     );
     assert_accepted(post_json(setup, "/users", &sign_up_body(EMAIL), fresh_client()).await).await;
 
     let mail = AsyncStubTransport::new_ok();
-    let app = api_http::app(&config, services(&config, pool.clone(), mail.clone()));
+    let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
     let client = fresh_client();
     for _ in 0..3 {
         assert_accepted(post_json(app.clone(), "/users", &sign_up_body(EMAIL), client).await).await;
@@ -105,13 +105,13 @@ async fn a_failing_smtp_keeps_the_sign_up_and_the_answer_and_logs_the_failure(po
     let config = config_with(&[("LOG_LEVEL", Some("error"))]);
     let log = CapturedLog::default();
     let writer = log.clone();
-    let _subscriber =
-        tracing::subscriber::set_default(api_http::telemetry::subscriber(&config, move || {
-            writer.clone()
-        }));
-    let app = api_http::app(
+    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
         &config,
-        services(&config, pool.clone(), AsyncStubTransport::new_error()),
+        move || writer.clone(),
+    ));
+    let app = clinicore_app::app(
+        &config,
+        state(&config, pool.clone(), AsyncStubTransport::new_error()),
     );
 
     assert_accepted(post_json(app, "/users", &sign_up_body(EMAIL), fresh_client()).await).await;

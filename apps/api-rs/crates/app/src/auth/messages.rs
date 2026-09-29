@@ -1,4 +1,4 @@
-use api_infra::mail::{MailContent, MailMessage, compose};
+use clinicore_core::mail::{MailContent, MailMessage, compose};
 
 use crate::error::AppError;
 

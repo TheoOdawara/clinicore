@@ -18,60 +18,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
-name = "api-app"
-version = "0.1.0"
-dependencies = [
- "api-infra",
- "argon2",
- "base64 0.23.1",
- "getrandom 0.4.3",
- "hex",
- "sha2 0.11.0",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "api-http"
-version = "0.1.0"
-dependencies = [
- "api-app",
- "axum",
- "axum-client-ip",
- "http-body-util",
- "ipnet",
- "lettre",
- "regex",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "sqlx",
- "tokio",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "utoipa",
- "utoipa-swagger-ui",
- "validator",
-]
-
-[[package]]
-name = "api-infra"
-version = "0.1.0"
-dependencies = [
- "askama",
- "axum-client-ip",
- "email_address",
- "lettre",
- "redis",
- "sqlx",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
 name = "arc-swap"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -380,6 +326,51 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39d2056bf065c8b4bce5a8898d40e175211ff4410add2a84d695845d3937c729"
 dependencies = [
  "http",
+]
+
+[[package]]
+name = "clinicore-app"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "axum",
+ "axum-client-ip",
+ "base64 0.23.1",
+ "clinicore-core",
+ "getrandom 0.4.3",
+ "hex",
+ "http-body-util",
+ "ipnet",
+ "lettre",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "sha2 0.11.0",
+ "sqlx",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "utoipa",
+ "utoipa-swagger-ui",
+ "validator",
+]
+
+[[package]]
+name = "clinicore-core"
+version = "0.1.0"
+dependencies = [
+ "askama",
+ "axum-client-ip",
+ "email_address",
+ "lettre",
+ "redis",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]

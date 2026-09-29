@@ -1,80 +1,70 @@
 mod messages;
 mod password;
+mod queries;
+mod requests;
+mod service;
 mod token;
 
-use api_infra::auth::user::{self, SignUpOutcome};
-use api_infra::auth::{email_dispatch, verification};
-use api_infra::config::Config;
-use api_infra::db::Database;
-use api_infra::mail::Mailer;
+use axum::Router;
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::routing::post;
 
+use crate::AppState;
 use crate::error::AppError;
+use crate::middleware::rate_limit::{self, Limit};
+use crate::validation::ValidJson;
+use requests::{EmailRequest, SignUpRequest};
 
-#[derive(Clone)]
-pub struct Auth {
-    database: Database,
-    mailer: Mailer,
-    app_origin: String,
+pub fn routes(state: &AppState) -> Router {
+    let per_minute = |route, count| {
+        axum::middleware::from_fn_with_state(
+            Limit::per_minute(state, route, count),
+            rate_limit::guard,
+        )
+    };
+    Router::new()
+        .route(
+            "/users",
+            post(sign_up).route_layer(per_minute("sign-up", 3)),
+        )
+        .route(
+            "/email-verifications",
+            post(request_email_verification).route_layer(per_minute("email-verification", 3)),
+        )
+        .with_state(state.clone())
 }
 
-impl Auth {
-    pub fn new(config: &Config, database: Database, mailer: Mailer) -> Self {
-        Self {
-            database,
-            mailer,
-            app_origin: config.app_origin.clone(),
-        }
-    }
+#[utoipa::path(
+    post,
+    path = "/users",
+    tag = "Auth",
+    summary = "Register an email and password account",
+    description = "Always answers 202 with an empty body, whether the email is new or already registered.",
+    request_body = SignUpRequest,
+    responses((status = 202, description = "Accepted, with no body"))
+)]
+pub async fn sign_up(
+    State(state): State<AppState>,
+    ValidJson(body): ValidJson<SignUpRequest>,
+) -> Result<StatusCode, AppError> {
+    service::sign_up(&state, &body.name, &body.email, &body.password).await?;
+    Ok(StatusCode::ACCEPTED)
+}
 
-    pub async fn sign_up(&self, name: &str, email: &str, password: &str) -> Result<(), AppError> {
-        let address = email.to_lowercase();
-        let password_hash = password::hash(password.to_string()).await?;
-        let issued = token::issue()?;
-        let message = messages::email_verification(name, &self.verification_link(&issued.secret))?;
-
-        let outcome = user::create_with_credential_account(
-            &self.database,
-            name,
-            &address,
-            &password_hash,
-            &issued.hash,
-        )
-        .await
-        .map_err(AppError::internal)?;
-
-        if outcome == SignUpOutcome::CreatedWithToken {
-            self.mailer.send(&address, message);
-        }
-        Ok(())
-    }
-
-    pub async fn request_email_verification(&self, email: &str) -> Result<(), AppError> {
-        let address = email.to_lowercase();
-        let accepted = email_dispatch::register_verification(&self.database, &address)
-            .await
-            .map_err(AppError::internal)?;
-        if !accepted {
-            return Ok(());
-        }
-
-        let found = user::find_by_email(&self.database, &address)
-            .await
-            .map_err(AppError::internal)?;
-        let Some(user) = found.filter(|user| !user.email_verified) else {
-            return Ok(());
-        };
-
-        let issued = token::issue()?;
-        let message =
-            messages::email_verification(&user.name, &self.verification_link(&issued.secret))?;
-        verification::create_email_verification(&self.database, &address, &issued.hash)
-            .await
-            .map_err(AppError::internal)?;
-        self.mailer.send(&address, message);
-        Ok(())
-    }
-
-    fn verification_link(&self, secret: &str) -> String {
-        format!("{}/verify-email?token={secret}", self.app_origin)
-    }
+#[utoipa::path(
+    post,
+    path = "/email-verifications",
+    tag = "Auth",
+    summary = "Send a new email verification link",
+    description = "Always answers 202 with an empty body. At most one link per address every 60 seconds and five every 24 hours.",
+    request_body = EmailRequest,
+    responses((status = 202, description = "Accepted, with no body"))
+)]
+pub async fn request_email_verification(
+    State(state): State<AppState>,
+    ValidJson(body): ValidJson<EmailRequest>,
+) -> Result<StatusCode, AppError> {
+    service::request_email_verification(&state, &body.email).await?;
+    Ok(StatusCode::ACCEPTED)
 }

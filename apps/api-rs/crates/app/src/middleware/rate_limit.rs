@@ -1,27 +1,27 @@
 use std::time::Duration;
 
-use api_app::Services;
-use api_app::rate_limit::RateLimit;
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
 use axum_client_ip::{ClientIp, Rejection};
+use clinicore_core::redis::Redis;
 
+use crate::AppState;
 use crate::client_ip;
-use crate::error::ApiError;
+use crate::error::{AppError, ErrorCode};
 
 #[derive(Clone)]
 pub struct Limit {
-    rate_limit: RateLimit,
+    redis: Redis,
     route: &'static str,
     count: u64,
     window: Duration,
 }
 
 impl Limit {
-    pub fn per_minute(services: &Services, route: &'static str, count: u64) -> Self {
+    pub fn per_minute(state: &AppState, route: &'static str, count: u64) -> Self {
         Self {
-            rate_limit: services.rate_limit.clone(),
+            redis: state.redis.clone(),
             route,
             count,
             window: Duration::from_secs(60),
@@ -34,12 +34,14 @@ pub async fn guard(
     client: Result<ClientIp, Rejection>,
     request: Request,
     next: Next,
-) -> Result<Response, ApiError> {
+) -> Result<Response, AppError> {
     let key = format!("rate:{}:{}", limit.route, client_ip::tracker(client));
-    limit
-        .rate_limit
-        .hit(&key, limit.count, limit.window)
-        .await
-        .map_err(ApiError)?;
+    let hits = limit.redis.hit(&key, limit.window).await.map_err(|error| {
+        tracing::error!(cause = %error, "the rate limit store is unreachable");
+        AppError::Business(ErrorCode::ServiceUnavailable)
+    })?;
+    if hits > limit.count {
+        return Err(AppError::Business(ErrorCode::RateLimited));
+    }
     Ok(next.run(request).await)
 }

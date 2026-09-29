@@ -6,6 +6,7 @@
 > `~/Projects/nestjs-scaffold` e `~/Projects/nestjs-scaffold-auth`
 > **Epic:** #114, dentro da #1 — Plataforma
 > **Decisões:** `docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md` ·
+> `docs/decisions/0010-api-rs-com-crate-por-processo.md` ·
 > `docs/decisions/0006-api-rest-e-problem-details.md`
 > **Oráculo de comportamento:** `docs/specs/002-scaffold-apps-e-ci.md`,
 > `docs/specs/autenticacao/003-autenticacao-api.md` e
@@ -75,7 +76,7 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
   o proxy escreve. O Cenário 26 da 003 é portado com `RightmostXForwardedFor`, e o IP contado é o
   último salto do `x-forwarded-for`, o que o proxy acrescentou.
 - **Validação:** cada cenário Gherkin das specs 002, 003 e 004 cuja rota existe hoje é portado para um
-  teste de integração em `crates/http/tests/` e passa contra a API Rust. Ficam de fora a regra 17 da
+  teste de integração em `crates/app/tests/` e passa contra a API Rust. Ficam de fora a regra 17 da
   003 (#71) e as regras 5 a 9 da 004 (#94 e #100), que não estão implementadas.
 - Cada cenário de origem pertence à primeira task em que todas as rotas que ele chama existem. O
   mecanismo é construído onde o escopo da task diz; o teste de ponta a ponta fecha na task dona do
@@ -135,10 +136,9 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 
 ### 5. As camadas e o SQL
 
-- O workspace tem três crates, `http` → `app` → `infra`, e o `http` não declara dependência de
-  `infra`. O `PgPool` não é `pub` no `infra`.
-- SQL só existe nos repositories do `infra`, e só por `query!` ou `query_as!`. SQL montado por
-  `format!` ou concatenação é proibido. Transação só no repository.
+- O workspace tem dois crates, `core` e `app`, e o `app` depende do `core` (ADR 0010).
+- SQL só existe no `queries.rs` de cada feature do `app`, e só por `query!` ou `query_as!`. SQL
+  montado por `format!` ou concatenação é proibido. Transação só no `queries.rs`.
 - O `.sqlx/` é commitado, e o CI roda `cargo sqlx prepare --workspace --check`.
 
 ### 6. A convivência e a troca
@@ -205,7 +205,7 @@ O catálogo não muda e não ganha código. Mensagem é o `title` do Problem Det
 - **Persistência:** a mesma das specs de origem.
 - **Concorrência:** a mesma. O teste de corrida da rotação do refresh e do registro de envio abre as
   conexões antes de disparar as requisições, como hoje faz o `openConnections()`.
-- **Transação:** a mesma das specs de origem, aberta só no repository.
+- **Transação:** a mesma das specs de origem, aberta só no `queries.rs`.
 
 ---
 
@@ -216,7 +216,7 @@ O catálogo não muda e não ganha código. Mensagem é o `title` do Problem Det
 ```gherkin
 Dado o workspace em apps/api-rs com Postgres e Redis de pé
 Quando roda `cargo test`
-Então cada cenário das specs 002, 003 e 004 cuja rota existe hoje tem um teste em crates/http/tests/
+Então cada cenário das specs 002, 003 e 004 cuja rota existe hoje tem um teste em crates/app/tests/
 E todos saem verdes contra o schema criado só pela migration de migrations/
 ```
 
@@ -263,12 +263,12 @@ Quando recebe `GET /api-json` e `GET /api`
 Então responde 404 nas duas, com Problem Details `about:blank`
 ```
 
-### Cenário 7 — As camadas são impostas pelo compilador (exceção, regra 5)
+### Cenário 7 — As consultas batem com o schema (exceção, regra 5)
 
 ```gherkin
 Dado o workspace compilando
-Quando um handler do crate http importa um repository do crate infra
-Então `cargo build` falha, porque http não depende de infra
+Quando uma consulta de um queries.rs não bate com o schema das migrations
+Então `cargo build` falha, porque o `query!` confere a consulta na compilação
 E o CI roda `cargo sqlx prepare --workspace --check` e falha se o .sqlx/ não bate com as consultas
 ```
 

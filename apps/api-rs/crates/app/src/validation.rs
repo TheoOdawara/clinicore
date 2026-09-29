@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::LazyLock;
 
-use api_app::error::ErrorCode;
 use axum::body::Bytes;
 use axum::extract::{FromRequest, Request};
 use axum::http::StatusCode;
@@ -13,7 +12,7 @@ use serde::{Deserialize, Deserializer};
 use serde_path_to_error::Segment;
 use validator::{Validate, ValidationError};
 
-use crate::error::{FieldError, blank_problem, business_problem};
+use crate::error::{ErrorCode, FieldError, blank_problem, business_problem};
 
 #[derive(Deserialize)]
 struct Envelope<Body> {

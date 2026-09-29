@@ -5,13 +5,16 @@ use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use api_app::config::Config;
-use api_app::{Database, Mailer, Redis, Services};
 use axum::Router;
 use axum::body::Body;
 use axum::extract::ConnectInfo;
 use axum::http::Request;
 use axum::response::Response;
+use clinicore_app::AppState;
+use clinicore_core::config::Config;
+use clinicore_core::db;
+use clinicore_core::mail::Mailer;
+use clinicore_core::redis::Redis;
 use http_body_util::BodyExt;
 use lettre::transport::stub::AsyncStubTransport;
 use sqlx::PgPool;
@@ -65,28 +68,28 @@ pub fn config_with(overrides: &[(&str, Option<&str>)]) -> Config {
     }
 }
 
-pub fn lazy_services(config: &Config) -> Services {
-    Services::new(
+pub fn lazy_state(config: &Config) -> AppState {
+    AppState::new(
         config,
-        Database::connect_lazy(config).expect("a lazy database"),
+        db::connect_lazy(config).expect("a lazy database"),
         Redis::connect_lazy(config).expect("a lazy redis"),
         Mailer::stub(config, AsyncStubTransport::new_ok()).expect("a valid sender"),
     )
 }
 
-pub fn services(config: &Config, pool: PgPool, mail: AsyncStubTransport) -> Services {
+pub fn state(config: &Config, pool: PgPool, mail: AsyncStubTransport) -> AppState {
     let mut config = config.clone();
     config.redis_url = std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run");
-    Services::new(
+    AppState::new(
         &config,
-        Database::from_pool(pool),
+        pool,
         Redis::connect_lazy(&config).expect("a lazy redis"),
         Mailer::stub(&config, mail).expect("a valid sender"),
     )
 }
 
 pub fn app(config: &Config) -> Router {
-    api_http::app(config, lazy_services(config))
+    clinicore_app::app(config, lazy_state(config))
 }
 
 pub fn fresh_client() -> SocketAddr {

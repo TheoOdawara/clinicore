@@ -1,8 +1,9 @@
 # Clinicore `apps/api-rs` — camadas e pegadinhas
 
 Aditivo ao `CLAUDE.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este arquivo
-apenas onde ela falar do mesmo assunto. A decisão está em
-`docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md` e a migração em
+apenas onde ela falar do mesmo assunto. A stack está em
+`docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md`, a organização dos crates em
+`docs/decisions/0010-api-rs-com-crate-por-processo.md` e a migração em
 `docs/specs/005-migrar-api-para-rust.md`. Na #121 esta pasta vira `apps/api`, e este arquivo vai junto.
 
 **A paridade com o NestJS é do comportamento que o cliente observa, nunca da implementação.** Status,
@@ -28,24 +29,61 @@ a mesma versão do job `api-rs` do CI. O `compose.yaml` sobe o Postgres 18 e o R
 desenvolvimento com `infisical run --path=/api -- docker compose up -d --wait`, e as portas e as credenciais vêm do
 Infisical.
 
-## Camadas
+## Crates
 
-**Um crate por camada, e a dependência aponta para baixo: `api-http → api-app → api-infra`.** Quem a
-faz valer é o compilador: o `api-http` não declara o `api-infra`, então um handler que chama um
-repository não compila.
+**Um crate por processo ou capacidade, em `crates/`** (ADR 0010). O pacote tem o
+prefixo `clinicore-`, porque `core` é o nome da biblioteca base do Rust.
 
-- **As pastas são `crates/http`, `crates/app` e `crates/infra`; os pacotes têm o prefixo `api-`.** Um
-  pacote chamado `http` colidiria com o crate `http` do crates.io, que o axum usa, e o `cargo -p http`
-  ficaria ambíguo.
-- **`api-http`** é o binário `api`: boot, `Router`, handlers, extractors, corpos de requisição e
-  resposta, OpenAPI, `ApiError` e telemetria. Não tem regra de negócio.
-- **`api-app`** tem os services, o domínio e o `AppError`. Ele reexporta o `config` do `api-infra`,
-  porque é o único caminho do `api-http` até ele.
-- **`api-infra`** tem a configuração, os repositories, o Postgres, o Redis e o e-mail. O `PgPool` não é
-  `pub`, então um service não abre consulta.
+- **`crates/core/` (`clinicore-core`)** tem a configuração, o pool do Postgres, o Redis e o e-mail. Serve a
+  qualquer processo e não conhece feature.
+- **`crates/app/` (`clinicore-app`)** é a API inteira e gera o binário `api`.
+- **`worker/` e `transfer/` só nascem com código**: o worker no primeiro job da fila, o transfer na
+  importação e exportação de arquivos.
 - **Dependência nova entra em `[workspace.dependencies]` do `Cargo.toml` da raiz**, com a versão
   exata e as features comuns; o crate declara `nome.workspace = true` e só acrescenta a feature que é
   dele.
+
+## Estrutura
+
+```
+crates/
+├── core/
+│   ├── templates/  mail.html  mail.txt              layout do e-mail, em askama
+│   └── src/  lib.rs  config.rs  db.rs  redis.rs  mail.rs
+└── app/
+    ├── src/
+    │   ├── main.rs  lib.rs                          boot, AppState, Router e camadas do tower
+    │   ├── error.rs  telemetry.rs  openapi.rs  validation.rs  client_ip.rs  health.rs
+    │   ├── middleware.rs  middleware/  origin.rs  rate_limit.rs
+    │   ├── auth.rs                                  Router e handlers da feature
+    │   └── auth/
+    │       ├── requests.rs                          corpos que chegam
+    │       ├── service.rs                           a regra
+    │       ├── queries.rs                           o SQL
+    │       └── password.rs  token.rs  messages.rs   o que a regra usa
+    └── tests/api/
+        ├── main.rs  support.rs
+        ├── boot.rs  errors.rs  health.rs  openapi.rs  request_log.rs
+        ├── auth.rs
+        └── auth/  sign_up.rs
+migrations/  .sqlx/
+```
+
+- **A raiz do `src/` só tem plataforma**, o que serve a qualquer feature: erro, telemetria, extractor,
+  middleware.
+- **A feature começa como `<feature>.rs`, com o `Router`, os handlers e o SQL juntos.** Ela ganha a
+  pasta `<feature>/` quando um pedaço tiver responsabilidade própria; o `<feature>.rs` fica ao lado da
+  pasta e declara os submódulos, e `mod.rs` não é usado.
+- **A camada nasce quando tem conteúdo.** Uma leitura simples vai do handler direto à consulta. O
+  `service.rs` existe quando há decisão: regra de negócio, mais de uma escrita ou efeito colateral.
+  Nenhum service só repassa a chamada.
+- **O estado da API é o `AppState`**, com o pool, o Redis, o `Mailer` e o que a configuração entrega
+  às features. O handler recebe `State<AppState>`, e o service e a consulta recebem o que usam.
+- **O `core` monta o e-mail e a feature escreve o texto.** O layout é o `askama`, em
+  `crates/core/templates/`, e o `mail::compose` o renderiza; o conteúdo de cada e-mail mora em
+  `<feature>/messages.rs`.
+
+## Regras
 
 - **A ordem de uma rota limitada é origem, limite, validação.** O guard de `Origin` é `route_layer` do
   `serve_layers`, o limite é `route_layer` da própria rota e a validação é o extractor `ValidJson`, então
@@ -58,66 +96,20 @@ repository não compila.
 - **Concorrência se resolve no Postgres, sem retry na aplicação.** Unicidade por
   `ON CONFLICT … DO NOTHING`, e a serialização por chave (o registro de envio por endereço) por
   `pg_advisory_xact_lock` dentro da transação.
-- **SQL só nos repositories do `api-infra`, e só por `query!` ou `query_as!`.** SQL montado por
-  `format!` ou concatenação é proibido. Transação só no repository. O `.sqlx/` é commitado, e o CI
-  roda o `prepare --check`.
+- **SQL só no `queries.rs` da feature, e só por `query!` ou `query_as!`.** SQL montado por `format!`
+  ou concatenação é proibido. Transação só no `queries.rs`. O compilador não impede um handler de usar
+  o pool, então a regra é conferida no review. O `.sqlx/` é commitado, e o CI roda o
+  `prepare --check`.
 - **A URL é um recurso, nunca um verbo** (ADR 0006). Substantivo no plural e em kebab-case, e o método
   HTTP diz a operação. Token nunca vai no path. A única exceção é o OAuth, em `/oauth/<provedor>`.
 - **Todo erro é Problem Details da RFC 9457** (ADR 0006), em `application/problem+json`, montado só
-  pelo `crates/http/src/error.rs`:
+  pelo `crates/app/src/error.rs`:
+  - O `AppError` implementa o `IntoResponse`, e o handler devolve `Result<_, AppError>`.
   - O catálogo (`ErrorCode` → status, slug e `title`) mora no `catalog()`, e o `type` é
     `tag:clinicore.com.br,2026:<slug>`.
   - `blank_problem(status)` é o único montador de `about:blank`, usado pelo fallback, pelo panic e
     pelo `AppError::Internal`.
   - `AppError::Internal` e panic viram `500` sem detalhe, com a causa logada em `error`.
-
-## Estrutura
-
-```
-crates/
-├── infra/templates/  mail.html  mail.txt              layout do e-mail, em askama
-├── infra/src/
-│   ├── lib.rs
-│   ├── config.rs  db.rs  redis.rs  mail.rs        plataforma
-│   ├── auth.rs                                     declara os submódulos da feature
-│   └── auth/  user.rs  email_dispatch.rs  verification.rs
-├── app/src/
-│   ├── lib.rs                                      Services e os reexports do infra
-│   ├── error.rs  rate_limit.rs                     plataforma
-│   ├── auth.rs                                     o service Auth
-│   └── auth/  password.rs  token.rs  messages.rs
-└── http/
-    ├── src/
-    │   ├── main.rs  lib.rs
-    │   ├── error.rs  telemetry.rs  openapi.rs  client_ip.rs  validation.rs
-    │   ├── middleware.rs
-    │   ├── middleware/  origin.rs  rate_limit.rs
-    │   ├── health.rs
-    │   ├── auth.rs                                 Router e handlers
-    │   └── auth/  requests.rs
-    └── tests/api/
-        ├── main.rs  support.rs
-        ├── boot.rs  errors.rs  health.rs  openapi.rs  request_log.rs
-        ├── auth.rs
-        └── auth/  sign_up.rs
-migrations/  .sqlx/
-```
-
-- **A raiz de cada crate só tem plataforma**, o que serve a qualquer feature: configuração, banco,
-  Redis, e-mail, erro, telemetria, extractor e middleware.
-- **A feature é um módulo com o mesmo nome nos três crates**, nunca um crate próprio.
-- **O módulo começa como `<feature>.rs` e ganha a pasta `<feature>/` quando tiver o segundo arquivo com
-  responsabilidade própria.** O `<feature>.rs` fica ao lado da pasta e declara os submódulos; `mod.rs`
-  não é usado.
-- **No `infra`, um arquivo por tabela** que a feature escreve. **No `app`, o service fica no
-  `<feature>.rs`**, e o que ele usa com consumidor próprio (hash, token, texto de e-mail) vai para a pasta.
-  **No `http`, o `<feature>.rs` tem o `Router` e os handlers**, e os corpos ficam em `requests.rs` e
-  `responses.rs`.
-- **O `infra` monta o e-mail e o `app` escreve o texto.** O layout é o `askama`, em
-  `crates/infra/templates/`, e o `mail::compose` o renderiza; o conteúdo
-  de cada e-mail mora em `<feature>/messages.rs` do `app`.
-- **Os testes de integração são um binário só, `tests/api/main.rs`**, com um módulo por feature e o
-  `support.rs` com os helpers. Arquivo solto em `tests/` vira outro binário e é proibido.
 
 ## Segredos
 
@@ -136,7 +128,7 @@ migrations/  .sqlx/
 
 ## Configuração
 
-- **As 17 variáveis são lidas uma vez, em `api-infra/src/config.rs`, e nenhuma tem default.** Com uma
+- **As 17 variáveis são lidas uma vez, em `crates/core/src/config.rs`, e nenhuma tem default.** Com uma
   ou mais recusadas, o processo escreve `Invalid environment:` e uma linha por variável, em ordem
   alfabética, e sai com código 1 antes do bind.
 - **O binário não lê arquivo `.env`.** As variáveis chegam pelo processo, injetadas pelo
@@ -150,7 +142,7 @@ migrations/  .sqlx/
 - **Cada requisição gera uma linha só, pelo `TraceLayer`**, com método, path sem query, status e
   `duration_ms`. O layer não lê header, cookie nem corpo. `GET` e `HEAD /health` recebem
   `Span::none()` e não geram linha.
-- **O `LOG_LEVEL` vale para os crates `api-*`.** As dependências ficam em `warn` no máximo, para o trace
+- **O `LOG_LEVEL` vale para os crates `clinicore-*`.** As dependências ficam em `warn` no máximo, para o trace
   do hyper não entrar no log.
 
 ## Testes
@@ -160,7 +152,12 @@ migrations/  .sqlx/
 - **O Redis dos testes é o de dev, sem flush.** Cada requisição de teste sai de um `fresh_client()`, um
   /64 de documentação novo por chamada, então nenhum contador de limite atravessa testes nem execuções.
 - **A consulta do teste é `sqlx::query_scalar` em runtime, com SQL literal.** O `.sqlx/` cobre só as
-  consultas dos repositories.
+  consultas dos `queries.rs`.
+- **Teste unitário de lógica pura fica no próprio arquivo**, num `#[cfg(test)] mod tests` no fim, como
+  o do `crates/core/src/config.rs`.
+- **O comportamento que o cliente observa é teste de integração em `crates/app/tests/api/`.** É um binário
+  só, `tests/api/main.rs`, com um módulo por feature e o `support.rs` com os helpers. Arquivo solto em
+  `tests/` vira outro binário e é proibido.
 
 ## Pegadinhas da stack
 
@@ -174,7 +171,7 @@ migrations/  .sqlx/
   `500` do panic sair com os headers de CORS.
 - **Rota nova entra antes do `serve_layers`.** O `method_not_allowed_fallback` só pega as rotas que já
   existem quando ele é chamado, e as camadas só envolvem o que está no `Router` naquele momento. O
-  teste que precisa de uma rota própria faz `serve_layers(routes(&config, lazy_services(&config)).route(...), &config)`.
+  teste que precisa de uma rota própria faz `serve_layers(routes(&config, lazy_state(&config)).route(...), &config)`.
 - **Método não aceito responde `404 about:blank`, não 405**, porque é o que o Express respondia e o
   contrato não muda.
 - **O corpo JSON do contrato é uma struct, nunca `json!`.** O `serde_json` sem `preserve_order` ordena

@@ -2,8 +2,11 @@ use std::io;
 use std::net::SocketAddr;
 use std::process::ExitCode;
 
-use api_app::config::Config;
-use api_app::{Database, Mailer, Redis, Services};
+use clinicore_app::AppState;
+use clinicore_core::config::Config;
+use clinicore_core::db;
+use clinicore_core::mail::Mailer;
+use clinicore_core::redis::Redis;
 use tokio::net::TcpListener;
 use tokio::signal;
 
@@ -17,11 +20,14 @@ async fn main() -> ExitCode {
         }
     };
 
-    tracing::subscriber::set_global_default(api_http::telemetry::subscriber(&config, io::stdout))
-        .expect("the only global subscriber");
+    tracing::subscriber::set_global_default(clinicore_app::telemetry::subscriber(
+        &config,
+        io::stdout,
+    ))
+    .expect("the only global subscriber");
 
-    let services = match connect(&config) {
-        Ok(services) => services,
+    let state = match connect(&config) {
+        Ok(state) => state,
         Err(error) => {
             tracing::error!(error = %error, "could not set up the clients");
             return ExitCode::FAILURE;
@@ -36,7 +42,7 @@ async fn main() -> ExitCode {
         }
     };
 
-    let app = api_http::app(&config, services);
+    let app = clinicore_app::app(&config, state);
     if let Err(error) = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
@@ -50,10 +56,10 @@ async fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn connect(config: &Config) -> Result<Services, Box<dyn std::error::Error + Send + Sync>> {
-    Ok(Services::new(
+fn connect(config: &Config) -> Result<AppState, Box<dyn std::error::Error + Send + Sync>> {
+    Ok(AppState::new(
         config,
-        Database::connect_lazy(config)?,
+        db::connect_lazy(config)?,
         Redis::connect_lazy(config)?,
         Mailer::smtp(config)?,
     ))

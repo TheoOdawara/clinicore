@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/http", "crates/app", "crates/infra"]
+members = ["crates/app", "crates/core"]
 
 [workspace.package]
 version = "0.1.0"
@@ -11,8 +11,7 @@ publish = false
 unsafe_code = "forbid"
 
 [workspace.dependencies]
-api-app = { path = "crates/app" }
-api-infra = { path = "crates/infra" }
+clinicore-core = { path = "crates/core" }
 argon2 = "0.6.0"
 askama = "0.16.1"
 axum = "0.8.9"

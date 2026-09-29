@@ -1,14 +1,13 @@
 use std::sync::Arc;
 
-use api_app::config::Config;
-use api_app::error::{AppError, ErrorCode};
 use axum::extract::{Request, State};
 use axum::http::Method;
 use axum::http::header::{COOKIE, ORIGIN};
 use axum::middleware::Next;
 use axum::response::Response;
+use clinicore_core::config::Config;
 
-use crate::error::ApiError;
+use crate::error::{AppError, ErrorCode};
 
 #[derive(Clone)]
 pub struct AllowedOrigins(Arc<Vec<String>>);
@@ -23,7 +22,7 @@ pub async fn guard(
     State(allowed): State<AllowedOrigins>,
     request: Request,
     next: Next,
-) -> Result<Response, ApiError> {
+) -> Result<Response, AppError> {
     if [Method::GET, Method::HEAD, Method::OPTIONS].contains(request.method()) {
         return Ok(next.run(request).await);
     }
@@ -37,7 +36,7 @@ pub async fn guard(
         .and_then(|value| value.to_str().ok())
         .is_some_and(|origin| allowed.0.iter().any(|item| item == origin));
     if !is_allowed {
-        return Err(ApiError(AppError::Business(ErrorCode::InvalidOrigin)));
+        return Err(AppError::Business(ErrorCode::InvalidOrigin));
     }
 
     Ok(next.run(request).await)

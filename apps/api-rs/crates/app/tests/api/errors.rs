@@ -1,16 +1,15 @@
 use crate::support::{CapturedLog, config_with, content_type, json_body, send_with_headers};
-use api_app::error::AppError;
-use api_http::error::ApiError;
 use axum::http::StatusCode;
 use axum::routing::get;
+use clinicore_app::error::AppError;
 use serde_json::json;
 
 async fn panicking() -> &'static str {
     panic!("the panicking cause")
 }
 
-async fn failing() -> Result<&'static str, ApiError> {
-    Err(ApiError(AppError::Internal("the internal cause".into())))
+async fn failing() -> Result<&'static str, AppError> {
+    Err(AppError::Internal("the internal cause".into()))
 }
 
 #[tokio::test]
@@ -18,12 +17,12 @@ async fn an_unhandled_error_answers_500_without_detail_through_cors_and_logs_the
     let config = config_with(&[("LOG_LEVEL", Some("error"))]);
     let log = CapturedLog::default();
     let writer = log.clone();
-    let _subscriber =
-        tracing::subscriber::set_default(api_http::telemetry::subscriber(&config, move || {
-            writer.clone()
-        }));
-    let app = api_http::serve_layers(
-        api_http::routes(&config, crate::support::lazy_services(&config))
+    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
+        &config,
+        move || writer.clone(),
+    ));
+    let app = clinicore_app::serve_layers(
+        clinicore_app::routes(&config, crate::support::lazy_state(&config))
             .route("/boom", get(panicking))
             .route("/boom-internal", get(failing)),
         &config,

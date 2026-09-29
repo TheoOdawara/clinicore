@@ -101,7 +101,7 @@ apps/
 │           ├── entities/
 │           ├── enums/ constants/ utils/ job/ strategy/   só quando houver conteúdo
 │           └── __tests__/
-├── api-rs/                  Rust · axum · sqlx · :3333 · crates http → app → infra
+├── api-rs/                  Rust · axum · sqlx · :3333 · crates core e app
 ├── web/                     Vite · :3000 · app.clinicore.com.br
 │   └── src/
 │       ├── main.tsx

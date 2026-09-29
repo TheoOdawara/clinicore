@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use api_app::config::{AppEnv, Config, LogLevel};
 use axum::http::{Method, Request, Response};
+use clinicore_core::config::{AppEnv, Config, LogLevel};
 use tower_http::classify::{ServerErrorsAsFailures, SharedClassifier};
 use tower_http::trace::{MakeSpan, OnResponse, TraceLayer};
 use tracing::level_filters::LevelFilter;
@@ -24,9 +24,8 @@ where
     };
     let targets = Targets::new()
         .with_default(level.min(LevelFilter::WARN))
-        .with_target("api_http", level)
-        .with_target("api_app", level)
-        .with_target("api_infra", level);
+        .with_target("clinicore_app", level)
+        .with_target("clinicore_core", level);
 
     if config.app_env == AppEnv::Development {
         return Box::new(
