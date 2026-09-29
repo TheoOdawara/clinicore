@@ -1,15 +1,12 @@
 use axum::http::StatusCode;
-use clinicore_app::AppState;
-use clinicore_core::mail::Mailer;
-use clinicore_core::redis::Redis;
 use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
-use super::{Transport, WEB_ORIGIN, revoked_ttl, session_exists, sign_in};
+use super::{Transport, revoked_ttl, session_exists, sign_in};
 use crate::support::{
-    MOBILE, PASSWORD, app_with, config_with, fresh_client, fresh_email, json_body, register,
-    request, send, set_cookie,
+    MOBILE, PASSWORD, app_with, config_with, fresh_email, json_body, register, request, send,
+    set_cookie, state_on_redis,
 };
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -79,15 +76,7 @@ async fn one_transport_never_authenticates_through_the_other(pool: PgPool) {
         &[("authorization", &mobile_bearer)],
     ];
     for headers in crossings {
-        let response = request(
-            app.clone(),
-            "GET",
-            "/sessions/current",
-            headers,
-            None,
-            fresh_client(),
-        )
-        .await;
+        let response = request(app.clone(), "GET", "/sessions/current", headers, None).await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{headers:?}");
     }
 }
@@ -106,7 +95,7 @@ async fn the_origin_guard_lets_the_app_through_and_holds_cross_site_requests(poo
         "http://evil.example",
         "https://clinicore.com.br.evil.example",
     ] {
-        let response = sign_in(&app, email, PASSWORD, &[("origin", origin)], fresh_client()).await;
+        let response = sign_in(&app, email, PASSWORD, &[("origin", origin)]).await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN, "{origin}");
         assert_eq!(
             json_body(response).await,
@@ -118,15 +107,7 @@ async fn the_origin_guard_lets_the_app_through_and_holds_cross_site_requests(poo
         ("POST", "/sessions/current/tokens", refresh_cookie.as_str()),
     ];
     for (method, path, cookie) in refused {
-        let response = request(
-            app.clone(),
-            method,
-            path,
-            &[("cookie", cookie)],
-            None,
-            fresh_client(),
-        )
-        .await;
+        let response = request(app.clone(), method, path, &[("cookie", cookie)], None).await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN, "{method} {path}");
     }
     assert!(session_exists(&pool, session.id()).await);
@@ -137,45 +118,11 @@ async fn the_origin_guard_lets_the_app_through_and_holds_cross_site_requests(poo
         "/sessions/current",
         &[("cookie", &access_cookie)],
         None,
-        fresh_client(),
     )
     .await;
     assert_eq!(read.status(), StatusCode::OK);
-    let app_sign_in = sign_in(&app, email, PASSWORD, &[MOBILE], fresh_client()).await;
+    let app_sign_in = sign_in(&app, email, PASSWORD, &[MOBILE]).await;
     assert_eq!(app_sign_in.status(), StatusCode::CREATED);
-
-    let allowed = request(
-        app.clone(),
-        "GET",
-        "/health",
-        &[WEB_ORIGIN],
-        None,
-        fresh_client(),
-    )
-    .await;
-    assert_eq!(
-        allowed.headers()["access-control-allow-origin"],
-        "http://localhost:3000"
-    );
-    assert_eq!(
-        allowed.headers()["access-control-allow-credentials"],
-        "true"
-    );
-    let foreign = request(
-        app.clone(),
-        "GET",
-        "/health",
-        &[("origin", "http://evil.example")],
-        None,
-        fresh_client(),
-    )
-    .await;
-    assert!(
-        foreign
-            .headers()
-            .get("access-control-allow-origin")
-            .is_none()
-    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -186,15 +133,13 @@ async fn a_redis_outage_closes_the_door_instead_of_opening_it(pool: PgPool) {
     register(&app, &pool, email, true).await;
     let session = Transport::Web.sign_in(&app, email).await;
 
-    let mut config = config_with(&[]);
-    config.redis_url = "redis://127.0.0.1:1".to_string();
-    let state = AppState::new(
+    let config = config_with(&[]);
+    let state = state_on_redis(
         &config,
         pool.clone(),
-        Redis::connect_lazy(&config).expect("a lazy redis"),
-        Mailer::stub(&config, AsyncStubTransport::new_ok()).expect("a valid sender"),
-    )
-    .expect("an unmatchable hash");
+        AsyncStubTransport::new_ok(),
+        "redis://127.0.0.1:1",
+    );
     let outage = clinicore_app::app(&config, state);
 
     for method in ["GET", "DELETE"] {

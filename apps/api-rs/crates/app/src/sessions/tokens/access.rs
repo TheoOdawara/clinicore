@@ -31,9 +31,12 @@ impl AccessKeys {
 
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: Uuid,
-    pub sid: Uuid,
-    pub cli: SessionClient,
+    #[serde(rename = "sub")]
+    pub user_id: Uuid,
+    #[serde(rename = "sid")]
+    pub session_id: Uuid,
+    #[serde(rename = "cli")]
+    pub client: SessionClient,
     exp: u64,
 }
 
@@ -44,9 +47,9 @@ pub fn sign(
     client: SessionClient,
 ) -> Result<String, Error> {
     let claims = Claims {
-        sub: user_id,
-        sid: session_id,
-        cli: client,
+        user_id,
+        session_id,
+        client,
         exp: jsonwebtoken::get_current_timestamp() + LIFETIME.as_secs(),
     };
     jsonwebtoken::encode(&Header::default(), &claims, &keys.encoding)

@@ -9,8 +9,7 @@ pub async fn request_email_verification(
     email: &str,
 ) -> Result<(), EmailVerificationError> {
     let address = email.to_lowercase();
-    let accepted = queries::reserve_dispatch(&state.pool, &address).await?;
-    if !accepted {
+    if !queries::reserve_dispatch(&state.pool, &address).await? {
         return Ok(());
     }
 
@@ -18,11 +17,29 @@ pub async fn request_email_verification(
     let Some(user) = found.filter(|user| !user.email_verified) else {
         return Ok(());
     };
+    send_verification(state, &address, &user.name).await
+}
 
+pub async fn resend_verification(
+    state: &AppState,
+    address: &str,
+    name: &str,
+) -> Result<(), EmailVerificationError> {
+    if !queries::reserve_dispatch(&state.pool, address).await? {
+        return Ok(());
+    }
+    send_verification(state, address, name).await
+}
+
+async fn send_verification(
+    state: &AppState,
+    address: &str,
+    name: &str,
+) -> Result<(), EmailVerificationError> {
     let issued = secret::issue()?;
-    let message = emails::verification(&user.name, &verification_link(state, &issued.secret))?;
-    queries::create_verification(&state.pool, &address, &issued.hash).await?;
-    state.mailer.send(&address, message);
+    let message = emails::verification(name, &verification_link(state, &issued.secret))?;
+    queries::create_verification(&state.pool, address, &issued.hash).await?;
+    state.mailer.send(address, message);
     Ok(())
 }
 

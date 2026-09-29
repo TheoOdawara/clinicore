@@ -4,8 +4,7 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use crate::support::{
-    MOBILE, app_with, config_with, count, fresh_client, fresh_email, json_body, register, request,
-    state_on_redis,
+    MOBILE, app_with, config_with, count, fresh_email, json_body, register, request, state_on_redis,
 };
 
 async fn pending_link(pool: &PgPool, email: &str, secret: &str, expires_in: &str) {
@@ -29,7 +28,6 @@ async fn confirm(app: &axum::Router, secret: &str) -> axum::response::Response {
         "/email-verifications/confirmation",
         &[MOBILE],
         Some(&body),
-        fresh_client(),
     )
     .await
 }

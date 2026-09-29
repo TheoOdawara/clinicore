@@ -7,8 +7,9 @@ use super::responses::{SessionTokens, SessionUser};
 use super::tokens::{access, refresh};
 use super::{SESSION_REFRESHES, SIGN_IN_FAILURES};
 use crate::AppState;
-use crate::credentials::{password, secret};
-use crate::email_verifications::service::request_email_verification;
+use crate::credentials::password::{self, UNMATCHABLE_HASH};
+use crate::credentials::secret;
+use crate::email_verifications::service::resend_verification;
 use crate::http::client::SessionClient;
 use crate::http::rate_limit;
 
@@ -21,24 +22,22 @@ pub async fn sign_in(
 ) -> Result<(SessionUser, SessionTokens), SessionError> {
     let address = email.to_lowercase();
     rate_limit::enforce(&state.redis, SIGN_IN_FAILURES, &address).await?;
-    let credential = queries::find_credential(&state.pool, &address)
-        .await?
-        .and_then(|(user, hash)| hash.map(|hash| (user, hash)));
-    let hash = credential
-        .as_ref()
-        .map_or(state.unmatchable_hash.to_string(), |(_, hash)| hash.clone());
+    let (user, hash) = match queries::find_credential(&state.pool, &address).await? {
+        Some((user, Some(hash))) => (Some(user), hash),
+        _ => (None, UNMATCHABLE_HASH.to_string()),
+    };
 
     let matches = password::verify(hash, password.to_string()).await?;
-    let Some((user, _)) = credential.filter(|_| matches) else {
+    let Some(user) = user.filter(|_| matches) else {
         return Err(SessionError::InvalidCredentials);
     };
     rate_limit::refund(&state.redis, SIGN_IN_FAILURES, &address).await?;
     if !user.email_verified {
-        request_email_verification(state, &address).await?;
+        resend_verification(state, &address, &user.name).await?;
         return Err(SessionError::EmailNotVerified);
     }
 
-    let tokens = open(state, user.id, client, device).await?;
+    let tokens = open_session(state, user.id, client, device).await?;
     Ok((user, tokens))
 }
 
@@ -74,10 +73,10 @@ pub async fn refresh(
         &issued.hash,
     )
     .await?;
-    tokens(state, user_id, session_id, client, &issued.secret)
+    sign_tokens(state, user_id, session_id, client, &issued.secret)
 }
 
-async fn open(
+async fn open_session(
     state: &AppState,
     user_id: Uuid,
     client: SessionClient,
@@ -93,10 +92,10 @@ async fn open(
         device,
     )
     .await?;
-    tokens(state, user_id, session_id, client, &issued.secret)
+    sign_tokens(state, user_id, session_id, client, &issued.secret)
 }
 
-fn tokens(
+fn sign_tokens(
     state: &AppState,
     user_id: Uuid,
     session_id: Uuid,

@@ -3,9 +3,7 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use super::{Transport, WEB_ORIGIN, lifetime_matches, revoked_ttl, session_exists};
-use crate::support::{
-    app_with, fresh_client, fresh_email, json_body, register, request, set_cookie,
-};
+use crate::support::{app_with, fresh_email, json_body, register, request, set_cookie};
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_refresh_rotates_the_tokens_on_each_transport(pool: PgPool) {
@@ -151,7 +149,6 @@ async fn a_refresh_token_renews_only_through_its_own_transport(pool: PgPool) {
         "/sessions/current/tokens",
         &[WEB_ORIGIN, ("cookie", cookie.as_str())],
         None,
-        fresh_client(),
     )
     .await;
 

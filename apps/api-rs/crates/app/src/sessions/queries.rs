@@ -116,11 +116,8 @@ pub async fn rotate_session(
     };
 
     if !found.matches {
-        sqlx::query!("DELETE FROM sessions WHERE id = $1", session_id)
-            .execute(&mut *transaction)
-            .await?;
-        access::revoke(redis, &[session_id]).await?;
-        transaction.commit().await?;
+        transaction.rollback().await?;
+        close_session(pool, redis, session_id).await?;
         return Err(SessionError::SessionReused);
     }
 
@@ -143,14 +140,12 @@ pub async fn close_session(
     redis: &Redis,
     session_id: Uuid,
 ) -> Result<(), SessionError> {
-    let mut transaction = pool.begin().await?;
+    access::revoke(redis, &[session_id]).await?;
     let deleted = sqlx::query!("DELETE FROM sessions WHERE id = $1", session_id)
-        .execute(&mut *transaction)
+        .execute(pool)
         .await?;
     if deleted.rows_affected() == 0 {
         return Err(SessionError::InvalidSession);
     }
-    access::revoke(redis, &[session_id]).await?;
-    transaction.commit().await?;
     Ok(())
 }

@@ -78,7 +78,6 @@ pub fn lazy_state(config: &Config) -> AppState {
         Redis::connect_lazy(config).expect("a lazy redis"),
         Mailer::stub(config, AsyncStubTransport::new_ok()).expect("a valid sender"),
     )
-    .expect("an unmatchable hash")
 }
 
 pub fn state(config: &Config, pool: PgPool, mail: AsyncStubTransport) -> AppState {
@@ -100,7 +99,6 @@ pub fn state_on_redis(
         Redis::connect_lazy(&config).expect("a lazy redis"),
         Mailer::stub(&config, mail).expect("a valid sender"),
     )
-    .expect("an unmatchable hash")
 }
 
 pub const PASSWORD: &str = "Clinica#2026";
@@ -126,7 +124,7 @@ pub fn app_with(pool: &PgPool) -> Router {
 
 pub async fn register(app: &Router, pool: &PgPool, email: &str, verified: bool) {
     let body = json!({"name": "Ana Souza", "email": email, "password": PASSWORD});
-    let response = post_json(app.clone(), "/users", &body, fresh_client()).await;
+    let response = post_json(app.clone(), "/users", &body).await;
     assert_eq!(response.status(), StatusCode::ACCEPTED);
     sqlx::query("UPDATE users SET email_verified = $2 WHERE email = $1")
         .bind(email)
@@ -166,13 +164,8 @@ pub fn fresh_client() -> SocketAddr {
     SocketAddr::from((address, 40000))
 }
 
-pub async fn post_json(
-    app: Router,
-    path: &str,
-    body: &serde_json::Value,
-    client: SocketAddr,
-) -> Response {
-    request(app, "POST", path, &[], Some(body), client).await
+pub async fn post_json(app: Router, path: &str, body: &serde_json::Value) -> Response {
+    request(app, "POST", path, &[], Some(body)).await
 }
 
 pub async fn request(
@@ -181,7 +174,17 @@ pub async fn request(
     path: &str,
     headers: &[(&str, &str)],
     body: Option<&serde_json::Value>,
+) -> Response {
+    request_from(fresh_client(), app, method, path, headers, body).await
+}
+
+pub async fn request_from(
     client: SocketAddr,
+    app: Router,
+    method: &str,
+    path: &str,
+    headers: &[(&str, &str)],
+    body: Option<&serde_json::Value>,
 ) -> Response {
     let mut request = Request::builder()
         .method(method)
@@ -216,7 +219,7 @@ where
 }
 
 pub async fn send(app: Router, method: &str, path: &str) -> Response {
-    request(app, method, path, &[], None, fresh_client()).await
+    request(app, method, path, &[], None).await
 }
 
 pub fn set_cookie(response: &Response, name: &str) -> Option<String> {
@@ -230,8 +233,9 @@ pub fn set_cookie(response: &Response, name: &str) -> Option<String> {
 }
 
 pub fn cookie_value(set_cookie: &str) -> &str {
-    let pair = set_cookie.split(';').next().unwrap_or_default();
-    pair.split_once('=').map_or("", |(_, value)| value)
+    let (pair, _) = set_cookie.split_once(';').unwrap_or((set_cookie, ""));
+    let (_, value) = pair.split_once('=').expect("<name>=<value>");
+    value
 }
 
 pub async fn text_body(response: Response) -> String {

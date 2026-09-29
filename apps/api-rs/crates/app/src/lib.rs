@@ -7,8 +7,6 @@ mod health;
 mod sessions;
 mod users;
 
-use std::sync::Arc;
-
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
@@ -32,25 +30,18 @@ pub struct AppState {
     app_origin: String,
     access_keys: sessions::AccessKeys,
     secure_cookies: bool,
-    unmatchable_hash: Arc<str>,
 }
 
 impl AppState {
-    pub fn new(
-        config: &Config,
-        pool: PgPool,
-        redis: Redis,
-        mailer: Mailer,
-    ) -> Result<Self, argon2::password_hash::Error> {
-        Ok(Self {
+    pub fn new(config: &Config, pool: PgPool, redis: Redis, mailer: Mailer) -> Self {
+        Self {
             pool,
             redis,
             mailer,
             app_origin: config.app_origin.clone(),
             access_keys: sessions::AccessKeys::new(&config.jwt_secret),
             secure_cookies: config.api_url.starts_with("https://"),
-            unmatchable_hash: credentials::password::unmatchable_hash()?.into(),
-        })
+        }
     }
 }
 

@@ -2,8 +2,6 @@ mod current_session;
 mod refresh;
 mod sign_in;
 
-use std::net::SocketAddr;
-
 use axum::Router;
 use axum::http::StatusCode;
 use axum::response::Response;
@@ -11,28 +9,18 @@ use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::support::{
-    MOBILE, PASSWORD, cookie_value, fresh_client, json_body, request, set_cookie,
-};
+use crate::support::{MOBILE, PASSWORD, cookie_value, json_body, request, set_cookie};
 
 pub const WEB_ORIGIN: (&str, &str) = ("origin", "http://localhost:3000");
+
 pub async fn sign_in(
     app: &Router,
     email: &str,
     password: &str,
     headers: &[(&str, &str)],
-    client: SocketAddr,
 ) -> Response {
     let body = json!({"email": email, "password": password});
-    request(
-        app.clone(),
-        "POST",
-        "/sessions",
-        headers,
-        Some(&body),
-        client,
-    )
-    .await
+    request(app.clone(), "POST", "/sessions", headers, Some(&body)).await
 }
 
 pub async fn session_exists(pool: &PgPool, session_id: Uuid) -> bool {
@@ -94,7 +82,7 @@ impl Transport {
             Transport::Web => &[],
             Transport::Mobile => &[MOBILE],
         };
-        let response = sign_in(app, email, PASSWORD, headers, fresh_client()).await;
+        let response = sign_in(app, email, PASSWORD, headers).await;
         assert_eq!(response.status(), StatusCode::CREATED, "{self:?}");
         self.session_from(response).await
     }
@@ -129,7 +117,7 @@ impl Transport {
             Transport::Web => [WEB_ORIGIN, ("cookie", cookie.as_str())],
             Transport::Mobile => [MOBILE, ("authorization", bearer.as_str())],
         };
-        request(app.clone(), method, path, &headers, None, fresh_client()).await
+        request(app.clone(), method, path, &headers, None).await
     }
 
     pub async fn refresh(self, app: &Router, refresh: &str) -> Response {
@@ -138,19 +126,11 @@ impl Transport {
             Transport::Web => {
                 let cookie = format!("clinicore_refresh={refresh}");
                 let headers = [WEB_ORIGIN, ("cookie", cookie.as_str())];
-                request(app.clone(), "POST", path, &headers, None, fresh_client()).await
+                request(app.clone(), "POST", path, &headers, None).await
             }
             Transport::Mobile => {
                 let body = json!({"refreshToken": refresh});
-                request(
-                    app.clone(),
-                    "POST",
-                    path,
-                    &[MOBILE],
-                    Some(&body),
-                    fresh_client(),
-                )
-                .await
+                request(app.clone(), "POST", path, &[MOBILE], Some(&body)).await
             }
         }
     }

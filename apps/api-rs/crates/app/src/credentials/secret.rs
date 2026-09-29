@@ -4,6 +4,8 @@ use sha2::{Digest, Sha256};
 
 use super::error::CredentialError;
 
+pub const PATTERN: &str = "[A-Za-z0-9_-]{43}";
+
 pub struct IssuedSecret {
     pub secret: String,
     pub hash: String,

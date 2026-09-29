@@ -1,6 +1,4 @@
-use crate::support::{
-    config_with, content_type, fresh_client, json_body, request, send, text_body,
-};
+use crate::support::{config_with, content_type, json_body, request, send, text_body};
 use axum::http::StatusCode;
 use serde_json::json;
 
@@ -20,7 +18,6 @@ async fn an_unsupported_method_on_health_answers_404_even_from_a_foreign_origin(
         "/health",
         &[("origin", "https://evil.example"), ("cookie", "session=1")],
         None,
-        fresh_client(),
     )
     .await;
 

@@ -72,7 +72,7 @@ pub async fn sign_in(
         (status = 401, description = "invalid-session", body = Problem, content_type = "application/problem+json")
     )
 )]
-pub async fn current(
+pub async fn read_current_session(
     State(state): State<AppState>,
     session: CurrentSession,
 ) -> Result<Json<SessionResponse>, AppError> {

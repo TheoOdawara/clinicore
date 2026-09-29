@@ -1,9 +1,9 @@
+use std::convert::Infallible;
 use std::net::IpAddr;
 
 use axum::extract::FromRequestParts;
 use axum::http::header::{AUTHORIZATION, USER_AGENT};
 use axum::http::request::Parts;
-use axum_client_ip::ClientIp;
 use axum_extra::extract::cookie::CookieJar;
 use uuid::Uuid;
 
@@ -11,9 +11,11 @@ use super::SESSION_REQUESTS;
 use super::error::SessionError;
 use super::tokens::{access, cookies};
 use crate::AppState;
-use crate::http::client::SessionClient;
+use crate::http::client::{ClientAddress, SessionClient};
 use crate::http::error::AppError;
 use crate::http::rate_limit;
+
+const USER_AGENT_CHARS: usize = 512;
 
 pub struct CurrentSession {
     pub user_id: Uuid,
@@ -41,15 +43,20 @@ impl FromRequestParts<AppState> for CurrentSession {
         };
         let claims = access::verify(&state.access_keys, &token)
             .map_err(SessionError::from)?
-            .filter(|claims| claims.cli == client)
+            .filter(|claims| claims.client == client)
             .ok_or(AppError::InvalidSession)?;
-        if access::is_revoked(&state.redis, claims.sid).await? {
+        if access::is_revoked(&state.redis, claims.session_id).await? {
             return Err(AppError::InvalidSession);
         }
-        rate_limit::enforce(&state.redis, SESSION_REQUESTS, &claims.sid.to_string()).await?;
+        rate_limit::enforce(
+            &state.redis,
+            SESSION_REQUESTS,
+            &claims.session_id.to_string(),
+        )
+        .await?;
         Ok(Self {
-            user_id: claims.sub,
-            session_id: claims.sid,
+            user_id: claims.user_id,
+            session_id: claims.session_id,
         })
     }
 }
@@ -60,18 +67,15 @@ pub struct Device {
 }
 
 impl<State: Send + Sync> FromRequestParts<State> for Device {
-    type Rejection = AppError;
+    type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, state: &State) -> Result<Self, AppError> {
-        let ip_address = ClientIp::from_request_parts(parts, state)
-            .await
-            .ok()
-            .map(|ClientIp(address)| address.to_canonical());
+    async fn from_request_parts(parts: &mut Parts, state: &State) -> Result<Self, Infallible> {
+        let ClientAddress(ip_address) = ClientAddress::from_request_parts(parts, state).await?;
         let user_agent = parts
             .headers
             .get(USER_AGENT)
             .and_then(|value| value.to_str().ok())
-            .map(|value| value.chars().take(512).collect());
+            .map(|value| value.chars().take(USER_AGENT_CHARS).collect());
         Ok(Self {
             ip_address,
             user_agent,

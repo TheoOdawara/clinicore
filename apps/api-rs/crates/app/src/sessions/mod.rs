@@ -31,8 +31,12 @@ pub fn routes(state: &AppState) -> OpenApiRouter {
             routes!(handlers::sign_in).map(|router| router.route_layer(limit("sign-in", 5, 60))),
         )
         .routes(
-            routes!(handlers::current, handlers::sign_out)
+            routes!(handlers::read_current_session)
                 .map(|router| router.route_layer(limit("current-session", 100, 10))),
+        )
+        .routes(
+            routes!(handlers::sign_out)
+                .map(|router| router.route_layer(limit("sign-out", 100, 10))),
         )
         .routes(
             routes!(handlers::refresh)

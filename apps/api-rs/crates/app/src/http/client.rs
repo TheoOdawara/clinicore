@@ -1,7 +1,11 @@
+use std::convert::Infallible;
+use std::net::IpAddr;
+
 use axum::extract::{FromRequestParts, Request};
 use axum::http::request::Parts;
 use axum::middleware::Next;
 use axum::response::Response;
+use axum_client_ip::ClientIp;
 use serde::{Deserialize, Serialize};
 
 use super::error::AppError;
@@ -14,24 +18,32 @@ pub enum SessionClient {
     Mobile,
 }
 
-pub async fn guard(mut request: Request, next: Next) -> Result<Response, AppError> {
-    let client = match request.headers().get("clinicore-client") {
-        None => SessionClient::Web,
-        Some(value) if value == "mobile" => SessionClient::Mobile,
-        Some(_) => return Err(AppError::InvalidClient),
-    };
-    request.extensions_mut().insert(client);
-    Ok(next.run(request).await)
-}
-
 impl<State: Send + Sync> FromRequestParts<State> for SessionClient {
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, _: &State) -> Result<Self, AppError> {
-        parts
-            .extensions
-            .get::<SessionClient>()
-            .copied()
-            .ok_or_else(|| AppError::Internal("the client guard did not run".into()))
+        match parts.headers.get("clinicore-client") {
+            None => Ok(Self::Web),
+            Some(value) if value == "mobile" => Ok(Self::Mobile),
+            Some(_) => Err(AppError::InvalidClient),
+        }
+    }
+}
+
+pub async fn guard(_: SessionClient, request: Request, next: Next) -> Response {
+    next.run(request).await
+}
+
+pub struct ClientAddress(pub Option<IpAddr>);
+
+impl<State: Send + Sync> FromRequestParts<State> for ClientAddress {
+    type Rejection = Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, state: &State) -> Result<Self, Infallible> {
+        let address = ClientIp::from_request_parts(parts, state)
+            .await
+            .ok()
+            .map(|ClientIp(address)| address.to_canonical());
+        Ok(Self(address))
     }
 }

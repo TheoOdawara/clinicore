@@ -4,10 +4,10 @@ use std::time::Duration;
 use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
-use axum_client_ip::{ClientIp, Rejection};
 use clinicore_core::redis::{Redis, RedisError};
 use ipnet::Ipv6Net;
 
+use super::client::ClientAddress;
 use super::error::AppError;
 use crate::AppState;
 
@@ -45,7 +45,7 @@ impl Limit {
 
 pub async fn guard(
     State(limit): State<Limit>,
-    client: Result<ClientIp, Rejection>,
+    client: ClientAddress,
     request: Request,
     next: Next,
 ) -> Result<Response, AppError> {
@@ -86,12 +86,10 @@ fn key(quota: Quota, identity: &str) -> String {
     format!("rate:{}:{identity}", quota.name)
 }
 
-fn client_key(client: Result<ClientIp, Rejection>) -> String {
-    let Ok(ClientIp(address)) = client else {
-        return "unknown".to_string();
-    };
-    match address.to_canonical() {
-        IpAddr::V6(address) => Ipv6Net::new_assert(address, 64).trunc().to_string(),
-        address => address.to_string(),
+fn client_key(ClientAddress(address): ClientAddress) -> String {
+    match address {
+        None => "unknown".to_string(),
+        Some(IpAddr::V6(address)) => Ipv6Net::new_assert(address, 64).trunc().to_string(),
+        Some(address) => address.to_string(),
     }
 }

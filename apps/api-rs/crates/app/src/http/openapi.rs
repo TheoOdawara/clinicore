@@ -1,7 +1,8 @@
 use axum::Router;
+use regex::Regex;
 use utoipa::OpenApi;
 use utoipa::openapi::path::{Operation, ParameterBuilder, ParameterIn};
-use utoipa::openapi::schema::{ObjectBuilder, Type};
+use utoipa::openapi::schema::{Object, ObjectBuilder, Type};
 use utoipa::openapi::{ContentBuilder, Ref, Required, ResponseBuilder};
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -16,6 +17,13 @@ struct ApiDoc;
 
 pub fn document() -> utoipa::openapi::OpenApi {
     ApiDoc::openapi()
+}
+
+pub fn matching(format: &Regex) -> Object {
+    ObjectBuilder::new()
+        .schema_type(Type::String)
+        .pattern(Some(format.as_str()))
+        .build()
 }
 
 pub fn document_guards(api: &mut utoipa::openapi::OpenApi) {

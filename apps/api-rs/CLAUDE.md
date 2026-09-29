@@ -4,7 +4,8 @@ Aditivo ao `CLAUDE.md` da raiz e ao contrato global; em conflito, a raiz vence s
 apenas onde ela falar do mesmo assunto. A stack está em
 `docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md`, a organização dos crates em
 `docs/decisions/0010-api-rs-com-crate-por-processo.md`, o documento OpenAPI em
-`docs/decisions/0011-openapi-da-api-rs-nasce-com-a-rota.md` e a migração em
+`docs/decisions/0011-openapi-da-api-rs-nasce-com-a-rota.md`, a ordem da revogação em
+`docs/decisions/0012-revogacao-de-sessao-antes-de-apagar.md` e a migração em
 `docs/specs/005-migrar-api-para-rust.md`. Na #121 esta pasta vira `apps/api`, e este arquivo vai junto.
 
 **O contrato é o HTTP que o web e o mobile consomem; a forma é a do Rust.** URL, status, cookies,
@@ -80,7 +81,7 @@ crates/
     │           └── mod.rs  access.rs  refresh.rs  cookies.rs
     └── tests/api/
         ├── main.rs  support.rs
-        ├── boot.rs  errors.rs  health.rs  openapi.rs  request_log.rs
+        ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  request_log.rs
         ├── users/  mod.rs  sign_up.rs
         ├── email_verifications/  mod.rs  confirmation.rs
         └── sessions/  mod.rs  sign_in.rs  current_session.rs  refresh.rs
@@ -123,11 +124,12 @@ migrations/  .sqlx/
   dos guards (400, 403, 429, 503) entram sozinhos pelo `document_guards`; o handler declara só as
   respostas próprias, com `body = Problem` e `content_type = "application/problem+json"` no erro.
 - **O `Clinicore-Client` escolhe o transporte em toda rota.** Ausente é `web`, `mobile` é o token no
-  `Authorization`, e qualquer outro valor é `400 invalid-client` antes de tudo. O `SessionClient` sai das
-  extensions, e o `CurrentSession` lê o token só do transporte declarado.
-- **Toda revogação escreve `auth:revoked:<sessão>` no Redis antes do commit**, dentro da função do
-  `queries.rs` que apaga a sessão: logout, reuso do refresh e o teto de 5. Com o Redis fora, a transação
-  desfaz e a rota responde `503`, nunca uma sessão apagada com o access token ainda aceito.
+  `Authorization`, e qualquer outro valor é `400 invalid-client` antes de tudo. O `SessionClient` é o
+  extractor que lê o header, o guard do `with_layers` o extrai em toda rota, e o `CurrentSession` lê o
+  token só do transporte declarado.
+- **Toda revogação escreve `auth:revoked:<sessão>` no Redis antes de a sessão sumir do Postgres**
+  (ADR 0012). O logout e o reuso do refresh revogam e depois apagam, em autocommit; o teto de 5 apaga
+  com `RETURNING`, revoga e faz o commit. Com o Redis fora, nada é apagado e a rota responde `503`.
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
   campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
   O request tem `#[serde(deny_unknown_fields)]`, e campo desconhecido ou de tipo errado sai como
@@ -135,6 +137,9 @@ migrations/  .sqlx/
   O tipo Rust é `<Operação>Request`, e é também o nome do schema no OpenAPI. O `#[serde(default)]`
   faz o utoipa marcar o campo como opcional, então todo campo obrigatório leva também
   `#[schema(required = true)]`; sem ele o cliente Dart o gera como `String?`.
+- **Um formato de token tem uma `Regex` só**, que valida o corpo, entra no schema e confere o token
+  lido do cookie. O segredo é o `credentials::secret::PATTERN`; o `pattern` do schema sai da mesma
+  `Regex` por `schema_with` e `openapi::matching`, porque o `pattern` do utoipa só aceita literal.
 - **Concorrência se resolve no Postgres, sem retry na aplicação.** Unicidade por
   `ON CONFLICT … DO NOTHING`, e a serialização por chave (o registro de envio por endereço) por
   `pg_advisory_xact_lock` dentro da transação.
@@ -235,10 +240,10 @@ migrations/  .sqlx/
   `ConnectInfo`, o socket, que não se forja. Atrás de proxy é o header que só ele escreve
   (`RightmostXForwardedFor`, `CfConnectingIp`, …), e a API só pode ser alcançável por ele: exposta
   direto, o header vem do cliente.
-- **O bind em `::` entrega o IPv4 como `::ffff:a.b.c.d`.** O `client_ip` passa o endereço por
-  `to_canonical()` antes de montar a chave do limite, e agrupa o IPv6 em /64.
+- **O bind em `::` entrega o IPv4 como `::ffff:a.b.c.d`.** O `ClientAddress` de `http/client.rs`
+  passa o endereço por `to_canonical()`, e o limite agrupa o IPv6 em /64 antes de montar a chave.
 - **O `MockConnectInfo` do axum não põe `ConnectInfo` nas extensions**, só o extractor o enxerga. O
-  teste insere `ConnectInfo` direto na requisição, porque o `client_ip` lê as extensions.
+  teste insere `ConnectInfo` direto na requisição, porque o `ClientAddress` lê as extensions.
 - **Postgres e Redis conectam sob demanda.** O boot não espera nenhum dos dois, e com o Redis fora a
   rota limitada responde `503` enquanto o `/health` continua `200`.
 - **O teste de boot roda o binário com `env_clear()`**, para não enxergar o ambiente de quem roda a

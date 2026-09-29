@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use crate::support::{
-    app, capture_log, config_with, content_type, eventually, fresh_client, json_body, post_json,
-    state, text_body,
+    app, capture_log, config_with, content_type, count, eventually, json_body, post_json, state,
+    text_body,
 };
 use axum::http::StatusCode;
 use lettre::transport::stub::AsyncStubTransport;
@@ -13,14 +13,6 @@ const EMAIL: &str = "ana@exemplo.com";
 
 fn sign_up_body(email: &str) -> serde_json::Value {
     json!({"name": "Ana", "email": email, "password": "Clinica#2026"})
-}
-
-async fn count(pool: &PgPool, sql: &'static str, email: &str) -> i64 {
-    sqlx::query_scalar(sql)
-        .bind(email)
-        .fetch_one(pool)
-        .await
-        .expect("a count")
 }
 
 async fn assert_accepted(response: axum::response::Response) {
@@ -35,19 +27,18 @@ async fn sign_up_creates_the_user_and_delivers_the_link(pool: PgPool) {
     let mail = AsyncStubTransport::new_ok();
     let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
 
-    assert_accepted(post_json(app, "/users", &sign_up_body(EMAIL), fresh_client()).await).await;
+    assert_accepted(post_json(app, "/users", &sign_up_body(EMAIL)).await).await;
 
-    let unverified_user = "SELECT count(*) FROM users WHERE email = $1 AND NOT email_verified";
-    let credential_account = "SELECT count(*) FROM accounts JOIN users ON users.id = accounts.user_id
-        WHERE users.email = $1 AND accounts.provider = 'credential' AND accounts.password_hash IS NOT NULL";
+    let unverified_user = "SELECT count(*) FROM users WHERE NOT email_verified";
+    let credential_account =
+        "SELECT count(*) FROM accounts WHERE provider = 'credential' AND password_hash IS NOT NULL";
     let open_verification = "SELECT count(*) FROM verifications
-        WHERE email = $1 AND purpose = 'email_verification' AND consumed_at IS NULL";
-    let dispatch =
-        "SELECT count(*) FROM email_dispatches WHERE email = $1 AND kind = 'email_verification'";
-    assert_eq!(count(&pool, unverified_user, EMAIL).await, 1);
-    assert_eq!(count(&pool, credential_account, EMAIL).await, 1);
-    assert_eq!(count(&pool, open_verification, EMAIL).await, 1);
-    assert_eq!(count(&pool, dispatch, EMAIL).await, 1);
+        WHERE purpose = 'email_verification' AND consumed_at IS NULL";
+    let dispatch = "SELECT count(*) FROM email_dispatches WHERE kind = 'email_verification'";
+    assert_eq!(count(&pool, unverified_user).await, 1);
+    assert_eq!(count(&pool, credential_account).await, 1);
+    assert_eq!(count(&pool, open_verification).await, 1);
+    assert_eq!(count(&pool, dispatch).await, 1);
 
     assert!(eventually(|| async { !mail.messages().await.is_empty() }).await);
     let messages = mail.messages().await;
@@ -69,29 +60,26 @@ async fn a_repeated_sign_up_writes_nothing_sends_nothing_and_answers_the_same(po
         &config,
         state(&config, pool.clone(), AsyncStubTransport::new_ok()),
     );
-    assert_accepted(post_json(setup, "/users", &sign_up_body(EMAIL), fresh_client()).await).await;
+    assert_accepted(post_json(setup, "/users", &sign_up_body(EMAIL)).await).await;
 
     let mail = AsyncStubTransport::new_ok();
     let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
-    let client = fresh_client();
     for _ in 0..3 {
-        assert_accepted(post_json(app.clone(), "/users", &sign_up_body(EMAIL), client).await).await;
+        assert_accepted(post_json(app.clone(), "/users", &sign_up_body(EMAIL)).await).await;
     }
 
-    let users = "SELECT count(*) FROM users WHERE email = $1";
-    let accounts = "SELECT count(*) FROM accounts JOIN users ON users.id = accounts.user_id WHERE users.email = $1";
-    assert_eq!(count(&pool, users, EMAIL).await, 1);
-    assert_eq!(count(&pool, accounts, EMAIL).await, 1);
+    let users = "SELECT count(*) FROM users";
+    assert_eq!(count(&pool, users).await, 1);
+    assert_eq!(count(&pool, "SELECT count(*) FROM accounts").await, 1);
 
-    let racing = fresh_client();
     let racing_body = sign_up_body("bia@exemplo.com");
     let (first, second) = tokio::join!(
-        post_json(app.clone(), "/users", &racing_body, racing),
-        post_json(app.clone(), "/users", &racing_body, racing),
+        post_json(app.clone(), "/users", &racing_body),
+        post_json(app.clone(), "/users", &racing_body),
     );
     assert_accepted(first).await;
     assert_accepted(second).await;
-    assert_eq!(count(&pool, users, "bia@exemplo.com").await, 1);
+    assert_eq!(count(&pool, users).await, 2);
 
     tokio::time::sleep(Duration::from_millis(100)).await;
     let delivered: Vec<String> = mail
@@ -112,14 +100,14 @@ async fn a_failing_smtp_keeps_the_sign_up_and_the_answer_and_logs_the_failure(po
         state(&config, pool.clone(), AsyncStubTransport::new_error()),
     );
 
-    assert_accepted(post_json(app, "/users", &sign_up_body(EMAIL), fresh_client()).await).await;
+    assert_accepted(post_json(app, "/users", &sign_up_body(EMAIL)).await).await;
 
-    let users = "SELECT count(*) FROM users WHERE email = $1";
-    let accounts = "SELECT count(*) FROM accounts JOIN users ON users.id = accounts.user_id WHERE users.email = $1";
-    let dispatches = "SELECT count(*) FROM email_dispatches WHERE email = $1";
-    assert_eq!(count(&pool, users, EMAIL).await, 1);
-    assert_eq!(count(&pool, accounts, EMAIL).await, 1);
-    assert_eq!(count(&pool, dispatches, EMAIL).await, 1);
+    assert_eq!(count(&pool, "SELECT count(*) FROM users").await, 1);
+    assert_eq!(count(&pool, "SELECT count(*) FROM accounts").await, 1);
+    assert_eq!(
+        count(&pool, "SELECT count(*) FROM email_dispatches").await,
+        1
+    );
 
     let failure_logged = || async {
         log.lines().iter().any(|line| {
@@ -157,7 +145,7 @@ async fn an_invalid_body_answers_400_pointing_at_each_field() {
     ];
 
     for (body, errors) in cases {
-        let response = post_json(app(&config_with(&[])), "/users", &body, fresh_client()).await;
+        let response = post_json(app(&config_with(&[])), "/users", &body).await;
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{body}");
         assert!(content_type(&response).starts_with("application/problem+json"));

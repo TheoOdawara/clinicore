@@ -1,10 +1,27 @@
+use std::sync::LazyLock;
 use std::time::Duration;
 
+use regex::Regex;
+use utoipa::openapi::schema::Object;
 use uuid::Uuid;
 
+use crate::credentials::secret;
 use crate::http::client::SessionClient;
+use crate::http::openapi;
 
 pub const ABSOLUTE_LIFETIME: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+
+pub static FORMAT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(
+        r"^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}\.{}$",
+        secret::PATTERN
+    ))
+    .expect("a valid pattern")
+});
+
+pub fn schema() -> Object {
+    openapi::matching(&FORMAT)
+}
 
 pub fn lifetime(client: SessionClient) -> Duration {
     match client {
@@ -18,13 +35,9 @@ pub fn compose(session_id: Uuid, secret: &str) -> String {
 }
 
 pub fn parse(raw: &str) -> Option<(Uuid, &str)> {
-    let (session_id, secret) = raw.split_once('.')?;
-    let is_secret = secret.len() == 43
-        && secret
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_');
-    if !is_secret {
+    if !FORMAT.is_match(raw) {
         return None;
     }
+    let (session_id, secret) = raw.split_once('.')?;
     Uuid::try_parse(session_id).ok().map(|id| (id, secret))
 }

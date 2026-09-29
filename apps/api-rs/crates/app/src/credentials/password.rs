@@ -33,11 +33,7 @@ pub async fn verify(hash: String, password: String) -> Result<bool, CredentialEr
     }
 }
 
-pub fn unmatchable_hash() -> Result<String, Error> {
-    Argon2::default()
-        .hash_password(b"a hash no account owns, verified so an unknown email costs the same")
-        .map(|hash| hash.to_string())
-}
+pub const UNMATCHABLE_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$ggfuwG4ACktlFlCm+IYpRQ$85TQMLv3S0xBlNO3Mcz0dnha4o6lB3vUVFM9Xd7BzIQ";
 
 async fn on_a_hashing_slot<Output: Send + 'static>(
     work: impl FnOnce() -> Output + Send + 'static,

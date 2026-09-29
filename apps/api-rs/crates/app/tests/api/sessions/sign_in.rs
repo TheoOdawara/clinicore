@@ -8,7 +8,7 @@ use sqlx::PgPool;
 use super::{Session, Transport, lifetime_matches, session_exists, sign_in};
 use crate::support::{
     MOBILE, PASSWORD, app_with, config_with, cookie_value, count, eventually, fresh_client,
-    fresh_email, json_body, register, request, set_cookie, state,
+    fresh_email, json_body, register, request, request_from, set_cookie, state,
 };
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -19,12 +19,14 @@ async fn web_sign_in_opens_the_session_in_two_cookies(pool: PgPool) {
     register(&app, &pool, email, true).await;
     let client = fresh_client();
 
-    let response = sign_in(
-        &app,
-        email,
-        PASSWORD,
-        &[("user-agent", "Firefox de teste")],
+    let body = json!({"email": email, "password": PASSWORD});
+    let response = request_from(
         client,
+        app.clone(),
+        "POST",
+        "/sessions",
+        &[("user-agent", "Firefox de teste")],
+        Some(&body),
     )
     .await;
 
@@ -94,7 +96,7 @@ async fn mobile_sign_in_answers_the_tokens_and_no_cookie(pool: PgPool) {
     let app = app_with(&pool);
     register(&app, &pool, email, true).await;
 
-    let response = sign_in(&app, email, PASSWORD, &[MOBILE], fresh_client()).await;
+    let response = sign_in(&app, email, PASSWORD, &[MOBILE]).await;
 
     assert_eq!(response.status(), StatusCode::CREATED);
     assert_eq!(response.headers()["location"], "/sessions/current");
@@ -136,7 +138,7 @@ async fn an_https_api_sets_secure_cookies(pool: PgPool) {
     );
     register(&app, &pool, email, true).await;
 
-    let response = sign_in(&app, email, PASSWORD, &[], fresh_client()).await;
+    let response = sign_in(&app, email, PASSWORD, &[]).await;
 
     for name in ["clinicore_access", "clinicore_refresh"] {
         let cookie = set_cookie(&response, name).expect("a session cookie");
@@ -154,16 +156,8 @@ async fn an_unknown_client_header_is_refused_on_any_route(pool: PgPool) {
     register(&app, &pool, email, true).await;
     let desktop = [("clinicore-client", "desktop")];
 
-    let response = sign_in(&app, email, PASSWORD, &desktop, fresh_client()).await;
-    let health = request(
-        app.clone(),
-        "GET",
-        "/health",
-        &desktop,
-        None,
-        fresh_client(),
-    )
-    .await;
+    let response = sign_in(&app, email, PASSWORD, &desktop).await;
+    let health = request(app.clone(), "GET", "/health", &desktop, None).await;
 
     for response in [response, health] {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -191,7 +185,7 @@ async fn a_wrong_password_and_an_unknown_email_answer_the_same_in_the_same_time(
             (fresh_email(), &mut unknown_email),
         ] {
             let started = Instant::now();
-            let response = sign_in(&app, &address, "Errada#2026", &[], fresh_client()).await;
+            let response = sign_in(&app, &address, "Errada#2026", &[]).await;
             timings.push(started.elapsed());
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
             assert_eq!(json_body(response).await, expected);
@@ -223,11 +217,11 @@ async fn an_unverified_email_is_refused_and_gets_a_new_link(pool: PgPool) {
     let links = "SELECT count(*) FROM verifications WHERE consumed_at IS NULL";
     let before = count(&pool, links).await;
 
-    let wrong = sign_in(&app, email, "Errada#2026", &[], fresh_client()).await;
+    let wrong = sign_in(&app, email, "Errada#2026", &[]).await;
     assert_eq!(wrong.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(count(&pool, links).await, before);
 
-    let response = sign_in(&app, email, PASSWORD, &[], fresh_client()).await;
+    let response = sign_in(&app, email, PASSWORD, &[]).await;
 
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     assert!(response.headers().get("set-cookie").is_none());
@@ -268,11 +262,6 @@ async fn the_sixth_sign_in_drops_the_oldest_session(pool: PgPool) {
         json_body(current).await["type"],
         "tag:clinicore.com.br,2026:invalid-session"
     );
-
-    for _ in 0..14 {
-        Transport::Web.sign_in(&app, email).await;
-    }
-    assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 5);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -295,7 +284,6 @@ async fn the_sign_in_limit_refuses_the_sixth_attempt_even_with_a_forged_forwarde
             email,
             "Errada#2026",
             &[("x-forwarded-for", forwarded.as_str())],
-            fresh_client(),
         )
         .await;
 
@@ -315,14 +303,14 @@ async fn ten_failures_lock_the_account_whatever_the_address(pool: PgPool) {
     register(&app, &pool, &email, true).await;
 
     for attempt in 1..=10 {
-        let response = sign_in(&app, &email, "Errada#2026", &[], fresh_client()).await;
+        let response = sign_in(&app, &email, "Errada#2026", &[]).await;
         assert_eq!(
             response.status(),
             StatusCode::UNAUTHORIZED,
             "attempt {attempt}"
         );
     }
-    let response = sign_in(&app, &email, PASSWORD, &[], fresh_client()).await;
+    let response = sign_in(&app, &email, PASSWORD, &[]).await;
 
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(

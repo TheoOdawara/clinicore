@@ -1,4 +1,4 @@
-use crate::support::{capture_log, config_with, content_type, fresh_client, json_body, request};
+use crate::support::{capture_log, config_with, content_type, json_body, request};
 use axum::http::StatusCode;
 use axum::routing::get;
 use clinicore_app::http::error::AppError;
@@ -33,7 +33,6 @@ async fn an_unhandled_error_answers_500_without_detail_through_cors_and_logs_the
             path,
             &[("origin", "http://localhost:3000")],
             None,
-            fresh_client(),
         )
         .await;
 
