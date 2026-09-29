@@ -181,7 +181,7 @@ nosso, não algo que o usuário possa corrigir. Os dois caem na mensagem genéri
 para o console, como manda o parágrafo acima.
 
 **Não existe `type` de senha fraca na API.** Senha fora da política volta como `validation-failed`, com
-`{ "pointer": "#/password", "code": "WEAK_PASSWORD" }` em `errors`. A mensagem de senha fraca que o
+`{ "pointer": "#/password", "code": "weak_password" }` em `errors`. A mensagem de senha fraca que o
 usuário lê é escrita no navegador, pela regra 4, antes de qualquer requisição sair.
 
 Mensagens validadas apenas no navegador, sem `type` correspondente na API:

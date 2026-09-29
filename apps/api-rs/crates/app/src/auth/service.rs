@@ -21,8 +21,7 @@ pub async fn sign_up(
         &password_hash,
         &issued.hash,
     )
-    .await
-    .map_err(AppError::internal)?;
+    .await?;
 
     if outcome == SignUpOutcome::CreatedWithToken {
         state.mailer.send(&address, message);
@@ -32,16 +31,12 @@ pub async fn sign_up(
 
 pub async fn request_email_verification(state: &AppState, email: &str) -> Result<(), AppError> {
     let address = email.to_lowercase();
-    let accepted = queries::register_verification(&state.pool, &address)
-        .await
-        .map_err(AppError::internal)?;
+    let accepted = queries::register_verification(&state.pool, &address).await?;
     if !accepted {
         return Ok(());
     }
 
-    let found = queries::find_by_email(&state.pool, &address)
-        .await
-        .map_err(AppError::internal)?;
+    let found = queries::find_by_email(&state.pool, &address).await?;
     let Some(user) = found.filter(|user| !user.email_verified) else {
         return Ok(());
     };
@@ -49,9 +44,7 @@ pub async fn request_email_verification(state: &AppState, email: &str) -> Result
     let issued = token::issue()?;
     let message =
         messages::email_verification(&user.name, &verification_link(state, &issued.secret))?;
-    queries::create_email_verification(&state.pool, &address, &issued.hash)
-        .await
-        .map_err(AppError::internal)?;
+    queries::create_email_verification(&state.pool, &address, &issued.hash).await?;
     state.mailer.send(&address, message);
     Ok(())
 }

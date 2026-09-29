@@ -298,7 +298,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
   sobre essa função, usado nos DTOs de `sign-up`, `reset-password` e `change-password`. **A guarda fica
   no DTO, não em cada service.**
 - O `ValidationPipe` global recusa com `400 VALIDATION_FAILED` e
-  `errors: [{ "pointer": "#/password", "code": "WEAK_PASSWORD" }]`, ou `#/newPassword` (regra 10).
+  `errors: [{ "pointer": "#/password", "code": "weak_password" }]`, ou `#/newPassword` (regra 10).
 - A senha é hasheada com `@node-rs/argon2`, algoritmo `Argon2id`, nos parâmetros padrão da biblioteca.
   O hash vive em `account.passwordHash` e nunca em `user`.
 
@@ -435,7 +435,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
   `transform: true`, e um `exceptionFactory` que lança `VALIDATION_FAILED` com `errors`: um item por
   campo, com `pointer` em JSON Pointer (`#/email`, `#/address/zip`) e `code` com o **nome da primeira
   restrição violada**, em maiúsculas com sublinhado:
-  `[{ "pointer": "#/email", "code": "IS_EMAIL" }, { "pointer": "#/password", "code": "WEAK_PASSWORD" }]`.
+  `[{ "pointer": "#/email", "code": "email" }, { "pointer": "#/password", "code": "weak_password" }]`.
   O texto que a pessoa lê é escrito no web a partir do `type` e desses códigos, nunca do `title`.
 - **Um `HttpException` do próprio Nest mantém o status e usa `about:blank`.** Rota inexistente
   continua `404`, método errado continua `405`, e o `title` é a frase padrão do status
@@ -879,7 +879,7 @@ E repetir `DELETE /sessions/current` com o mesmo cookie responde `401` e não al
 Dado o decorator de política de senha ativo nos DTOs
 Quando `sem_maiuscula#1`, `SEM_DIGITO#a`, `SemEspecial1` ou `Aa#1` são enviados como senha
 Então cada um responde `400` com o código `VALIDATION_FAILED`
-E `errors` traz o `pointer` do campo da senha com o `code` `WEAK_PASSWORD`
+E `errors` traz o `pointer` do campo da senha com o `code` `weak_password`
 E o mesmo vale nas rotas `/users`, `/password-resets/confirmation` e `/users/me/password`
 E nenhuma linha é gravada em `user`, `account` ou `verification`
 E `Clinica#2026` é aceita nas três

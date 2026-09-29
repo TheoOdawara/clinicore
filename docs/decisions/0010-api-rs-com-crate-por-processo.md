@@ -38,8 +38,13 @@ go-live. É isso que merece fronteira de crate. Camada não merece.
   misturada, nunca de um padrão a cumprir.
 - **SQL só em `queries.rs` da feature**, por `query!` ou `query_as!`, e transação só lá. SQL montado
   por `format!` ou concatenação continua proibido.
-- **O `AppError` do `app` implementa o `IntoResponse` direto.** O newtype `ApiError(AppError)` da 0009
-  existia só por causa da orphan rule entre dois crates, e deixa de ser necessário.
+- **O `AppError` do `app` é um `enum` do `thiserror` e implementa o `IntoResponse` direto.** O
+  newtype `ApiError(AppError)` da 0009 existia só por causa da orphan rule entre dois crates, e deixa
+  de ser necessário. Cada variante sabe o próprio status, o `sqlx::Error` entra pelo `#[from]`, e a
+  rejeição do `ValidJson` é o mesmo `AppError`.
+- **O código de campo é o do `validator`** (`email`, `length`, `weak_password`), e campo desconhecido
+  ou de tipo errado sai como `invalid`. A 0009 mandava repetir os códigos da implementação anterior;
+  nenhum cliente os lê, e a forma do Rust vence.
 
 ## Consequences
 

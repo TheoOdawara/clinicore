@@ -7,7 +7,6 @@ use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{HeaderValue, Method, StatusCode};
-use axum::response::Response;
 use axum::routing::get;
 use clinicore_core::config::{AppEnv, Config};
 use clinicore_core::mail::Mailer;
@@ -85,6 +84,6 @@ pub fn serve_layers(router: Router, config: &Config) -> Router {
         )
 }
 
-async fn not_found() -> Response {
-    http::error::blank_problem(StatusCode::NOT_FOUND)
+async fn not_found() -> http::error::AppError {
+    http::error::AppError::Rejected(StatusCode::NOT_FOUND)
 }

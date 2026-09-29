@@ -6,9 +6,10 @@ apenas onde ela falar do mesmo assunto. A stack está em
 `docs/decisions/0010-api-rs-com-crate-por-processo.md` e a migração em
 `docs/specs/005-migrar-api-para-rust.md`. Na #121 esta pasta vira `apps/api`, e este arquivo vai junto.
 
-**A paridade com o NestJS é do comportamento que o cliente observa, nunca da implementação.** Status,
-corpo, códigos de `errors[].code`, cookies, limites e e-mail enviado ficam iguais; schema, transação,
-validação e nomes internos seguem o idioma do Rust, do axum e do Postgres.
+**O contrato é o HTTP que o web e o mobile consomem; a forma é a do Rust.** URL, status, cookies,
+limites, e-mail enviado e o formato Problem Details são contrato. Códigos de campo, validação, schema,
+transação e nomes internos seguem o idioma do Rust, do axum e do Postgres, e o `apps/api` não é
+referência de implementação.
 
 ## Comandos
 
@@ -91,10 +92,10 @@ migrations/  .sqlx/
 - **A ordem de uma rota limitada é origem, limite, validação.** O guard de `Origin` é `route_layer` do
   `serve_layers`, o limite é `route_layer` da própria rota e a validação é o extractor `ValidJson`, então
   uma origem recusada não conta no limite e um corpo inválido conta.
-- **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O código do
-  `validator` já é o `code` do contrato (`IS_EMAIL`, `LENGTH`, `WEAK_PASSWORD`); campo desconhecido
-  sai como `WHITELIST_VALIDATION`, tipo errado como `IS_STRING`, JSON malformado como `400 about:blank`
-  e content-type que não é JSON como `415`. O tipo Rust é `<Operação>Request`, e o nome do schema no
+- **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
+  campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
+  O request tem `#[serde(deny_unknown_fields)]`, e campo desconhecido ou de tipo errado sai como
+  `invalid`. JSON malformado sai como `400 about:blank`, e content-type que não é JSON como `415`. O tipo Rust é `<Operação>Request`, e o nome do schema no
   OpenAPI é fixado por `#[schema(as = …)]` onde o cliente Dart depende dele.
 - **Concorrência se resolve no Postgres, sem retry na aplicação.** Unicidade por
   `ON CONFLICT … DO NOTHING`, e a serialização por chave (o registro de envio por endereço) por
@@ -107,12 +108,15 @@ migrations/  .sqlx/
   HTTP diz a operação. Token nunca vai no path. A única exceção é o OAuth, em `/oauth/<provedor>`.
 - **Todo erro é Problem Details da RFC 9457** (ADR 0006), em `application/problem+json`, montado só
   pelo `crates/app/src/http/error.rs`:
-  - O `AppError` implementa o `IntoResponse`, e o handler devolve `Result<_, AppError>`.
-  - O catálogo (`ErrorCode` → status, slug e `title`) mora no `catalog()`, e o `type` é
-    `tag:clinicore.com.br,2026:<slug>`.
-  - `blank_problem(status)` é o único montador de `about:blank`, usado pelo fallback, pelo panic e
-    pelo `AppError::Internal`.
-  - `AppError::Internal` e panic viram `500` sem detalhe, com a causa logada em `error`.
+  - O `AppError` é um `enum` do `thiserror` e implementa o `IntoResponse`. Handler, extractor e
+    middleware devolvem `Result<_, AppError>`, e ninguém fora do `error.rs` monta resposta de erro.
+  - Cada variante com código leva status, slug e `title`; o `type` é
+    `tag:clinicore.com.br,2026:<slug>`. `Rejected(status)` é o `about:blank` do protocolo: 404, 415,
+    JSON malformado e corpo grande.
+  - O `sqlx::Error` vira `AppError::Database` pelo `#[from]`, então o `?` basta. Outra falha
+    inesperada entra por `AppError::internal(causa)`.
+  - Erro de uma feature só nasce como `enum` na feature, com `impl From<ErroDaFeature> for AppError`.
+  - `Database`, `Internal` e panic viram `500` sem detalhe, com a causa logada em `error`.
 
 ## Segredos
 

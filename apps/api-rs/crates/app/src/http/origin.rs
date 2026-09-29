@@ -7,7 +7,7 @@ use axum::middleware::Next;
 use axum::response::Response;
 use clinicore_core::config::Config;
 
-use super::error::{AppError, ErrorCode};
+use super::error::AppError;
 
 #[derive(Clone)]
 pub struct AllowedOrigins(Arc<Vec<String>>);
@@ -36,7 +36,7 @@ pub async fn guard(
         .and_then(|value| value.to_str().ok())
         .is_some_and(|origin| allowed.0.iter().any(|item| item == origin));
     if !is_allowed {
-        return Err(AppError::Business(ErrorCode::InvalidOrigin));
+        return Err(AppError::InvalidOrigin);
     }
 
     Ok(next.run(request).await)

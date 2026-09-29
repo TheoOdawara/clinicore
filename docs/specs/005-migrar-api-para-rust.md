@@ -41,9 +41,9 @@ como hoje.
 
 ### Request
 
-Idêntica, campo a campo, às specs de origem: os mesmos nomes, tipos, obrigatoriedades, limites e
-códigos de restrição em `errors[].code`. Campo desconhecido no corpo continua recusado com
-`400 VALIDATION_FAILED` (003, Cenário 12).
+Idêntica, campo a campo, às specs de origem: os mesmos nomes, tipos, obrigatoriedades e limites. O
+`errors[].code` de cada campo é o do `validator` (`email`, `length`, `weak_password`), e campo
+desconhecido ou de tipo errado sai como `invalid`, sempre em `400 VALIDATION_FAILED` (003, Cenário 12).
 
 ### Response
 
@@ -65,10 +65,11 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 
 ## Regras de Negócio
 
-### 1. Paridade observável
+### 1. Contrato observável
 
-- Toda requisição que a API NestJS atende hoje recebe da API Rust a mesma resposta: mesmo status,
-  mesmo corpo JSON, mesmos cookies com os mesmos atributos e os mesmos headers de contrato.
+- Toda rota das specs de origem responde na API Rust com a mesma URL, o mesmo status, os mesmos
+  cookies com os mesmos atributos e os mesmos headers de contrato. O corpo segue o Problem Details
+  da ADR 0006; os códigos de campo em `errors[].code` são os do Rust (seção Request).
 - Os limites continuam iguais: os por IP da regra 11 da 003 e da regra 8 da 004, o limite por
   endereço da regra 15 da 003, e o teto de 5 sessões da regra 16 da 003.
 - **O IP do cliente muda de mecanismo.** `TRUSTED_PROXIES` e o percurso do `trust proxy` do Express

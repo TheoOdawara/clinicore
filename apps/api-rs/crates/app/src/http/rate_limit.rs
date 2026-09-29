@@ -7,7 +7,7 @@ use axum_client_ip::{ClientIp, Rejection};
 use clinicore_core::redis::Redis;
 
 use super::client_ip;
-use super::error::{AppError, ErrorCode};
+use super::error::AppError;
 use crate::AppState;
 
 #[derive(Clone)]
@@ -38,10 +38,10 @@ pub async fn guard(
     let key = format!("rate:{}:{}", limit.route, client_ip::tracker(client));
     let hits = limit.redis.hit(&key, limit.window).await.map_err(|error| {
         tracing::error!(cause = %error, "the rate limit store is unreachable");
-        AppError::Business(ErrorCode::ServiceUnavailable)
+        AppError::Unavailable
     })?;
     if hits > limit.count {
-        return Err(AppError::Business(ErrorCode::RateLimited));
+        return Err(AppError::RateLimited);
     }
     Ok(next.run(request).await)
 }

@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use crate::support::{
-    CapturedLog, config_with, eventually, fresh_client, post_json, state, text_body,
+    CapturedLog, app, config_with, content_type, eventually, fresh_client, json_body, post_json,
+    state, text_body,
 };
 use axum::http::StatusCode;
 use lettre::transport::stub::AsyncStubTransport;
@@ -129,4 +130,43 @@ async fn a_failing_smtp_keeps_the_sign_up_and_the_answer_and_logs_the_failure(po
         })
     };
     assert!(eventually(failure_logged).await, "{:?}", log.lines());
+}
+
+#[tokio::test]
+async fn an_invalid_body_answers_400_pointing_at_each_field() {
+    let cases = [
+        (
+            json!({"name": " ", "email": "not-an-email", "password": "weak"}),
+            json!([
+                {"pointer": "#/email", "code": "email"},
+                {"pointer": "#/name", "code": "length"},
+                {"pointer": "#/password", "code": "weak_password"}
+            ]),
+        ),
+        (
+            json!({"name": 5, "email": EMAIL, "password": "Clinica#2026"}),
+            json!([{"pointer": "#/name", "code": "invalid"}]),
+        ),
+        (
+            json!({"name": "Ana", "email": EMAIL, "password": "Clinica#2026", "role": "admin"}),
+            json!([{"pointer": "#/role", "code": "invalid"}]),
+        ),
+    ];
+
+    for (body, errors) in cases {
+        let response = post_json(app(&config_with(&[])), "/users", &body, fresh_client()).await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{body}");
+        assert!(content_type(&response).starts_with("application/problem+json"));
+        assert_eq!(
+            json_body(response).await,
+            json!({
+                "type": "tag:clinicore.com.br,2026:validation-failed",
+                "title": "Validation failed",
+                "status": 400,
+                "errors": errors
+            }),
+            "{body}"
+        );
+    }
 }

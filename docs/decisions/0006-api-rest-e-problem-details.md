@@ -82,7 +82,7 @@ As rotas da spec 003 passam a ser:
   "type": "tag:clinicore.com.br,2026:validation-failed",
   "title": "Validation failed",
   "status": 400,
-  "errors": [{ "pointer": "#/password", "code": "WEAK_PASSWORD" }]
+  "errors": [{ "pointer": "#/password", "code": "weak_password" }]
 }
 ```
 
