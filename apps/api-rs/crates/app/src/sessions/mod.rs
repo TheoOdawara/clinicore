@@ -5,7 +5,7 @@ mod queries;
 mod requests;
 mod responses;
 mod service;
-mod tokens;
+pub(crate) mod tokens;
 
 use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};
 use utoipa_axum::routes;

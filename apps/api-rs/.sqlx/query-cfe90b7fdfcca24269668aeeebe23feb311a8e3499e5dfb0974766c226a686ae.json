@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT users.id, users.name, users.email, users.email_verified, users.image, accounts.password_hash\n        FROM users\n        LEFT JOIN accounts ON accounts.user_id = users.id AND accounts.provider = 'credential'\n        WHERE users.email = $1",
+  "query": "SELECT users.id, users.name, users.email, users.email_verified, users.image,\n            accounts.password_hash AS \"password_hash!\"\n        FROM users\n        JOIN accounts ON accounts.user_id = users.id AND accounts.provider = 'credential'\n        WHERE users.email = $1",
   "describe": {
     "columns": [
       {
@@ -60,7 +60,7 @@
       },
       {
         "ordinal": 5,
-        "name": "password_hash",
+        "name": "password_hash!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -84,5 +84,5 @@
       true
     ]
   },
-  "hash": "06363c25ad1880f9211afef2ed2fc8e88c8b2528fd86736410d41a7356bfed17"
+  "hash": "cfe90b7fdfcca24269668aeeebe23feb311a8e3499e5dfb0974766c226a686ae"
 }

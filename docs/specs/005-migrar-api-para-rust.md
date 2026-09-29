@@ -77,15 +77,19 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
   o proxy escreve. O Cenário 26 da 003 é portado com `RightmostXForwardedFor`, e o IP contado é o
   último salto do `x-forwarded-for`, o que o proxy acrescentou.
 - **Validação:** cada cenário Gherkin das specs 002, 003 e 004 cuja rota existe hoje é portado para um
-  teste de integração em `crates/app/tests/` e passa contra a API Rust. Ficam de fora a regra 17 da
+  teste de integração em `crates/app/tests/` e passa contra a API Rust. Ficam de fora o Cenário 34 da
   003 (#71) e as regras 5 a 9 da 004 (#94 e #100), que não estão implementadas.
 - Cada cenário de origem pertence à primeira task em que todas as rotas que ele chama existem. O
   mecanismo é construído onde o escopo da task diz; o teste de ponta a ponta fecha na task dona do
   cenário.
-- Quatro cenários de origem são adaptados ao Rust:
+- Cinco cenários de origem são adaptados ao Rust:
   - O Cenário 4 da 002 e o Cenário 35 da 003 provam o TypeORM e são substituídos pelos Cenários 1 e 7
     desta spec: o schema vem só da migration sqlx, e o `.sqlx/` é conferido contra as consultas.
   - O Cenário 29 da 003 é portado sem a linha do worker, que é a #71.
+  - **A regra 17 da 003 roda dentro da API, sem fila.** O `purge::run` apaga o que venceu ao subir e
+    a cada 24 horas, em toda réplica, porque o `DELETE` repetido apaga zero linhas. A sessão passada
+    do teto de 30 dias também é apagada, porque nenhum refresh a renova. O Cenário 33 é portado
+    chamando o `purge_expired` direto; o 34 é da #71.
   - O Cenário 28 da 003 confere a causa no log em nível `error` pelo `tracing`, no lugar da stack no
     log do Pino.
 
@@ -313,8 +317,8 @@ E o CI tem o job api rodando os gates do Rust e nenhum job Node para a API
 
 ## Fora de Escopo
 
-- **#71, o job diário de limpeza.** O Rust não tem par oficial do BullMQ, e a fila e o agendador são
-  escolhidos na spec dela.
+- **#71, a fila e o worker.** O Rust não tem par oficial do BullMQ, e a fila e o agendador são
+  escolhidos na spec dela, que leva a purga para o `crates/worker/`.
 - **#94, #100 e #109.** Congeladas até a task 7; são implementadas depois, já em Rust.
 - **Dockerfile e deploy.** Não existem hoje para a API.
 - **O `compose.yaml` da raiz**, que o `CLAUDE.md` cita e não existe. Resolvido quando o deploy for

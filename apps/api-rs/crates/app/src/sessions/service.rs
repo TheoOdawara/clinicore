@@ -23,8 +23,8 @@ pub async fn sign_in(
     let address = email.to_lowercase();
     rate_limit::enforce(&state.redis, SIGN_IN_FAILURES, &address).await?;
     let (user, hash) = match queries::find_credential(&state.pool, &address).await? {
-        Some((user, Some(hash))) => (Some(user), hash),
-        _ => (None, UNMATCHABLE_HASH.to_string()),
+        Some((user, hash)) => (Some(user), hash),
+        None => (None, UNMATCHABLE_HASH.to_string()),
     };
 
     let matches = password::verify(hash, password.to_string()).await?;

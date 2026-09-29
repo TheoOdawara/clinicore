@@ -24,11 +24,15 @@ edition 2024).
 | Análise estática | `cargo clippy --all-targets -- -D warnings`                                                                             |
 | Build            | `cargo build`                                                                                                           |
 | Schema           | `infisical run --path=/api -- sqlx migrate run` · `infisical run --path=/api -- cargo sqlx prepare --workspace --check` |
+| Dependências     | `cargo audit --ignore RUSTSEC-2023-0071`                                                                                |
 | Testes           | `infisical run --path=/api -- cargo test`                                                                               |
 
 O `sqlx-cli` é instalado com
 `cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls`,
-a mesma versão do job `api-rs` do CI. O `compose.yaml` sobe o Postgres 18 e o Redis 8 de
+a mesma versão do job `api-rs` do CI, e o `cargo-audit` com
+`cargo install cargo-audit --version 0.22.2 --locked`. **A RUSTSEC-2023-0071 é ignorada** porque o
+`rsa` vem do backend `rust_crypto` do `jsonwebtoken`, e a API só assina e confere HS256, sem chave RSA
+para o ataque de tempo alcançar. O `compose.yaml` sobe o Postgres 18 e o Redis 8 de
 desenvolvimento com `infisical run --path=/api -- docker compose up -d --wait`, e as portas e as credenciais vêm do
 Infisical.
 
@@ -58,6 +62,7 @@ crates/
     │   ├── main.rs                                  liga o servidor
     │   ├── lib.rs                                   AppState, Router e camadas do tower
     │   ├── telemetry.rs                             o subscriber do tracing, do processo inteiro
+    │   ├── purge.rs                                 a limpeza diária do que venceu
     │   ├── http/                                    o encanamento HTTP
     │   │   ├── mod.rs
     │   │   ├── error.rs  validation.rs  request_log.rs  openapi.rs
@@ -81,7 +86,7 @@ crates/
     │           └── mod.rs  access.rs  refresh.rs  cookies.rs
     └── tests/api/
         ├── main.rs  support.rs
-        ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  request_log.rs
+        ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  purge.rs  request_log.rs
         ├── users/  mod.rs  sign_up.rs
         ├── email_verifications/  mod.rs  confirmation.rs
         └── sessions/  mod.rs  sign_in.rs  current_session.rs  refresh.rs
@@ -130,6 +135,16 @@ migrations/  .sqlx/
 - **Toda revogação escreve `auth:revoked:<sessão>` no Redis antes de a sessão sumir do Postgres**
   (ADR 0012). O logout e o reuso do refresh revogam e depois apagam, em autocommit; o teto de 5 apaga
   com `RETURNING`, revoga e faz o commit. Com o Redis fora, nada é apagado e a rota responde `503`.
+- **A denylist exige um Redis que persiste.** O `compose.yaml` sobe o Redis com `--appendonly yes`, e
+  todo ambiente faz o mesmo: um Redis que reinicia vazio devolve a validade aos access tokens de
+  sessões apagadas nos últimos 15 minutos.
+- **Apagar um usuário revoga as sessões dele antes do `DELETE`.** O `ON DELETE CASCADE` apaga as
+  linhas de `sessions` sem passar pela denylist, e o access token de cada uma continuaria aceito.
+- **A purga do que venceu roda dentro da API, uma vez por dia**, no `purge::run` que o `main.rs` dispara.
+  Ela apaga a sessão vencida ou passada do teto de 30 dias, a verificação vencida e o envio de mais de
+  24 horas, sem escrever na denylist, porque o access token de uma sessão vencida já venceu. Cada
+  réplica roda a sua, e o `DELETE` repetido apaga zero linhas. Sobe para o `crates/worker/` quando a
+  #71 o criar.
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
   campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
   O request tem `#[serde(deny_unknown_fields)]`, e campo desconhecido ou de tipo errado sai como

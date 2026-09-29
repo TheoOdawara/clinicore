@@ -6,7 +6,7 @@ CREATE TYPE session_client AS ENUM ('web', 'mobile');
 CREATE TABLE users (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name text NOT NULL,
-    email text NOT NULL UNIQUE,
+    email text NOT NULL UNIQUE CHECK (email = lower(email)),
     email_verified boolean NOT NULL DEFAULT false,
     image text,
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -22,13 +22,14 @@ CREATE TABLE accounts (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (provider, provider_account_id),
-    UNIQUE (user_id, provider)
+    UNIQUE (user_id, provider),
+    CHECK (provider <> 'credential' OR password_hash IS NOT NULL)
 );
 
 CREATE TABLE sessions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    refresh_token_hash text NOT NULL UNIQUE,
+    refresh_token_hash text NOT NULL,
     expires_at timestamptz NOT NULL,
     ip_address inet,
     user_agent text,

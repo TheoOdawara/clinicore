@@ -12,12 +12,13 @@ use crate::http::client::SessionClient;
 pub async fn find_credential(
     pool: &PgPool,
     email: &str,
-) -> Result<Option<(SessionUser, Option<String>)>, sqlx::Error> {
+) -> Result<Option<(SessionUser, String)>, sqlx::Error> {
     let found = sqlx::query!(
-        "SELECT users.id, users.name, users.email, users.email_verified, users.image, accounts.password_hash
+        r#"SELECT users.id, users.name, users.email, users.email_verified, users.image,
+            accounts.password_hash AS "password_hash!"
         FROM users
-        LEFT JOIN accounts ON accounts.user_id = users.id AND accounts.provider = 'credential'
-        WHERE users.email = $1",
+        JOIN accounts ON accounts.user_id = users.id AND accounts.provider = 'credential'
+        WHERE users.email = $1"#,
         email
     )
     .fetch_optional(pool)
