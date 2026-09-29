@@ -45,7 +45,7 @@ go-live. É isso que merece fronteira de crate. Camada não merece.
 - **O código de campo é o do `validator`** (`email`, `length`, `weak_password`), e campo desconhecido
   ou de tipo errado sai como `invalid`. A 0009 mandava repetir os códigos da implementação anterior;
   nenhum cliente os lê, e a forma do Rust vence.
-- **O schema do OpenAPI tem o nome do tipo Rust** (`SignUpRequest`, `EmailRequest`), sem
+- **O schema do OpenAPI tem o nome do tipo Rust** (`SignUpRequest`, `EmailVerificationRequest`), sem
   `#[schema(as = …)]`. O cliente Dart muda de nome quando for regenerado, na #121.
 
 ## Consequences

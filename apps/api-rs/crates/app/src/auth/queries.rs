@@ -12,7 +12,7 @@ pub struct UserSummary {
     pub email_verified: bool,
 }
 
-pub async fn create_with_credential_account(
+pub async fn create_user(
     pool: &PgPool,
     name: &str,
     email: &str,
@@ -39,12 +39,12 @@ pub async fn create_with_credential_account(
         return Ok(SignUpOutcome::Duplicate);
     }
 
-    if !claim_verification(&mut transaction, email).await? {
+    if !claim_dispatch(&mut transaction, email).await? {
         transaction.commit().await?;
         return Ok(SignUpOutcome::Created);
     }
 
-    insert_email_verification(&mut transaction, email, token_hash).await?;
+    insert_verification(&mut transaction, email, token_hash).await?;
     transaction.commit().await?;
     Ok(SignUpOutcome::CreatedWithToken)
 }
@@ -59,10 +59,7 @@ pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<UserSumm
     .await
 }
 
-async fn claim_verification(
-    connection: &mut PgConnection,
-    email: &str,
-) -> Result<bool, sqlx::Error> {
+async fn claim_dispatch(connection: &mut PgConnection, email: &str) -> Result<bool, sqlx::Error> {
     sqlx::query!(
         r#"SELECT true AS "locked!" FROM pg_advisory_xact_lock(hashtext('email_dispatches'), hashtext($1))"#,
         email
@@ -74,7 +71,7 @@ async fn claim_verification(
         r#"SELECT count(*) AS "total!",
             coalesce(max(created_at) > now() - interval '60 seconds', false) AS "recent!"
         FROM email_dispatches
-        WHERE email = $1 AND kind = 'verification' AND created_at > now() - interval '24 hours'"#,
+        WHERE email = $1 AND kind = 'email_verification' AND created_at > now() - interval '24 hours'"#,
         email
     )
     .fetch_one(&mut *connection)
@@ -85,7 +82,7 @@ async fn claim_verification(
     }
 
     sqlx::query!(
-        "INSERT INTO email_dispatches (email, kind) VALUES ($1, 'verification')",
+        "INSERT INTO email_dispatches (email, kind) VALUES ($1, 'email_verification')",
         email
     )
     .execute(&mut *connection)
@@ -93,22 +90,22 @@ async fn claim_verification(
     Ok(true)
 }
 
-pub async fn register_verification(pool: &PgPool, email: &str) -> Result<bool, sqlx::Error> {
+pub async fn reserve_dispatch(pool: &PgPool, email: &str) -> Result<bool, sqlx::Error> {
     let mut transaction = pool.begin().await?;
-    let claimed = claim_verification(&mut transaction, email).await?;
+    let claimed = claim_dispatch(&mut transaction, email).await?;
     transaction.commit().await?;
     Ok(claimed)
 }
 
-async fn insert_email_verification(
+async fn insert_verification(
     connection: &mut PgConnection,
-    identifier: &str,
+    email: &str,
     token_hash: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "INSERT INTO verifications (identifier, purpose, token_hash, expires_at)
+        "INSERT INTO verifications (email, purpose, token_hash, expires_at)
         VALUES ($1, 'email_verification', $2, now() + interval '1 hour')",
-        identifier,
+        email,
         token_hash
     )
     .execute(connection)
@@ -116,11 +113,11 @@ async fn insert_email_verification(
     Ok(())
 }
 
-pub async fn create_email_verification(
+pub async fn create_verification(
     pool: &PgPool,
-    identifier: &str,
+    email: &str,
     token_hash: &str,
 ) -> Result<(), sqlx::Error> {
     let mut connection = pool.acquire().await?;
-    insert_email_verification(&mut connection, identifier, token_hash).await
+    insert_verification(&mut connection, email, token_hash).await
 }

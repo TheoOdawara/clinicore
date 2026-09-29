@@ -55,18 +55,20 @@ crates/
     ├── src/
     │   ├── main.rs                                  liga o servidor
     │   ├── lib.rs                                   AppState, Router e camadas do tower
+    │   ├── telemetry.rs                             o subscriber do tracing, do processo inteiro
     │   ├── http/                                    o encanamento HTTP
     │   │   ├── mod.rs
-    │   │   ├── error.rs  validation.rs  telemetry.rs  openapi.rs
-    │   │   └── client_ip.rs  origin.rs  rate_limit.rs
+    │   │   ├── error.rs  validation.rs  request_log.rs  openapi.rs
+    │   │   └── origin.rs  rate_limit.rs
     │   ├── health.rs                                feature de uma rota só
     │   └── auth/
-    │       ├── mod.rs                               Router e handlers da feature
-    │       ├── requests.rs                          corpos que chegam
+    │       ├── mod.rs                               routes(): o Router, que liga URL e handler
+    │       ├── handlers.rs                          recebe o request, chama o service, devolve o status
+    │       ├── requests.rs                          corpos que chegam e a validação deles
     │       ├── service.rs                           a regra
     │       ├── queries.rs                           o SQL
     │       ├── error.rs                             o erro da feature e o From para o AppError
-    │       └── password.rs  token.rs  messages.rs   o que a regra usa
+    │       └── password.rs  token.rs  emails.rs     o que a regra usa
     └── tests/api/
         ├── main.rs  support.rs
         ├── boot.rs  errors.rs  health.rs  openapi.rs  request_log.rs
@@ -74,11 +76,14 @@ crates/
 migrations/  .sqlx/
 ```
 
-- **A raiz do `src/` tem o boot, o `http/` e as features.** O que serve a qualquer feature (erro,
-  validação, telemetria, OpenAPI, middleware) fica em `http/`, sem subpasta.
+- **A raiz do `src/` tem o boot, a telemetria, o `http/` e as features.** O que serve a qualquer
+  rota (erro, extractor de validação, log de requisição, OpenAPI, middleware) fica em `http/`, sem
+  subpasta. Regra de uma feature, como a política de senha, fica na feature.
 - **A feature começa como `<feature>.rs`, com o `Router`, os handlers e o SQL juntos.** Ela vira a
   pasta `<feature>/` quando um pedaço tiver responsabilidade própria, e o `<feature>.rs` vira o
   `<feature>/mod.rs`. Arquivo com o nome de uma pasta ao lado dela não é usado.
+- **Na pasta, o fluxo se lê pelos arquivos: `mod.rs` → `handlers.rs` → `service.rs` → `queries.rs`.**
+  O `mod.rs` só declara os módulos e monta o `routes()`. O nome é o do axum: handler, não controller.
 - **A camada nasce quando tem conteúdo.** Uma leitura simples vai do handler direto à consulta. O
   `service.rs` existe quando há decisão: regra de negócio, mais de uma escrita ou efeito colateral.
   Nenhum service só repassa a chamada.
@@ -86,12 +91,12 @@ migrations/  .sqlx/
   às features. O handler recebe `State<AppState>`, e o service e a consulta recebem o que usam.
 - **O `core` monta o e-mail e a feature escreve o texto.** O layout é o `askama`, em
   `crates/core/templates/`, e o `mail::compose` o renderiza; o conteúdo de cada e-mail mora em
-  `<feature>/messages.rs`.
+  `<feature>/emails.rs`.
 
 ## Regras
 
 - **A ordem de uma rota limitada é origem, limite, validação.** O guard de `Origin` é `route_layer` do
-  `serve_layers`, o limite é `route_layer` da própria rota e a validação é o extractor `ValidJson`, então
+  `with_layers`, o limite é `route_layer` da própria rota e a validação é o extractor `ValidJson`, então
   uma origem recusada não conta no limite e um corpo inválido conta.
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
   campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
@@ -181,9 +186,9 @@ migrations/  .sqlx/
 - **O guard de origem entra por `route_layer`**, para rota inexistente e método não aceito
   continuarem `404` com qualquer origem. **O `CatchPanicLayer` fica dentro do `CorsLayer`**, para o
   `500` do panic sair com os headers de CORS.
-- **Rota nova entra antes do `serve_layers`.** O `method_not_allowed_fallback` só pega as rotas que já
+- **Rota nova entra antes do `with_layers`.** O `method_not_allowed_fallback` só pega as rotas que já
   existem quando ele é chamado, e as camadas só envolvem o que está no `Router` naquele momento. O
-  teste que precisa de uma rota própria faz `serve_layers(routes(&config, lazy_state(&config)).route(...), &config)`.
+  teste que precisa de uma rota própria faz `with_layers(routes(&config, lazy_state(&config)).route(...), &config)`.
 - **Método não aceito responde `404 about:blank`, não 405**, porque é o que o Express respondia e o
   contrato não muda.
 - **O corpo JSON do contrato é uma struct, nunca `json!`.** O `serde_json` sem `preserve_order` ordena

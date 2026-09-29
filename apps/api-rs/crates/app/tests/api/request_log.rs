@@ -5,7 +5,7 @@ async fn health_is_not_logged_and_any_other_request_is() {
     let config = config_with(&[("LOG_LEVEL", Some("info"))]);
     let log = CapturedLog::default();
     let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::http::telemetry::subscriber(
+    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
         &config,
         move || writer.clone(),
     ));
@@ -33,7 +33,7 @@ fn log_level_debug_reaches_the_api_crates_and_not_the_dependencies() {
     let config = config_with(&[("LOG_LEVEL", Some("debug"))]);
     let log = CapturedLog::default();
     let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::http::telemetry::subscriber(
+    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
         &config,
         move || writer.clone(),
     ));

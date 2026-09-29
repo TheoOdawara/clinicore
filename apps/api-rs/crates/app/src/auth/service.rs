@@ -1,6 +1,6 @@
 use super::error::AuthError;
 use super::queries::{self, SignUpOutcome};
-use super::{messages, password, token};
+use super::{emails, password, token};
 use crate::AppState;
 
 pub async fn sign_up(
@@ -12,16 +12,10 @@ pub async fn sign_up(
     let address = email.to_lowercase();
     let password_hash = password::hash(password.to_string()).await?;
     let issued = token::issue()?;
-    let message = messages::email_verification(name, &verification_link(state, &issued.secret))?;
+    let message = emails::verification(name, &verification_link(state, &issued.secret))?;
 
-    let outcome = queries::create_with_credential_account(
-        &state.pool,
-        name,
-        &address,
-        &password_hash,
-        &issued.hash,
-    )
-    .await?;
+    let outcome =
+        queries::create_user(&state.pool, name, &address, &password_hash, &issued.hash).await?;
 
     if outcome == SignUpOutcome::CreatedWithToken {
         state.mailer.send(&address, message);
@@ -31,7 +25,7 @@ pub async fn sign_up(
 
 pub async fn request_email_verification(state: &AppState, email: &str) -> Result<(), AuthError> {
     let address = email.to_lowercase();
-    let accepted = queries::register_verification(&state.pool, &address).await?;
+    let accepted = queries::reserve_dispatch(&state.pool, &address).await?;
     if !accepted {
         return Ok(());
     }
@@ -42,9 +36,8 @@ pub async fn request_email_verification(state: &AppState, email: &str) -> Result
     };
 
     let issued = token::issue()?;
-    let message =
-        messages::email_verification(&user.name, &verification_link(state, &issued.secret))?;
-    queries::create_email_verification(&state.pool, &address, &issued.hash).await?;
+    let message = emails::verification(&user.name, &verification_link(state, &issued.secret))?;
+    queries::create_verification(&state.pool, &address, &issued.hash).await?;
     state.mailer.send(&address, message);
     Ok(())
 }

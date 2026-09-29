@@ -1,4 +1,5 @@
 pub mod http;
+pub mod telemetry;
 
 mod auth;
 mod health;
@@ -36,7 +37,7 @@ impl AppState {
 }
 
 pub fn app(config: &Config, state: AppState) -> Router {
-    serve_layers(routes(config, state), config)
+    with_layers(routes(config, state), config)
 }
 
 pub fn routes(config: &Config, state: AppState) -> Router {
@@ -46,10 +47,10 @@ pub fn routes(config: &Config, state: AppState) -> Router {
     if config.app_env == AppEnv::Production {
         return router;
     }
-    router.merge(http::openapi::docs())
+    router.merge(http::openapi::routes())
 }
 
-pub fn serve_layers(router: Router, config: &Config) -> Router {
+pub fn with_layers(router: Router, config: &Config) -> Router {
     let allowed_origins = config.allowed_origins.iter().map(|origin| {
         HeaderValue::from_str(origin).expect("a validated origin is a valid header value")
     });
@@ -76,7 +77,7 @@ pub fn serve_layers(router: Router, config: &Config) -> Router {
         .method_not_allowed_fallback(not_found)
         .layer(
             ServiceBuilder::new()
-                .layer(http::telemetry::request_log())
+                .layer(http::request_log::layer())
                 .layer(cors)
                 .layer(CatchPanicLayer::custom(http::error::panic_response))
                 .layer(config.client_ip_source.clone().into_extension())

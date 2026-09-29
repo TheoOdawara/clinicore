@@ -41,9 +41,9 @@ async fn sign_up_creates_the_user_and_delivers_the_link(pool: PgPool) {
     let credential_account = "SELECT count(*) FROM accounts JOIN users ON users.id = accounts.user_id
         WHERE users.email = $1 AND accounts.provider = 'credential' AND accounts.password_hash IS NOT NULL";
     let open_verification = "SELECT count(*) FROM verifications
-        WHERE identifier = $1 AND purpose = 'email_verification' AND consumed_at IS NULL";
+        WHERE email = $1 AND purpose = 'email_verification' AND consumed_at IS NULL";
     let dispatch =
-        "SELECT count(*) FROM email_dispatches WHERE email = $1 AND kind = 'verification'";
+        "SELECT count(*) FROM email_dispatches WHERE email = $1 AND kind = 'email_verification'";
     assert_eq!(count(&pool, unverified_user, EMAIL).await, 1);
     assert_eq!(count(&pool, credential_account, EMAIL).await, 1);
     assert_eq!(count(&pool, open_verification, EMAIL).await, 1);
@@ -106,7 +106,7 @@ async fn a_failing_smtp_keeps_the_sign_up_and_the_answer_and_logs_the_failure(po
     let config = config_with(&[("LOG_LEVEL", Some("error"))]);
     let log = CapturedLog::default();
     let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::http::telemetry::subscriber(
+    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
         &config,
         move || writer.clone(),
     ));

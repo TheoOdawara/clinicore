@@ -17,11 +17,11 @@ async fn an_unhandled_error_answers_500_without_detail_through_cors_and_logs_the
     let config = config_with(&[("LOG_LEVEL", Some("error"))]);
     let log = CapturedLog::default();
     let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::http::telemetry::subscriber(
+    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
         &config,
         move || writer.clone(),
     ));
-    let app = clinicore_app::serve_layers(
+    let app = clinicore_app::with_layers(
         clinicore_app::routes(&config, crate::support::lazy_state(&config))
             .route("/boom", get(panicking))
             .route("/boom-internal", get(failing)),

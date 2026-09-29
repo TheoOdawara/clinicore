@@ -1,6 +1,6 @@
 CREATE TYPE account_provider AS ENUM ('credential', 'google');
 CREATE TYPE verification_purpose AS ENUM ('email_verification', 'password_reset');
-CREATE TYPE email_dispatch_kind AS ENUM ('verification', 'password_reset');
+CREATE TYPE email_dispatch_kind AS ENUM ('email_verification', 'password_reset');
 CREATE TYPE session_client AS ENUM ('web', 'mobile');
 
 CREATE TABLE users (
@@ -41,7 +41,7 @@ CREATE INDEX ON sessions (expires_at);
 
 CREATE TABLE verifications (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    identifier text NOT NULL,
+    email text NOT NULL,
     purpose verification_purpose NOT NULL,
     token_hash text NOT NULL UNIQUE,
     expires_at timestamptz NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE verifications (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX ON verifications (expires_at);
-CREATE INDEX ON verifications (identifier, purpose, consumed_at);
+CREATE INDEX ON verifications (email, purpose, consumed_at);
 
 CREATE TABLE email_dispatches (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

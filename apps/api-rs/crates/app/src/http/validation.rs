@@ -1,14 +1,11 @@
-use std::sync::LazyLock;
-
 use axum::body::Bytes;
 use axum::extract::{FromRequest, Request};
 use axum::http::StatusCode;
 use axum::http::header::CONTENT_TYPE;
-use regex::Regex;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 use serde_path_to_error::Segment;
-use validator::{Validate, ValidationError, ValidationErrors};
+use validator::{Validate, ValidationErrors};
 
 use super::error::{AppError, FieldError};
 
@@ -74,22 +71,4 @@ fn field_error(field: &str, code: &str) -> FieldError {
 
 pub fn trimmed<'de, Source: Deserializer<'de>>(source: Source) -> Result<String, Source::Error> {
     String::deserialize(source).map(|value| value.trim().to_string())
-}
-
-pub fn strong_password(password: &str) -> Result<(), ValidationError> {
-    static UPPERCASE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\p{Lu}").expect("a valid pattern"));
-    static DIGIT: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\p{Nd}").expect("a valid pattern"));
-    static NEITHER_LETTER_NOR_DIGIT: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"[^\p{L}\p{Nd}]").expect("a valid pattern"));
-
-    let is_strong = (8..=128).contains(&password.chars().count())
-        && UPPERCASE.is_match(password)
-        && DIGIT.is_match(password)
-        && NEITHER_LETTER_NOR_DIGIT.is_match(password);
-    if !is_strong {
-        return Err(ValidationError::new("weak_password"));
-    }
-    Ok(())
 }

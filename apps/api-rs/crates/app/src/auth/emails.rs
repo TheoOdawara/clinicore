@@ -1,6 +1,6 @@
 use clinicore_core::mail::{MailContent, MailError, MailMessage, compose};
 
-pub fn email_verification(name: &str, link: &str) -> Result<MailMessage, MailError> {
+pub fn verification(name: &str, link: &str) -> Result<MailMessage, MailError> {
     compose(
         "Confirme seu e-mail no Clinicore",
         &MailContent {
