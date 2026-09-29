@@ -29,4 +29,6 @@ flutter:
 swagger_parser:
   schema_url: http://localhost:3333/api-json
   output_directory: lib/shared/api
+  name: api
+  merge_outputs: true
   json_serializer: json_serializable
