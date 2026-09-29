@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use super::requests::{EmailConfirmationRequest, EmailVerificationRequest};
 use super::service;
 use crate::AppState;
-use crate::http::error::AppError;
+use crate::http::error::{AppError, Problem};
 use crate::http::validation::ValidJson;
 
 #[utoipa::path(
@@ -33,7 +33,7 @@ pub async fn request_email_verification(
     request_body = EmailConfirmationRequest,
     responses(
         (status = 204, description = "Confirmed"),
-        (status = 400, description = "invalid-token or token-expired")
+        (status = 400, description = "invalid-token or token-expired; or invalid-client, or validation-failed", body = Problem, content_type = "application/problem+json")
     )
 )]
 pub async fn confirm_email(

@@ -7,8 +7,8 @@ mod responses;
 mod service;
 mod tokens;
 
-use axum::Router;
-use axum::routing::{get, post};
+use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};
+use utoipa_axum::routes;
 
 pub(crate) use tokens::access::AccessKeys;
 
@@ -19,27 +19,24 @@ const SIGN_IN_FAILURES: Quota = Quota::new("sign-in-failures", 10, 15 * 60);
 const SESSION_REQUESTS: Quota = Quota::new("session", 100, 10);
 const SESSION_REFRESHES: Quota = Quota::new("session-refresh", 30, 60);
 
-pub fn routes(state: &AppState) -> Router {
+pub fn routes(state: &AppState) -> OpenApiRouter {
     let limit = |name, count, seconds| {
         axum::middleware::from_fn_with_state(
             Limit::new(state, Quota::new(name, count, seconds)),
             rate_limit::guard,
         )
     };
-    Router::new()
-        .route(
-            "/sessions",
-            post(handlers::sign_in).route_layer(limit("sign-in", 5, 60)),
+    OpenApiRouter::new()
+        .routes(
+            routes!(handlers::sign_in).map(|router| router.route_layer(limit("sign-in", 5, 60))),
         )
-        .route(
-            "/sessions/current",
-            get(handlers::current)
-                .delete(handlers::sign_out)
-                .route_layer(limit("current-session", 100, 10)),
+        .routes(
+            routes!(handlers::current, handlers::sign_out)
+                .map(|router| router.route_layer(limit("current-session", 100, 10))),
         )
-        .route(
-            "/sessions/current/tokens",
-            post(handlers::refresh).route_layer(limit("token-refresh", 30, 60)),
+        .routes(
+            routes!(handlers::refresh)
+                .map(|router| router.route_layer(limit("token-refresh", 30, 60))),
         )
         .with_state(state.clone())
 }

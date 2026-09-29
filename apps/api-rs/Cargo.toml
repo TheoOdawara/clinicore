@@ -42,6 +42,7 @@ tracing-subscriber = { version = "0.3.23", features = ["json"] }
 url = "2.5.8"
 uuid = { version = "1.26.1", features = ["serde"] }
 utoipa = { version = "6.0.0", features = ["uuid"] }
+utoipa-axum = "0.3.0"
 utoipa-swagger-ui = { version = "10.0.1", features = ["axum", "vendored"] }
 validator = { version = "0.21.0", features = ["derive"] }
 

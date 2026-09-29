@@ -7,6 +7,7 @@ use axum::http::header::CONTENT_TYPE;
 use axum::response::{IntoResponse, Response};
 use clinicore_core::redis::RedisError;
 use serde::Serialize;
+use utoipa::ToSchema;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
@@ -40,14 +41,14 @@ pub enum AppError {
     Internal(Box<dyn Error + Send + Sync>),
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct FieldError {
     pub pointer: String,
     pub code: String,
 }
 
-#[derive(Serialize)]
-struct Problem {
+#[derive(Serialize, ToSchema)]
+pub(crate) struct Problem {
     #[serde(rename = "type")]
     problem_type: String,
     title: String,

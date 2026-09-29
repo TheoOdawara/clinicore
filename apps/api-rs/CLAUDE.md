@@ -3,7 +3,8 @@
 Aditivo ao `CLAUDE.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este arquivo
 apenas onde ela falar do mesmo assunto. A stack está em
 `docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md`, a organização dos crates em
-`docs/decisions/0010-api-rs-com-crate-por-processo.md` e a migração em
+`docs/decisions/0010-api-rs-com-crate-por-processo.md`, o documento OpenAPI em
+`docs/decisions/0011-openapi-da-api-rs-nasce-com-a-rota.md` e a migração em
 `docs/specs/005-migrar-api-para-rust.md`. Na #121 esta pasta vira `apps/api`, e este arquivo vai junto.
 
 **O contrato é o HTTP que o web e o mobile consomem; a forma é a do Rust.** URL, status, cookies,
@@ -117,6 +118,10 @@ migrations/  .sqlx/
   `CurrentSession`, a sessão do refresh e as falhas de senha por e-mail no service, e o teto total na
   confirmação. As rotas que mandam e-mail têm a segunda no `email_dispatches`. Rota nova limitada
   nasce com as duas.
+- **Rota nasce com `routes!` do `utoipa-axum` num `OpenApiRouter`** (ADR 0011), nunca com o `route`
+  do axum, então a rota não existe sem o `#[utoipa::path]`. O header `Clinicore-Client` e as respostas
+  dos guards (400, 403, 429, 503) entram sozinhos pelo `document_guards`; o handler declara só as
+  respostas próprias, com `body = Problem` e `content_type = "application/problem+json"` no erro.
 - **O `Clinicore-Client` escolhe o transporte em toda rota.** Ausente é `web`, `mobile` é o token no
   `Authorization`, e qualquer outro valor é `400 invalid-client` antes de tudo. O `SessionClient` sai das
   extensions, e o `CurrentSession` lê o token só do transporte declarado.
@@ -127,7 +132,9 @@ migrations/  .sqlx/
   campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
   O request tem `#[serde(deny_unknown_fields)]`, e campo desconhecido ou de tipo errado sai como
   `invalid`. JSON malformado sai como `400 about:blank`, e content-type que não é JSON como `415`.
-  O tipo Rust é `<Operação>Request`, e é também o nome do schema no OpenAPI.
+  O tipo Rust é `<Operação>Request`, e é também o nome do schema no OpenAPI. O `#[serde(default)]`
+  faz o utoipa marcar o campo como opcional, então todo campo obrigatório leva também
+  `#[schema(required = true)]`; sem ele o cliente Dart o gera como `String?`.
 - **Concorrência se resolve no Postgres, sem retry na aplicação.** Unicidade por
   `ON CONFLICT … DO NOTHING`, e a serialização por chave (o registro de envio por endereço) por
   `pg_advisory_xact_lock` dentro da transação.

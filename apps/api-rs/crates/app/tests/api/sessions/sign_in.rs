@@ -5,10 +5,10 @@ use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
-use super::{Transport, lifetime_matches, session_exists, sign_in};
+use super::{Session, Transport, lifetime_matches, session_exists, sign_in};
 use crate::support::{
-    MOBILE, PASSWORD, app_with, config_with, count, eventually, fresh_client, fresh_email,
-    json_body, register, request, set_cookie, state,
+    MOBILE, PASSWORD, app_with, config_with, cookie_value, count, eventually, fresh_client,
+    fresh_email, json_body, register, request, set_cookie, state,
 };
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -49,7 +49,12 @@ async fn web_sign_in_opens_the_session_in_two_cookies(pool: PgPool) {
         assert!(!cookie.contains("Domain"), "{cookie}");
     }
 
-    let session = Transport::Web.session_from(response).await;
+    let session = Session {
+        access: cookie_value(&access).into(),
+        refresh: cookie_value(&refresh).into(),
+    };
+    let body = json_body(response).await;
+    assert!(body["tokens"].is_null(), "{body}");
     let user_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
         .bind(email)
         .fetch_one(&pool)

@@ -11,14 +11,21 @@ use crate::http::validation;
 #[serde(deny_unknown_fields)]
 pub struct SignUpRequest {
     #[serde(default, deserialize_with = "validation::trimmed")]
+    #[schema(required = true)]
     #[validate(length(min = 1, max = 100), custom(function = "person_name"))]
     pub name: String,
     #[serde(default)]
+    #[schema(required = true)]
     #[validate(email, length(max = 320))]
     pub email: String,
     #[serde(default)]
     #[validate(custom(function = "strong_password"))]
-    #[schema(min_length = 8, max_length = 128, example = "Clinica#2026")]
+    #[schema(
+        required = true,
+        min_length = 8,
+        max_length = 128,
+        example = "Clinica#2026"
+    )]
     pub password: String,
 }
 

@@ -12,6 +12,7 @@ static TOKEN: LazyLock<Regex> =
 #[serde(deny_unknown_fields)]
 pub struct EmailVerificationRequest {
     #[serde(default)]
+    #[schema(required = true)]
     #[validate(email, length(max = 320))]
     pub email: String,
 }
@@ -21,6 +22,6 @@ pub struct EmailVerificationRequest {
 pub struct EmailConfirmationRequest {
     #[serde(default)]
     #[validate(regex(path = *TOKEN))]
-    #[schema(pattern = "^[A-Za-z0-9_-]{43}$")]
+    #[schema(required = true, pattern = "^[A-Za-z0-9_-]{43}$")]
     pub token: String,
 }

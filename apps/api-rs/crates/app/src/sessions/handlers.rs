@@ -12,7 +12,7 @@ use super::service;
 use super::tokens::cookies;
 use crate::AppState;
 use crate::http::client::SessionClient;
-use crate::http::error::AppError;
+use crate::http::error::{AppError, Problem};
 use crate::http::validation::ValidJson;
 
 #[utoipa::path(
@@ -22,11 +22,13 @@ use crate::http::validation::ValidJson;
     summary = "Sign in with email and password",
     description = "The web gets the session in two cookies. With Clinicore-Client: mobile the tokens come in the body and no cookie is set.",
     request_body = SignInRequest,
-    params(("Clinicore-Client" = Option<String>, Header, description = "mobile for the token transport")),
     responses(
-        (status = 201, description = "Signed in", body = SignInResponse),
-        (status = 401, description = "invalid-credentials"),
-        (status = 403, description = "email-not-verified, with a new link sent")
+        (status = 201, description = "Signed in; tokens only for mobile", body = SignInResponse, headers(
+            ("Location" = String, description = "/sessions/current"),
+            ("Set-Cookie" = String, description = "Web only: clinicore_access and clinicore_refresh")
+        )),
+        (status = 401, description = "invalid-credentials", body = Problem, content_type = "application/problem+json"),
+        (status = 403, description = "email-not-verified, with a new link sent; or invalid-origin", body = Problem, content_type = "application/problem+json")
     )
 )]
 pub async fn sign_in(
@@ -44,13 +46,16 @@ pub async fn sign_in(
             StatusCode::CREATED,
             location,
             cookies::issue(jar, &tokens, state.secure_cookies),
-            Json(SessionResponse { user }),
+            Json(SignInResponse { user, tokens: None }),
         )
             .into_response(),
         SessionClient::Mobile => (
             StatusCode::CREATED,
             location,
-            Json(SignInResponse { user, tokens }),
+            Json(SignInResponse {
+                user,
+                tokens: Some(tokens),
+            }),
         )
             .into_response(),
     };
@@ -62,10 +67,9 @@ pub async fn sign_in(
     path = "/sessions/current",
     tag = "Auth",
     summary = "Read the signed-in user",
-    params(("Clinicore-Client" = Option<String>, Header, description = "mobile for the token transport")),
     responses(
         (status = 200, description = "The session's user", body = SessionResponse),
-        (status = 401, description = "invalid-session")
+        (status = 401, description = "invalid-session", body = Problem, content_type = "application/problem+json")
     )
 )]
 pub async fn current(
@@ -81,10 +85,13 @@ pub async fn current(
     path = "/sessions/current",
     tag = "Auth",
     summary = "Sign out and revoke the session at once",
-    params(("Clinicore-Client" = Option<String>, Header, description = "mobile for the token transport")),
     responses(
-        (status = 204, description = "Signed out; the web cookies are cleared"),
-        (status = 401, description = "invalid-session")
+        (status = 204, description = "Signed out", headers(
+            ("Set-Cookie" = String, description = "Web only: both session cookies cleared")
+        )),
+        (status = 401, description = "invalid-session", body = Problem, content_type = "application/problem+json", headers(
+            ("Set-Cookie" = String, description = "Web only: both session cookies cleared")
+        ))
     )
 )]
 pub async fn sign_out(
@@ -118,11 +125,14 @@ pub async fn sign_out(
     summary = "Rotate the refresh token",
     description = "The web sends the refresh cookie and no body, and gets 204 with new cookies. With Clinicore-Client: mobile the refresh token goes in the body and the new tokens come back in it.",
     request_body = Option<TokenRefreshRequest>,
-    params(("Clinicore-Client" = Option<String>, Header, description = "mobile for the token transport")),
     responses(
         (status = 200, description = "Rotated, for mobile", body = TokenRefreshResponse),
-        (status = 204, description = "Rotated, for the web, with new cookies"),
-        (status = 401, description = "invalid-session, or session-reused when an old refresh token comes back")
+        (status = 204, description = "Rotated, for the web", headers(
+            ("Set-Cookie" = String, description = "clinicore_access and clinicore_refresh")
+        )),
+        (status = 401, description = "invalid-session, or session-reused when an old refresh token comes back", body = Problem, content_type = "application/problem+json", headers(
+            ("Set-Cookie" = String, description = "Web only: both session cookies cleared")
+        ))
     )
 )]
 pub async fn refresh(

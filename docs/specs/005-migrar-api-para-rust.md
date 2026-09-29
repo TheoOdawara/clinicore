@@ -89,12 +89,20 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
   - O Cenário 28 da 003 confere a causa no log em nível `error` pelo `tracing`, no lugar da stack no
     log do Pino.
 
-### 2. O OpenAPI gera o mesmo cliente
+### 2. O OpenAPI gera o cliente com as mesmas operações
 
 - O documento servido em `/api-json` pela API Rust, dado ao `swagger_parser` do `apps/mobile`, gera
-  `apps/mobile/lib/shared/api/` sem diff nenhum.
-- **Validação:** a task 7 regenera o cliente a partir da API Rust, e `git diff --exit-code apps/mobile/lib/shared/api`
-  sai 0.
+  `apps/mobile/lib/shared/api/` com as mesmas rotas, métodos, status e campos da API NestJS.
+- **O diff do cliente é só o que as ADRs 0010 e 0011 decidiram:** schemas com o nome do tipo Rust, o
+  método com o nome do handler Rust (`signIn` no lugar de `authControllerSignIn`), o modelo `Problem`,
+  o enum `ClinicoreClient`, o `tokens` opcional do sign-in e o corpo opcional do refresh, que o web não
+  manda. Qualquer outra linha do diff é regressão de contrato. As rotas de `/password-resets` somem até
+  a #119 portá-las.
+- **A #114 já regenerou o cliente contra a API Rust**, num arquivo só (`lib/shared/api/api.dart`), e a
+  task 7 regenera de novo com as rotas das tasks seguintes.
+- **Validação:** a task 7 regenera o cliente a partir da API Rust, revisa o diff de
+  `apps/mobile/lib/shared/api` contra a lista acima e ajusta o código do `apps/mobile` que usa os nomes
+  antigos, com os gates do Flutter verdes.
 
 ### 3. Toda variável de ambiente é obrigatória, tipada e validada no boot
 
@@ -221,12 +229,13 @@ Então cada cenário das specs 002, 003 e 004 cuja rota existe hoje tem um teste
 E todos saem verdes contra o schema criado só pela migration de migrations/
 ```
 
-### Cenário 2 — O cliente Dart não muda (caminho feliz, regra 2)
+### Cenário 2 — O cliente Dart muda só nos renomes decididos (caminho feliz, regra 2)
 
 ```gherkin
 Dado a API Rust de pé com APP_ENV=development
 Quando o cliente do apps/mobile é regenerado a partir de `GET /api-json`
-Então `git diff --exit-code apps/mobile/lib/shared/api` sai 0
+Então o diff de `apps/mobile/lib/shared/api` tem só os renomes das ADRs 0010 e 0011
+E `flutter analyze --fatal-infos` e `flutter test` do apps/mobile saem 0
 ```
 
 ### Cenário 3 — Variável ausente ou inválida derruba o boot (exceção, regra 3)

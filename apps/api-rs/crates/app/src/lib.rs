@@ -13,7 +13,6 @@ use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::{HeaderValue, Method, StatusCode};
-use axum::routing::get;
 use clinicore_core::config::{AppEnv, Config};
 use clinicore_core::mail::Mailer;
 use clinicore_core::redis::Redis;
@@ -22,6 +21,8 @@ use tower::ServiceBuilder;
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::set_header::SetResponseHeaderLayer;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -58,22 +59,28 @@ pub fn app(config: &Config, state: AppState) -> Router {
 }
 
 pub fn routes(config: &Config, state: AppState) -> Router {
-    let router = Router::new()
-        .route("/health", get(health::check))
-        .merge(users::routes(&state))
-        .merge(
-            Router::new()
-                .merge(email_verifications::routes(&state))
-                .merge(sessions::routes(&state))
-                .layer(SetResponseHeaderLayer::overriding(
-                    CACHE_CONTROL,
-                    HeaderValue::from_static("no-store"),
-                )),
-        );
+    let (router, api) = OpenApiRouter::with_openapi(http::openapi::document())
+        .routes(routes!(health::check))
+        .merge(guarded_routes(&state))
+        .split_for_parts();
     if config.app_env == AppEnv::Production {
         return router;
     }
-    router.merge(http::openapi::routes())
+    router.merge(http::openapi::routes(api))
+}
+
+fn guarded_routes(state: &AppState) -> OpenApiRouter {
+    let mut router = OpenApiRouter::new().merge(users::routes(state)).merge(
+        OpenApiRouter::new()
+            .merge(email_verifications::routes(state))
+            .merge(sessions::routes(state))
+            .layer(SetResponseHeaderLayer::overriding(
+                CACHE_CONTROL,
+                HeaderValue::from_static("no-store"),
+            )),
+    );
+    http::openapi::document_guards(router.get_openapi_mut());
+    router
 }
 
 pub fn with_layers(router: Router, config: &Config) -> Router {

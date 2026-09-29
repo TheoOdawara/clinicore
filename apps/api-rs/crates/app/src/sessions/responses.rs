@@ -28,7 +28,9 @@ pub struct SessionResponse {
 #[derive(Serialize, ToSchema)]
 pub struct SignInResponse {
     pub user: SessionUser,
-    pub tokens: SessionTokens,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(nullable = false)]
+    pub tokens: Option<SessionTokens>,
 }
 
 #[derive(Serialize, ToSchema)]
