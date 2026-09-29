@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use axum::http::StatusCode;
 use lettre::transport::stub::AsyncStubTransport;
@@ -177,30 +177,28 @@ async fn a_wrong_password_and_an_unknown_email_answer_the_same_in_the_same_time(
     let app = app_with(&pool);
     register(&app, &pool, email, true).await;
 
-    let median_of = async |address_of: &dyn Fn() -> String| {
-        let mut timings = Vec::new();
-        let mut bodies = Vec::new();
-        for _ in 0..5 {
-            let address = address_of();
+    let mut wrong_password = Vec::new();
+    let mut unknown_email = Vec::new();
+    let expected = json!({"type": "tag:clinicore.com.br,2026:invalid-credentials", "title": "Invalid email or password", "status": 401});
+    for _ in 0..7 {
+        for (address, timings) in [
+            (email.to_string(), &mut wrong_password),
+            (fresh_email(), &mut unknown_email),
+        ] {
             let started = Instant::now();
             let response = sign_in(&app, &address, "Errada#2026", &[], fresh_client()).await;
             timings.push(started.elapsed());
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-            bodies.push(json_body(response).await);
+            assert_eq!(json_body(response).await, expected);
         }
-        timings.sort();
-        (timings[2], bodies)
-    };
-    let (wrong_password, wrong_password_bodies) = median_of(&|| email.to_string()).await;
-    let (unknown_email, unknown_email_bodies) = median_of(&fresh_email).await;
-
-    let expected = json!({"type": "tag:clinicore.com.br,2026:invalid-credentials", "title": "Invalid email or password", "status": 401});
-    for body in wrong_password_bodies.iter().chain(&unknown_email_bodies) {
-        assert_eq!(body, &expected);
     }
+    wrong_password.sort();
+    unknown_email.sort();
+    let (wrong_password, unknown_email) = (wrong_password[3], unknown_email[3]);
+
     let gap = wrong_password.abs_diff(unknown_email);
     assert!(
-        gap < Duration::from_millis(50),
+        gap < wrong_password.max(unknown_email) / 2,
         "{wrong_password:?} vs {unknown_email:?}"
     );
 }
