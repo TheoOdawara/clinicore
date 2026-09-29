@@ -366,6 +366,8 @@ dependencies = [
  "askama",
  "axum-client-ip",
  "email_address",
+ "getrandom 0.4.3",
+ "hex",
  "lettre",
  "redis",
  "sqlx",

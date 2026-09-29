@@ -11,7 +11,7 @@ use crate::http::validation;
 #[serde(deny_unknown_fields)]
 pub struct SignUpRequest {
     #[serde(default, deserialize_with = "validation::trimmed")]
-    #[validate(length(min = 1, max = 100))]
+    #[validate(length(min = 1, max = 100), custom(function = "person_name"))]
     pub name: String,
     #[serde(default)]
     #[validate(email, length(max = 320))]
@@ -44,6 +44,18 @@ fn strong_password(password: &str) -> Result<(), ValidationError> {
         && NEITHER_LETTER_NOR_DIGIT.is_match(password);
     if !is_strong {
         return Err(ValidationError::new("weak_password"));
+    }
+    Ok(())
+}
+
+fn person_name(name: &str) -> Result<(), ValidationError> {
+    static ALLOWED: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[\p{L}\p{M} .'-]+$").expect("a valid pattern"));
+    static LETTER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\p{L}").expect("a valid pattern"));
+
+    if !ALLOWED.is_match(name) || !LETTER.is_match(name) {
+        return Err(ValidationError::new("name"));
     }
     Ok(())
 }

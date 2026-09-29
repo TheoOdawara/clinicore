@@ -58,6 +58,8 @@ async fn sign_up_creates_the_user_and_delivers_the_link(pool: PgPool) {
         raw.contains("Subject: Confirme seu e-mail no Clinicore"),
         "{raw}"
     );
+    assert!(raw.contains("Message-ID: <"), "{raw}");
+    assert!(raw.contains("@example.com>"), "{raw}");
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -126,7 +128,9 @@ async fn a_failing_smtp_keeps_the_sign_up_and_the_answer_and_logs_the_failure(po
 
     let failure_logged = || async {
         log.lines().iter().any(|line| {
-            line["level"] == "ERROR" && line["email"] == EMAIL && line["reason"] == "stub error"
+            line["level"] == "ERROR"
+                && line["email"] == "a***@exemplo.com"
+                && line["reason"] == "stub error"
         })
     };
     assert!(eventually(failure_logged).await, "{:?}", log.lines());
@@ -142,6 +146,10 @@ async fn an_invalid_body_answers_400_pointing_at_each_field() {
                 {"pointer": "#/name", "code": "length"},
                 {"pointer": "#/password", "code": "weak_password"}
             ]),
+        ),
+        (
+            json!({"name": "Ana 2 golpe.com/premio", "email": EMAIL, "password": "Clinica#2026"}),
+            json!([{"pointer": "#/name", "code": "name"}]),
         ),
         (
             json!({"name": 5, "email": EMAIL, "password": "Clinica#2026"}),

@@ -42,7 +42,7 @@ como hoje.
 ### Request
 
 Idêntica, campo a campo, às specs de origem: os mesmos nomes, tipos, obrigatoriedades e limites. O
-`errors[].code` de cada campo é o do `validator` (`email`, `length`, `weak_password`), e campo
+`errors[].code` de cada campo é o do `validator` (`email`, `length`, `name`, `weak_password`), e campo
 desconhecido ou de tipo errado sai como `invalid`, sempre em `400 VALIDATION_FAILED` (003, Cenário 12).
 
 ### Response

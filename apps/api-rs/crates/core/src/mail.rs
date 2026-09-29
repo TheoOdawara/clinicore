@@ -13,6 +13,8 @@ pub enum MailError {
     #[error(transparent)]
     Message(#[from] lettre::error::Error),
     #[error(transparent)]
+    MessageId(#[from] getrandom::Error),
+    #[error(transparent)]
     Smtp(#[from] lettre::transport::smtp::Error),
     #[error(transparent)]
     Stub(#[from] lettre::transport::stub::Error),
@@ -59,18 +61,26 @@ impl Mailer {
         Ok(Self { transport, from })
     }
 
+    // ponytail: fire-and-forget spawn, a restart or a transient SMTP failure loses the mail; outbox table and the worker retry in #71
     pub fn send(&self, to: &str, message: MailMessage) {
         let mailer = self.clone();
         let to = to.to_string();
         tokio::spawn(async move {
             if let Err(reason) = mailer.deliver(&to, message).await {
-                tracing::error!(email = %to, reason = %reason, "Mail delivery failed");
+                tracing::error!(email = %masked(&to), reason = %reason, "Mail delivery failed");
             }
         });
     }
 
     async fn deliver(&self, to: &str, message: MailMessage) -> Result<(), MailError> {
+        let mut unique = [0u8; 16];
+        getrandom::fill(&mut unique)?;
         let email = Message::builder()
+            .message_id(Some(format!(
+                "<{}@{}>",
+                hex::encode(unique),
+                self.from.email.domain()
+            )))
             .from(self.from.clone())
             .to(to.parse()?)
             .subject(message.subject)
@@ -88,6 +98,14 @@ impl Mailer {
         }
         Ok(())
     }
+}
+
+fn masked(address: &str) -> String {
+    let Some((local, domain)) = address.split_once('@') else {
+        return "***".to_string();
+    };
+    let first: String = local.chars().take(1).collect();
+    format!("{first}***@{domain}")
 }
 
 pub struct MailContent<'a> {

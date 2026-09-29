@@ -61,7 +61,7 @@ recusado.
 
 | Campo | Tipo | Obrigatório | Validação |
 | --- | --- | --- | --- |
-| `name` | `string` | Sim | 1 a 100 caracteres, após remover espaços das pontas |
+| `name` | `string` | Sim | 1 a 100 caracteres, após remover espaços das pontas; só letras, espaço, ponto, hífen e apóstrofo, com ao menos uma letra (`code` `name`). O e-mail de verificação cumprimenta só pelo primeiro nome, até 30 caracteres |
 | `email` | `string` | Sim | endereço de e-mail válido; gravado em minúsculas |
 | `password` | `string` | Sim | regra 4 (política de senha) |
 
