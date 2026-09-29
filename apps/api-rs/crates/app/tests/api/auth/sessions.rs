@@ -7,20 +7,20 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use super::{
-    MOBILE, PASSWORD, Transport, WEB_ORIGIN, app_with, register, revoked_ttl, session_exists,
-    sign_in,
+    MOBILE, PASSWORD, Transport, WEB_ORIGIN, app_with, fresh_email, register, revoked_ttl,
+    session_exists, sign_in,
 };
 use crate::support::{config_with, fresh_client, json_body, request, send, set_cookie};
 
-const EMAIL: &str = "ana@example.com";
-
 #[sqlx::test(migrations = "../../migrations")]
 async fn sign_out_revokes_the_session_at_once_on_each_transport(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, true).await;
+    register(&app, &pool, email, true).await;
 
     for transport in Transport::BOTH {
-        let session = transport.sign_in(&app, EMAIL).await;
+        let session = transport.sign_in(&app, email).await;
 
         let response = transport
             .call(&app, "DELETE", "/sessions/current", &session.access)
@@ -49,6 +49,10 @@ async fn sign_out_revokes_the_session_at_once_on_each_transport(pool: PgPool) {
                 StatusCode::UNAUTHORIZED,
                 "{transport:?} {method}"
             );
+            if let (Transport::Web, "DELETE") = (transport, method) {
+                let cleared = set_cookie(&again, "clinicore_refresh").expect("a cleared cookie");
+                assert!(cleared.contains("Max-Age=0"), "{cleared}");
+            }
             assert_eq!(
                 json_body(again).await,
                 json!({"type": "tag:clinicore.com.br,2026:invalid-session", "title": "Invalid session", "status": 401})
@@ -59,10 +63,12 @@ async fn sign_out_revokes_the_session_at_once_on_each_transport(pool: PgPool) {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn one_transport_never_authenticates_through_the_other(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, true).await;
-    let web = Transport::Web.sign_in(&app, EMAIL).await;
-    let mobile = Transport::Mobile.sign_in(&app, EMAIL).await;
+    register(&app, &pool, email, true).await;
+    let web = Transport::Web.sign_in(&app, email).await;
+    let mobile = Transport::Mobile.sign_in(&app, email).await;
     let mobile_cookie = format!("clinicore_access={}", mobile.access);
     let web_bearer = format!("Bearer {}", web.access);
     let mobile_bearer = format!("Bearer {}", mobile.access);
@@ -88,9 +94,11 @@ async fn one_transport_never_authenticates_through_the_other(pool: PgPool) {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_origin_guard_lets_the_app_through_and_holds_cross_site_requests(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, true).await;
-    let session = Transport::Web.sign_in(&app, EMAIL).await;
+    register(&app, &pool, email, true).await;
+    let session = Transport::Web.sign_in(&app, email).await;
     let access_cookie = format!("clinicore_access={}", session.access);
     let refresh_cookie = format!("clinicore_refresh={}", session.refresh);
 
@@ -98,7 +106,7 @@ async fn the_origin_guard_lets_the_app_through_and_holds_cross_site_requests(poo
         "http://evil.example",
         "https://clinicore.com.br.evil.example",
     ] {
-        let response = sign_in(&app, EMAIL, PASSWORD, &[("origin", origin)], fresh_client()).await;
+        let response = sign_in(&app, email, PASSWORD, &[("origin", origin)], fresh_client()).await;
         assert_eq!(response.status(), StatusCode::FORBIDDEN, "{origin}");
         assert_eq!(
             json_body(response).await,
@@ -133,7 +141,7 @@ async fn the_origin_guard_lets_the_app_through_and_holds_cross_site_requests(poo
     )
     .await;
     assert_eq!(read.status(), StatusCode::OK);
-    let app_sign_in = sign_in(&app, EMAIL, PASSWORD, &[MOBILE], fresh_client()).await;
+    let app_sign_in = sign_in(&app, email, PASSWORD, &[MOBILE], fresh_client()).await;
     assert_eq!(app_sign_in.status(), StatusCode::CREATED);
 
     let allowed = request(
@@ -172,9 +180,11 @@ async fn the_origin_guard_lets_the_app_through_and_holds_cross_site_requests(poo
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_redis_outage_closes_the_door_instead_of_opening_it(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, true).await;
-    let session = Transport::Web.sign_in(&app, EMAIL).await;
+    register(&app, &pool, email, true).await;
+    let session = Transport::Web.sign_in(&app, email).await;
 
     let mut config = config_with(&[]);
     config.redis_url = "redis://127.0.0.1:1".to_string();
@@ -202,4 +212,26 @@ async fn a_redis_outage_closes_the_door_instead_of_opening_it(pool: PgPool) {
         send(outage, "GET", "/health").await.status(),
         StatusCode::OK
     );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_session_answers_at_most_a_hundred_requests_in_ten_seconds_whatever_the_address(
+    pool: PgPool,
+) {
+    let email = fresh_email();
+    let app = app_with(&pool);
+    register(&app, &pool, &email, true).await;
+    let session = Transport::Mobile.sign_in(&app, &email).await;
+
+    for attempt in 1..=100 {
+        let response = Transport::Mobile
+            .call(&app, "GET", "/sessions/current", &session.access)
+            .await;
+        assert_eq!(response.status(), StatusCode::OK, "attempt {attempt}");
+    }
+    let response = Transport::Mobile
+        .call(&app, "GET", "/sessions/current", &session.access)
+        .await;
+
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
 }

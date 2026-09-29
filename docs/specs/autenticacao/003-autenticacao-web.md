@@ -44,7 +44,7 @@ Sete telas. Cinco públicas, duas dentro da área logada.
 - **`/verify-email`** — é para onde o cadastro redireciona e para onde o link de confirmação aponta,
   com `?token=` (ADR 0006). Três estados, decididos na abertura:
   - **com `token` na query** — chama `POST /email-verifications/confirmation` com `{ token }`. O `204`
-    traz a sessão nos cookies e leva para `/app`; o `400` com `type` `invalid-token` ou `token-expired`
+    não abre sessão e leva para `/login` com o e-mail confirmado; o `400` com `type` `invalid-token` ou `token-expired`
     mostra a mensagem de link expirado, o campo E-mail e o botão `Reenviar link`;
   - **com sessão válida e sem `token`** — redireciona para `/app`;
   - **sem sessão e sem `token`** — mostra a instrução, o e-mail para onde o link foi enviado, quando
@@ -199,6 +199,7 @@ Mensagens de sucesso:
 | Ação | Mensagem exibida |
 | --- | --- |
 | Cadastro concluído | "Enviamos um link de confirmação para {e-mail}." |
+| E-mail confirmado | "E-mail confirmado. Entre com a sua senha." |
 | Link de confirmação pedido | "Se houver uma confirmação pendente para este e-mail, você receberá um novo link." |
 | Recuperação solicitada | "Se este e-mail tiver cadastro, você receberá um link para redefinir a senha." |
 | Senha redefinida | "Senha redefinida. Entre com a nova senha." |
@@ -502,7 +503,7 @@ E o mesmo vale para os formulários de `/signup`, `/forgot-password`, `/reset-pa
 ```gherkin
 Dado um visitante que abre `/verify-email?token=<token válido>`
 Então `POST /email-verifications/confirmation` é chamado só com `token`
-E ele é levado para `/app`
+E ele é levado para `/login`, que exibe "E-mail confirmado. Entre com a sua senha."
 Quando ele abre `/verify-email` sem `token` e a sessão carregada é válida
 Então ele é levado para `/app`
 Quando ele abre `/verify-email?token=<token expirado>` e a API responde `400` com o `type` `token-expired`

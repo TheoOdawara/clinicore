@@ -36,7 +36,7 @@ sqlx = { version = "0.9.0", default-features = false, features = ["postgres", "r
 thiserror = "2.0.21"
 tokio = "1.53.1"
 tower = { version = "0.5.3", features = ["util"] }
-tower-http = { version = "0.7.1", features = ["trace", "cors", "catch-panic"] }
+tower-http = { version = "0.7.1", features = ["trace", "cors", "catch-panic", "set-header"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json"] }
 url = "2.5.8"

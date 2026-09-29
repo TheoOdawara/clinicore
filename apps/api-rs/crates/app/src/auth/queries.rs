@@ -161,35 +161,29 @@ pub async fn open_session(
     Ok(session_id)
 }
 
-pub enum Rotation {
-    Rotated {
-        user_id: Uuid,
-        client: SessionClient,
-    },
-    Invalid,
-    Reused,
-}
-
 pub async fn rotate_session(
     pool: &PgPool,
     redis: &Redis,
     session_id: Uuid,
+    client: SessionClient,
     presented_hash: &str,
     new_hash: &str,
-) -> Result<Rotation, AuthError> {
+) -> Result<Uuid, AuthError> {
     let mut transaction = pool.begin().await?;
     let found = sqlx::query!(
         r#"SELECT user_id, client AS "client: SessionClient",
-            expires_at > now() AS "live!", refresh_token_hash = $2 AS "matches!"
+            expires_at > now() AND created_at > now() - make_interval(secs => $3) AS "live!",
+            refresh_token_hash = $2 AS "matches!"
         FROM sessions WHERE id = $1 FOR UPDATE"#,
         session_id,
-        presented_hash
+        presented_hash,
+        session::ABSOLUTE_LIFETIME.as_secs_f64()
     )
     .fetch_optional(&mut *transaction)
     .await?;
 
-    let Some(found) = found.filter(|found| found.live) else {
-        return Ok(Rotation::Invalid);
+    let Some(found) = found.filter(|found| found.live && found.client == client) else {
+        return Err(AuthError::InvalidSession);
     };
 
     if !found.matches {
@@ -198,7 +192,7 @@ pub async fn rotate_session(
             .await?;
         session::revoke(redis, &[session_id]).await?;
         transaction.commit().await?;
-        return Ok(Rotation::Reused);
+        return Err(AuthError::SessionReused);
     }
 
     sqlx::query!(
@@ -207,79 +201,81 @@ pub async fn rotate_session(
         WHERE id = $1",
         session_id,
         new_hash,
-        session::lifetime(found.client).as_secs_f64()
+        session::lifetime(client).as_secs_f64()
     )
     .execute(&mut *transaction)
     .await?;
     transaction.commit().await?;
-    Ok(Rotation::Rotated {
-        user_id: found.user_id,
-        client: found.client,
-    })
+    Ok(found.user_id)
 }
 
 pub async fn close_session(
     pool: &PgPool,
     redis: &Redis,
     session_id: Uuid,
-) -> Result<bool, AuthError> {
+) -> Result<(), AuthError> {
     let mut transaction = pool.begin().await?;
     let deleted = sqlx::query!("DELETE FROM sessions WHERE id = $1", session_id)
         .execute(&mut *transaction)
         .await?;
     if deleted.rows_affected() == 0 {
-        return Ok(false);
+        return Err(AuthError::InvalidSession);
     }
     session::revoke(redis, &[session_id]).await?;
     transaction.commit().await?;
-    Ok(true)
+    Ok(())
 }
 
-pub enum Confirmation {
-    Confirmed { user_id: Uuid },
-    Invalid,
-    Expired,
-}
-
-pub async fn consume_email_verification(
-    pool: &PgPool,
-    token_hash: &str,
-) -> Result<Confirmation, sqlx::Error> {
+pub async fn consume_email_verification(pool: &PgPool, token_hash: &str) -> Result<(), AuthError> {
     let mut transaction = pool.begin().await?;
-    let found = sqlx::query!(
-        r#"SELECT email, expires_at > now() AS "live!"
-        FROM verifications
-        WHERE token_hash = $1 AND purpose = 'email_verification' AND consumed_at IS NULL
-        FOR UPDATE"#,
+    let email = sqlx::query_scalar!(
+        "SELECT email FROM verifications WHERE token_hash = $1 AND purpose = 'email_verification'",
         token_hash
     )
     .fetch_optional(&mut *transaction)
     .await?;
-
-    let Some(found) = found else {
-        return Ok(Confirmation::Invalid);
+    let Some(email) = email else {
+        return Err(AuthError::InvalidToken);
     };
-    if !found.live {
-        return Ok(Confirmation::Expired);
-    }
 
-    let user_id = sqlx::query_scalar!(
-        "UPDATE users SET email_verified = true, updated_at = now() WHERE email = $1 RETURNING id",
-        found.email
+    sqlx::query!(
+        r#"SELECT true AS "locked!" FROM pg_advisory_xact_lock(hashtext('email_verifications'), hashtext($1))"#,
+        email
+    )
+    .fetch_one(&mut *transaction)
+    .await?;
+
+    let live = sqlx::query_scalar!(
+        r#"SELECT expires_at > now() AS "live!"
+        FROM verifications
+        WHERE token_hash = $1 AND purpose = 'email_verification' AND consumed_at IS NULL"#,
+        token_hash
     )
     .fetch_optional(&mut *transaction)
     .await?;
-    let Some(user_id) = user_id else {
-        return Ok(Confirmation::Invalid);
-    };
+    match live {
+        None => return Err(AuthError::InvalidToken),
+        Some(false) => return Err(AuthError::TokenExpired),
+        Some(true) => {}
+    }
+
+    let verified = sqlx::query!(
+        "UPDATE users SET email_verified = true, updated_at = now() WHERE email = $1",
+        email
+    )
+    .execute(&mut *transaction)
+    .await?;
+    if verified.rows_affected() == 0 {
+        return Err(AuthError::InvalidToken);
+    }
 
     sqlx::query!(
         "UPDATE verifications SET consumed_at = now()
         WHERE email = $1 AND purpose = 'email_verification' AND consumed_at IS NULL",
-        found.email
+        email
     )
     .execute(&mut *transaction)
     .await?;
     transaction.commit().await?;
-    Ok(Confirmation::Confirmed { user_id })
+    Ok(())
 }

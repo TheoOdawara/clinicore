@@ -17,6 +17,8 @@ pub enum AuthError {
     InvalidToken,
     #[error("token expired")]
     TokenExpired,
+    #[error("rate limited")]
+    RateLimited,
     #[error(transparent)]
     Database(#[from] sqlx::Error),
     #[error(transparent)]
@@ -31,6 +33,8 @@ pub enum AuthError {
     Random(#[from] getrandom::Error),
     #[error(transparent)]
     Task(#[from] tokio::task::JoinError),
+    #[error(transparent)]
+    HashingSlot(#[from] tokio::sync::AcquireError),
 }
 
 impl From<AuthError> for AppError {
@@ -42,6 +46,7 @@ impl From<AuthError> for AppError {
             AuthError::SessionReused => Self::SessionReused,
             AuthError::InvalidToken => Self::InvalidToken,
             AuthError::TokenExpired => Self::TokenExpired,
+            AuthError::RateLimited => Self::RateLimited,
             AuthError::Database(error) => Self::Database(error),
             AuthError::Redis(error) => Self::Unavailable(error),
             other => Self::Internal(Box::new(other)),

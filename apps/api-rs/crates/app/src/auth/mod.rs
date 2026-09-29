@@ -11,20 +11,26 @@ pub(crate) mod service;
 mod session;
 pub(crate) mod token;
 
-use std::time::Duration;
-
 use axum::Router;
+use axum::http::HeaderValue;
+use axum::http::header::CACHE_CONTROL;
 use axum::routing::{get, post};
+use tower_http::set_header::SetResponseHeaderLayer;
 
 pub(crate) use access_token::AccessKeys;
 
 use crate::AppState;
-use crate::http::rate_limit::{self, Limit};
+use crate::http::rate_limit::{self, Limit, Quota};
+
+const SIGN_IN_FAILURES: Quota = Quota::new("sign-in-failures", 10, 15 * 60);
+const SESSION_REQUESTS: Quota = Quota::new("session", 100, 10);
+const SESSION_REFRESHES: Quota = Quota::new("session-refresh", 30, 60);
+const EMAIL_CONFIRMATIONS: Quota = Quota::new("email-confirmation-total", 300, 60);
 
 pub fn routes(state: &AppState) -> Router {
     let limit = |name, count, seconds| {
         axum::middleware::from_fn_with_state(
-            Limit::new(state, name, count, Duration::from_secs(seconds)),
+            Limit::new(state, Quota::new(name, count, seconds)),
             rate_limit::guard,
         )
     };
@@ -55,5 +61,9 @@ pub fn routes(state: &AppState) -> Router {
             "/sessions/current/tokens",
             post(handlers::refresh).route_layer(limit("token-refresh", 30, 60)),
         )
+        .layer(SetResponseHeaderLayer::overriding(
+            CACHE_CONTROL,
+            HeaderValue::from_static("no-store"),
+        ))
         .with_state(state.clone())
 }

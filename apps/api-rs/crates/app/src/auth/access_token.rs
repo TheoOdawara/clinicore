@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use jsonwebtoken::errors::{Error, ErrorKind};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -40,7 +41,7 @@ pub fn sign(
     user_id: Uuid,
     session_id: Uuid,
     client: SessionClient,
-) -> Result<String, jsonwebtoken::errors::Error> {
+) -> Result<String, Error> {
     let claims = Claims {
         sub: user_id,
         sid: session_id,
@@ -50,8 +51,28 @@ pub fn sign(
     jsonwebtoken::encode(&Header::default(), &claims, &keys.encoding)
 }
 
-pub fn verify(keys: &AccessKeys, token: &str) -> Option<Claims> {
-    jsonwebtoken::decode(token, &keys.decoding, &keys.validation)
-        .ok()
-        .map(|data| data.claims)
+pub fn verify(keys: &AccessKeys, token: &str) -> Result<Option<Claims>, Error> {
+    let error = match jsonwebtoken::decode(token, &keys.decoding, &keys.validation) {
+        Ok(data) => return Ok(Some(data.claims)),
+        Err(error) => error,
+    };
+    match error.kind() {
+        ErrorKind::InvalidToken
+        | ErrorKind::InvalidSignature
+        | ErrorKind::InvalidAlgorithmName
+        | ErrorKind::UnsupportedAlgorithm
+        | ErrorKind::MissingRequiredClaim(_)
+        | ErrorKind::InvalidClaimFormat(_)
+        | ErrorKind::ExpiredSignature
+        | ErrorKind::InvalidIssuer
+        | ErrorKind::InvalidAudience
+        | ErrorKind::InvalidSubject
+        | ErrorKind::ImmatureSignature
+        | ErrorKind::InvalidAlgorithm
+        | ErrorKind::MissingAlgorithm
+        | ErrorKind::Base64(_)
+        | ErrorKind::Json(_)
+        | ErrorKind::Utf8(_) => Ok(None),
+        _ => Err(error),
+    }
 }

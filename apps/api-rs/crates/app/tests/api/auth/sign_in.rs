@@ -6,24 +6,24 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use super::{
-    MOBILE, PASSWORD, Transport, app_with, count, lifetime_matches, register, session_exists,
-    sign_in,
+    MOBILE, PASSWORD, Transport, app_with, count, fresh_email, lifetime_matches, register,
+    session_exists, sign_in,
 };
 use crate::support::{
     config_with, eventually, fresh_client, json_body, request, set_cookie, state,
 };
 
-const EMAIL: &str = "ana@example.com";
-
 #[sqlx::test(migrations = "../../migrations")]
 async fn web_sign_in_opens_the_session_in_two_cookies(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, true).await;
+    register(&app, &pool, email, true).await;
     let client = fresh_client();
 
     let response = sign_in(
         &app,
-        EMAIL,
+        email,
         PASSWORD,
         &[("user-agent", "Firefox de teste")],
         client,
@@ -32,6 +32,7 @@ async fn web_sign_in_opens_the_session_in_two_cookies(pool: PgPool) {
 
     assert_eq!(response.status(), StatusCode::CREATED);
     assert_eq!(response.headers()["location"], "/sessions/current");
+    assert_eq!(response.headers()["cache-control"], "no-store");
     let access = set_cookie(&response, "clinicore_access").expect("an access cookie");
     let refresh = set_cookie(&response, "clinicore_refresh").expect("a refresh cookie");
     for expected in ["HttpOnly", "SameSite=Lax", "Path=/", "Max-Age=900"] {
@@ -52,7 +53,7 @@ async fn web_sign_in_opens_the_session_in_two_cookies(pool: PgPool) {
 
     let session = Transport::Web.session_from(response).await;
     let user_id: uuid::Uuid = sqlx::query_scalar("SELECT id FROM users WHERE email = $1")
-        .bind(EMAIL)
+        .bind(email)
         .fetch_one(&pool)
         .await
         .expect("the user");
@@ -79,22 +80,24 @@ async fn web_sign_in_opens_the_session_in_two_cookies(pool: PgPool) {
     assert_eq!(current.status(), StatusCode::OK);
     assert_eq!(
         json_body(current).await,
-        json!({"user": {"id": user_id, "name": "Ana Souza", "email": EMAIL, "emailVerified": true, "image": null}})
+        json!({"user": {"id": user_id, "name": "Ana Souza", "email": email, "emailVerified": true, "image": null}})
     );
 }
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn mobile_sign_in_answers_the_tokens_and_no_cookie(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, true).await;
+    register(&app, &pool, email, true).await;
 
-    let response = sign_in(&app, EMAIL, PASSWORD, &[MOBILE], fresh_client()).await;
+    let response = sign_in(&app, email, PASSWORD, &[MOBILE], fresh_client()).await;
 
     assert_eq!(response.status(), StatusCode::CREATED);
     assert_eq!(response.headers()["location"], "/sessions/current");
     assert!(response.headers().get("set-cookie").is_none());
     let body = json_body(response).await;
-    assert_eq!(body["user"]["email"], EMAIL);
+    assert_eq!(body["user"]["email"], email);
     assert_eq!(body["tokens"]["accessTokenExpiresIn"], 900);
     let refresh = body["tokens"]["refreshToken"]
         .as_str()
@@ -120,15 +123,17 @@ async fn mobile_sign_in_answers_the_tokens_and_no_cookie(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn production_cookies_are_secure(pool: PgPool) {
-    let config = config_with(&[("APP_ENV", Some("production"))]);
+async fn an_https_api_sets_secure_cookies(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
+    let config = config_with(&[("API_URL", Some("https://api.clinicore.com.br"))]);
     let app = clinicore_app::app(
         &config,
         state(&config, pool.clone(), AsyncStubTransport::new_ok()),
     );
-    register(&app, &pool, EMAIL, true).await;
+    register(&app, &pool, email, true).await;
 
-    let response = sign_in(&app, EMAIL, PASSWORD, &[], fresh_client()).await;
+    let response = sign_in(&app, email, PASSWORD, &[], fresh_client()).await;
 
     for name in ["clinicore_access", "clinicore_refresh"] {
         let cookie = set_cookie(&response, name).expect("a session cookie");
@@ -140,11 +145,13 @@ async fn production_cookies_are_secure(pool: PgPool) {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn an_unknown_client_header_is_refused_on_any_route(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, true).await;
+    register(&app, &pool, email, true).await;
     let desktop = [("clinicore-client", "desktop")];
 
-    let response = sign_in(&app, EMAIL, PASSWORD, &desktop, fresh_client()).await;
+    let response = sign_in(&app, email, PASSWORD, &desktop, fresh_client()).await;
     let health = request(
         app.clone(),
         "GET",
@@ -167,24 +174,27 @@ async fn an_unknown_client_header_is_refused_on_any_route(pool: PgPool) {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_wrong_password_and_an_unknown_email_answer_the_same_in_the_same_time(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, true).await;
+    register(&app, &pool, email, true).await;
 
-    let median_of = async |email: &str| {
+    let median_of = async |address_of: &dyn Fn() -> String| {
         let mut timings = Vec::new();
         let mut bodies = Vec::new();
-        for _ in 0..20 {
+        for _ in 0..5 {
+            let address = address_of();
             let started = Instant::now();
-            let response = sign_in(&app, email, "Errada#2026", &[], fresh_client()).await;
+            let response = sign_in(&app, &address, "Errada#2026", &[], fresh_client()).await;
             timings.push(started.elapsed());
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
             bodies.push(json_body(response).await);
         }
         timings.sort();
-        (timings[10], bodies)
+        (timings[2], bodies)
     };
-    let (wrong_password, wrong_password_bodies) = median_of(EMAIL).await;
-    let (unknown_email, unknown_email_bodies) = median_of("ninguem@example.com").await;
+    let (wrong_password, wrong_password_bodies) = median_of(&|| email.to_string()).await;
+    let (unknown_email, unknown_email_bodies) = median_of(&fresh_email).await;
 
     let expected = json!({"type": "tag:clinicore.com.br,2026:invalid-credentials", "title": "Invalid email or password", "status": 401});
     for body in wrong_password_bodies.iter().chain(&unknown_email_bodies) {
@@ -199,10 +209,12 @@ async fn a_wrong_password_and_an_unknown_email_answer_the_same_in_the_same_time(
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn an_unverified_email_is_refused_and_gets_a_new_link(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let mail = AsyncStubTransport::new_ok();
     let config = config_with(&[]);
     let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
-    register(&app, &pool, EMAIL, false).await;
+    register(&app, &pool, email, false).await;
     sqlx::query("DELETE FROM email_dispatches")
         .execute(&pool)
         .await
@@ -210,11 +222,11 @@ async fn an_unverified_email_is_refused_and_gets_a_new_link(pool: PgPool) {
     let links = "SELECT count(*) FROM verifications WHERE consumed_at IS NULL";
     let before = count(&pool, links).await;
 
-    let wrong = sign_in(&app, EMAIL, "Errada#2026", &[], fresh_client()).await;
+    let wrong = sign_in(&app, email, "Errada#2026", &[], fresh_client()).await;
     assert_eq!(wrong.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(count(&pool, links).await, before);
 
-    let response = sign_in(&app, EMAIL, PASSWORD, &[], fresh_client()).await;
+    let response = sign_in(&app, email, PASSWORD, &[], fresh_client()).await;
 
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     assert!(response.headers().get("set-cookie").is_none());
@@ -235,12 +247,14 @@ async fn an_unverified_email_is_refused_and_gets_a_new_link(pool: PgPool) {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_sixth_sign_in_drops_the_oldest_session(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, true).await;
+    register(&app, &pool, email, true).await;
 
-    let oldest = Transport::Web.sign_in(&app, EMAIL).await;
+    let oldest = Transport::Web.sign_in(&app, email).await;
     for _ in 0..5 {
-        Transport::Mobile.sign_in(&app, EMAIL).await;
+        Transport::Mobile.sign_in(&app, email).await;
     }
 
     assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 5);
@@ -255,7 +269,7 @@ async fn the_sixth_sign_in_drops_the_oldest_session(pool: PgPool) {
     );
 
     for _ in 0..14 {
-        Transport::Web.sign_in(&app, EMAIL).await;
+        Transport::Web.sign_in(&app, email).await;
     }
     assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 5);
 }
@@ -264,6 +278,8 @@ async fn the_sixth_sign_in_drops_the_oldest_session(pool: PgPool) {
 async fn the_sign_in_limit_refuses_the_sixth_attempt_even_with_a_forged_forwarded_for(
     pool: PgPool,
 ) {
+    let email = fresh_email();
+    let email = email.as_str();
     let config = config_with(&[("CLIENT_IP_SOURCE", Some("RightmostXForwardedFor"))]);
     let app = clinicore_app::app(
         &config,
@@ -275,7 +291,7 @@ async fn the_sign_in_limit_refuses_the_sixth_attempt_even_with_a_forged_forwarde
         let forwarded = format!("198.51.100.{attempt}, {proxy_hop}");
         let response = sign_in(
             &app,
-            EMAIL,
+            email,
             "Errada#2026",
             &[("x-forwarded-for", forwarded.as_str())],
             fresh_client(),
@@ -289,4 +305,28 @@ async fn the_sign_in_limit_refuses_the_sixth_attempt_even_with_a_forged_forwarde
         };
         assert_eq!(response.status(), expected, "attempt {attempt}");
     }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn ten_failures_lock_the_account_whatever_the_address(pool: PgPool) {
+    let email = fresh_email();
+    let app = app_with(&pool);
+    register(&app, &pool, &email, true).await;
+
+    for attempt in 1..=10 {
+        let response = sign_in(&app, &email, "Errada#2026", &[], fresh_client()).await;
+        assert_eq!(
+            response.status(),
+            StatusCode::UNAUTHORIZED,
+            "attempt {attempt}"
+        );
+    }
+    let response = sign_in(&app, &email, PASSWORD, &[], fresh_client()).await;
+
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        json_body(response).await,
+        json!({"type": "tag:clinicore.com.br,2026:rate-limited", "title": "Too many requests", "status": 429})
+    );
+    assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 0);
 }

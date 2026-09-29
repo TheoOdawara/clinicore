@@ -274,8 +274,12 @@ A sessão não é um token único. São dois, com tempos de vida e caminhos dife
   uma forja. Nos dois casos a sessão está comprometida e morre inteira, junto com o access token que
   ainda estiver vivo.
 - Sessão inexistente ou vencida responde `401 INVALID_SESSION`, sem gravar nada.
-- **A sessão dura 24 horas de inatividade**, empurradas a cada rotação. Não existe teto absoluto e
-  **não existe "lembrar de mim"**: toda sessão dura o mesmo.
+- **A sessão dura 24 horas de inatividade**, empurradas a cada rotação, e **nunca mais de 30 dias desde
+  o `createdAt`**. Passado o teto, o refresh responde `401 INVALID_SESSION` como uma sessão vencida: um
+  refresh roubado que rotaciona à frente da vítima não vive para sempre. **Não existe "lembrar de
+  mim"**: toda sessão dura o mesmo.
+- **O refresh só vale pelo transporte em que a sessão nasceu.** Um refresh de sessão `mobile`
+  apresentado no cookie, ou o contrário, responde `401 INVALID_SESSION` sem apagar a sessão.
 - **Não existe conceito de sessão fresca.** A única operação sensível desta entrega é
   `change-password`, que já exige `currentPassword`.
 - Duas chamadas simultâneas de `/sessions/current/tokens` com o mesmo token válido: a transação serializa, uma
@@ -315,14 +319,18 @@ Uma senha é aceita quando cumpre **todas** as condições:
   nunca aponta para a API: um `GET` que consome token seria gasto pelo scanner de link do cliente de
   e-mail antes da pessoa clicar.
 - `POST /email-verifications/confirmation` consome o token:
-  - válido → marca `user.emailVerified = true`, grava `verification.consumedAt`, **cria a sessão** e
-    responde `204` com os dois `Set-Cookie` da regra 2;
+  - válido → marca `user.emailVerified = true`, grava `verification.consumedAt` e responde `204`
+    **sem sessão e sem cookie**; a pessoa entra depois com a senha que escolheu no cadastro;
   - inválido, consumido ou inexistente → `400 INVALID_TOKEN`, sem cookie;
   - expirado → `400 TOKEN_EXPIRED`, sem cookie.
 - Uma conta criada pelo Google nasce com `emailVerified = true` e nunca passa por esta regra (regra 6).
+- **A confirmação não abre sessão porque o cadastro não prova a posse do endereço.** Quem cadastra o
+  e-mail de outra pessoa escolhe a senha; se clicar no link logasse a vítima, ela usaria a conta
+  enquanto o atacante guarda a senha. Sem sessão, a dona do endereço só entra redefinindo a senha
+  (regra 7), o que troca a senha e derruba toda sessão.
 - Ao marcar `emailVerified = true`, **todos os tokens de verificação pendentes daquele endereço são
-  consumidos na mesma transação**, para que um segundo link no e-mail da pessoa não crie uma segunda
-  sessão depois.
+  consumidos na mesma transação**, e dois links do mesmo endereço confirmados ao mesmo tempo são
+  serializados por endereço: um responde `204` e o outro `400 INVALID_TOKEN`.
 
 ### 6. Google e senha são a mesma conta
 
@@ -473,6 +481,21 @@ Uma senha é aceita quando cumpre **todas** as condições:
   | qualquer outra rota | 10 s | 100 |
   | `/health` | sem limite, por `@SkipThrottle()` | — |
 
+- **Nenhuma rota é limitada por uma chave só.** O IP é trocável — um bloco IPv6 barato dá dezenas de
+  milhares de `/64` —, então toda rota limitada conta também numa segunda chave, independente do IP:
+
+  | Rota | Segunda chave | Janela | Máximo |
+  | --- | --- | --- | --- |
+  | `/sessions` | falhas de senha por e-mail, em minúsculas | 15 min | 10 |
+  | rotas com sessão | a sessão do access token | 10 s | 100 |
+  | `/sessions/current/tokens` | a sessão do refresh token | 60 s | 30 |
+  | `/email-verifications/confirmation` | teto total da rota | 60 s | 300 |
+  | `/users`, `/email-verifications`, `/password-resets` | o endereço, pela regra 15 | — | — |
+
+- **O contador do login por e-mail conta só falha e barra antes do argon2**, inclusive com a senha
+  certa. Cada tentativa soma antes de conferir a senha e devolve o ponto quando ela confere, então uma
+  rajada de tentativas simultâneas não passa do teto. Travar a conta de outra pessoa por 15 minutos é
+  o custo aceito: o Google e o reset continuam funcionando.
 - Excedido, o `ThrottlerGuard` lança e o filtro responde `429` com o código `RATE_LIMITED`.
 - **A falha é fechada, como na regra 2.** Redis inalcançável durante a contagem responde `503` com o
   código `SERVICE_UNAVAILABLE`, em vez de deixar a requisição passar sem limite. O `/health` não conta,
@@ -632,8 +655,7 @@ sem fim, cada pedido de reset gravaria uma linha em `verification`, e o teto di�
 
 - Toda sessão nasce em um único método,
   `features/auth/repository/session.repository.ts` → `createSession(userId, refreshTokenHash, ip, userAgent)`,
-  chamado pelos três caminhos que criam sessão: login por senha, callback do Google e verificação de
-  e-mail.
+  chamado pelos dois caminhos que criam sessão: login por senha e callback do Google.
 - Dentro da mesma transação, o método apaga todas as sessões daquele usuário exceto as 5 de `createdAt`
   mais recente, e **devolve os `sessionId` apagados**. O service grava cada um na denylist (regra 2).
 - O sexto login derruba a sessão mais antiga na hora: o refresh dela não funciona mais, e o access
@@ -787,18 +809,16 @@ E um e-mail de confirmação foi entregue ao transport
 E com a senha errada a resposta é `401 INVALID_CREDENTIALS` e nenhum e-mail é entregue
 ```
 
-### Cenário 4 — Verificar o e-mail loga o usuário, e repetir não cria outra sessão (caminho feliz, regra 5)
+### Cenário 4 — Verificar o e-mail não abre sessão, e repetir é recusado (caminho feliz, regra 5)
 
 ```gherkin
 Dado um usuário cadastrado com `emailVerified = false` e dois links de verificação válidos
 Quando é feita a requisição `POST /email-verifications/confirmation` com o token do primeiro link
-Então o sistema responde `204`
-E a resposta traz os cookies `clinicore_access` e `clinicore_refresh`
+Então o sistema responde `204` sem `Set-Cookie`
 E `user.emailVerified` passa a ser `true`
-E existe exatamente uma linha em `session` para esse usuário
+E nenhuma linha em `session` é criada
 E as duas linhas em `verification` desse endereço têm `consumedAt` preenchido
 E repetir a requisição com qualquer um dos dois tokens responde `400` com o código `INVALID_TOKEN`
-E continua existindo exatamente uma linha em `session`
 ```
 
 ### Cenário 5 — Token de verificação inválido ou expirado é recusado com o código (exceção, regra 5)

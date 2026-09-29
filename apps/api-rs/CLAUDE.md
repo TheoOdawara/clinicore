@@ -102,6 +102,11 @@ migrations/  .sqlx/
 - **A ordem de uma rota limitada é cliente, origem, limite, validação.** O guard do `Clinicore-Client` e o
   de `Origin` são `route_layer` do `with_layers`, o limite é `route_layer` da própria rota e a validação é
   o extractor `ValidJson`, então uma origem recusada não conta no limite e um corpo inválido conta.
+- **Toda rota limitada conta em duas chaves, nunca numa só.** O IP é a do `route_layer`; a segunda é
+  a identidade, contada por `rate_limit::admit` com uma `Quota` de `auth/mod.rs`: a sessão no
+  `CurrentSession`, a sessão do refresh e as falhas de senha por e-mail no service, e o teto total na
+  confirmação. As rotas que mandam e-mail têm a segunda no `email_dispatches`. Rota nova limitada
+  nasce com as duas.
 - **O `Clinicore-Client` escolhe o transporte em toda rota.** Ausente é `web`, `mobile` é o token no
   `Authorization`, e qualquer outro valor é `400 invalid-client` antes de tudo. O `SessionClient` sai das
   extensions, e o `CurrentSession` lê o token só do transporte declarado.
@@ -178,6 +183,9 @@ migrations/  .sqlx/
   `#[sqlx::test(migrations = "../../migrations")]` cria um banco por teste a partir da `DATABASE_URL`.
 - **O Redis dos testes é o de dev, sem flush.** Cada requisição de teste sai de um `fresh_client()`, um
   /64 de documentação novo por chamada, então nenhum contador de limite atravessa testes nem execuções.
+  **Pelo mesmo motivo, teste que faz login usa um `fresh_email()`**: o contador de falhas por e-mail
+  atravessaria testes e execuções. O teste de um teto total roda no índice 15 do Redis, pelo
+  `state_on_redis`, e é o único que usa esse índice.
 - **A consulta do teste é `sqlx::query_scalar` em runtime, com SQL literal.** O `.sqlx/` cobre só as
   consultas dos `queries.rs`.
 - **Teste unitário de lógica pura fica no próprio arquivo**, num `#[cfg(test)] mod tests` no fim, como
@@ -204,6 +212,8 @@ migrations/  .sqlx/
 - **O corpo JSON do contrato é uma struct, nunca `json!`.** O `serde_json` sem `preserve_order` ordena
   as chaves do `json!` em ordem alfabética, e a ordem deixa de ser a do contrato.
 - **O `utoipa-swagger-ui` usa a feature `vendored`.** Sem ela, o build baixa a UI da internet.
+- **O `Secure` do cookie segue o esquema da `API_URL`**, não o `APP_ENV`: homologação com
+  `APP_ENV=development` atrás de HTTPS continua mandando cookie `Secure`.
 - **O IP do cliente vem do `axum-client-ip`, pela fonte em `CLIENT_IP_SOURCE`.** Sem proxy na frente é
   `ConnectInfo`, o socket, que não se forja. Atrás de proxy é o header que só ele escreve
   (`RightmostXForwardedFor`, `CfConnectingIp`, …), e a API só pode ser alcançável por ele: exposta

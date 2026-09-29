@@ -10,7 +10,7 @@ use super::requests::{
 };
 use super::responses::{SessionResponse, SignInResponse, TokenRefreshResponse};
 use super::session::{CurrentSession, Device};
-use super::{cookies, queries, service};
+use super::{cookies, service};
 use crate::AppState;
 use crate::http::client::SessionClient;
 use crate::http::error::AppError;
@@ -37,25 +37,20 @@ pub async fn request_email_verification(
     post,
     path = "/email-verifications/confirmation",
     tag = "Auth",
-    summary = "Confirm the email and open a web session",
-    description = "Answers 204 with the two session cookies, whatever the Clinicore-Client header says.",
+    summary = "Confirm the email",
+    description = "Marks the email as verified and opens no session: the owner signs in afterwards with the password they chose.",
     request_body = EmailConfirmationRequest,
     responses(
-        (status = 204, description = "Confirmed, with the session cookies"),
+        (status = 204, description = "Confirmed"),
         (status = 400, description = "invalid-token or token-expired")
     )
 )]
 pub async fn confirm_email(
     State(state): State<AppState>,
-    device: Device,
-    jar: CookieJar,
     ValidJson(body): ValidJson<EmailConfirmationRequest>,
-) -> Result<(StatusCode, CookieJar), AppError> {
-    let tokens = service::confirm_email(&state, &body.token, device).await?;
-    Ok((
-        StatusCode::NO_CONTENT,
-        cookies::issue(jar, &tokens, state.secure_cookies),
-    ))
+) -> Result<StatusCode, AppError> {
+    service::confirm_email(&state, &body.token).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(
@@ -115,9 +110,7 @@ pub async fn current(
     State(state): State<AppState>,
     session: CurrentSession,
 ) -> Result<Json<SessionResponse>, AppError> {
-    let user = queries::find_session_user(&state.pool, session.user_id)
-        .await?
-        .ok_or(AppError::InvalidSession)?;
+    let user = service::read_current_session(&state, &session).await?;
     Ok(Json(SessionResponse { user }))
 }
 
@@ -134,21 +127,26 @@ pub async fn current(
 )]
 pub async fn sign_out(
     State(state): State<AppState>,
-    session: CurrentSession,
+    client: SessionClient,
+    session: Result<CurrentSession, AppError>,
     jar: CookieJar,
-) -> Result<Response, AppError> {
-    if !queries::close_session(&state.pool, &state.redis, session.session_id).await? {
-        return Err(AppError::InvalidSession);
-    }
-    let response = match session.client {
-        SessionClient::Web => (
+) -> Response {
+    let outcome = match session {
+        Ok(session) => service::sign_out(&state, &session)
+            .await
+            .map_err(AppError::from),
+        Err(error) => Err(error),
+    };
+    match (client, outcome) {
+        (SessionClient::Web, Ok(())) => (
             StatusCode::NO_CONTENT,
             cookies::clear(jar, state.secure_cookies),
         )
             .into_response(),
-        SessionClient::Mobile => StatusCode::NO_CONTENT.into_response(),
-    };
-    Ok(response)
+        (SessionClient::Mobile, Ok(())) => StatusCode::NO_CONTENT.into_response(),
+        (SessionClient::Web, Err(error)) => refused_on_the_web(jar, &state, error),
+        (SessionClient::Mobile, Err(error)) => error.into_response(),
+    }
 }
 
 #[utoipa::path(
@@ -174,18 +172,29 @@ pub async fn refresh(
     let response = match client {
         SessionClient::Web => {
             let presented = jar.get(cookies::REFRESH).map(|cookie| cookie.value());
-            let tokens = service::refresh(&state, presented).await?;
-            (
-                StatusCode::NO_CONTENT,
-                cookies::issue(jar, &tokens, state.secure_cookies),
-            )
-                .into_response()
+            match service::refresh(&state, client, presented).await {
+                Ok(tokens) => (
+                    StatusCode::NO_CONTENT,
+                    cookies::issue(jar, &tokens, state.secure_cookies),
+                )
+                    .into_response(),
+                Err(error) => refused_on_the_web(jar, &state, error.into()),
+            }
         }
         SessionClient::Mobile => {
             let ValidJson(body) = body?;
-            let tokens = service::refresh(&state, Some(&body.refresh_token)).await?;
+            let tokens = service::refresh(&state, client, Some(&body.refresh_token)).await?;
             Json(TokenRefreshResponse { tokens }).into_response()
         }
     };
     Ok(response)
+}
+
+fn refused_on_the_web(jar: CookieJar, state: &AppState, error: AppError) -> Response {
+    match error {
+        AppError::InvalidSession | AppError::SessionReused => {
+            (cookies::clear(jar, state.secure_cookies), error).into_response()
+        }
+        error => error.into_response(),
+    }
 }

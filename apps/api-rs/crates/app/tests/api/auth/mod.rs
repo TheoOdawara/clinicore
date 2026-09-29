@@ -4,6 +4,8 @@ mod sessions;
 mod sign_in;
 
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::Router;
 use axum::http::StatusCode;
@@ -20,6 +22,16 @@ use crate::support::{
 pub const PASSWORD: &str = "Clinica#2026";
 pub const WEB_ORIGIN: (&str, &str) = ("origin", "http://localhost:3000");
 pub const MOBILE: (&str, &str) = ("clinicore-client", "mobile");
+
+pub fn fresh_email() -> String {
+    static SEQUENCE: AtomicU32 = AtomicU32::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("a clock after the epoch")
+        .as_nanos();
+    let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!("ana.{nanos}.{sequence}@example.com")
+}
 
 pub fn app_with(pool: &PgPool) -> Router {
     let config = config_with(&[]);

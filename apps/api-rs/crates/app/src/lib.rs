@@ -44,7 +44,7 @@ impl AppState {
             mailer,
             app_origin: config.app_origin.clone(),
             access_keys: auth::AccessKeys::new(&config.jwt_secret),
-            secure_cookies: config.app_env == AppEnv::Production,
+            secure_cookies: config.api_url.starts_with("https://"),
             unmatchable_hash: auth::password::unmatchable_hash()?.into(),
         })
     }

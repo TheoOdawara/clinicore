@@ -1,12 +1,15 @@
 use uuid::Uuid;
 
 use super::error::AuthError;
-use super::queries::{self, Confirmation, Rotation};
+use super::queries;
 use super::responses::{SessionTokens, SessionUser};
-use super::session::Device;
-use super::{access_token, emails, password, token};
+use super::session::{CurrentSession, Device};
+use super::{
+    EMAIL_CONFIRMATIONS, SESSION_REFRESHES, SIGN_IN_FAILURES, access_token, emails, password, token,
+};
 use crate::AppState;
 use crate::http::client::SessionClient;
+use crate::http::rate_limit::{self, Quota};
 
 pub async fn request_email_verification(state: &AppState, email: &str) -> Result<(), AuthError> {
     let address = email.to_lowercase();
@@ -31,18 +34,9 @@ pub fn verification_link(state: &AppState, secret: &str) -> String {
     format!("{}/verify-email?token={secret}", state.app_origin)
 }
 
-pub async fn confirm_email(
-    state: &AppState,
-    secret: &str,
-    device: Device,
-) -> Result<SessionTokens, AuthError> {
-    match queries::consume_email_verification(&state.pool, &token::hash(secret)).await? {
-        Confirmation::Confirmed { user_id } => {
-            open(state, user_id, SessionClient::Web, device).await
-        }
-        Confirmation::Invalid => Err(AuthError::InvalidToken),
-        Confirmation::Expired => Err(AuthError::TokenExpired),
-    }
+pub async fn confirm_email(state: &AppState, secret: &str) -> Result<(), AuthError> {
+    admit(state, EMAIL_CONFIRMATIONS, "all").await?;
+    queries::consume_email_verification(&state.pool, &token::hash(secret)).await
 }
 
 pub async fn sign_in(
@@ -53,6 +47,7 @@ pub async fn sign_in(
     device: Device,
 ) -> Result<(SessionUser, SessionTokens), AuthError> {
     let address = email.to_lowercase();
+    admit(state, SIGN_IN_FAILURES, &address).await?;
     let credential = queries::find_credential(&state.pool, &address)
         .await?
         .and_then(|(user, hash)| hash.map(|hash| (user, hash)));
@@ -64,6 +59,7 @@ pub async fn sign_in(
     let Some((user, _)) = credential.filter(|_| matches) else {
         return Err(AuthError::InvalidCredentials);
     };
+    rate_limit::refund(&state.redis, SIGN_IN_FAILURES, &address).await?;
     if !user.email_verified {
         request_email_verification(state, &address).await?;
         return Err(AuthError::EmailNotVerified);
@@ -73,29 +69,46 @@ pub async fn sign_in(
     Ok((user, tokens))
 }
 
+pub async fn read_current_session(
+    state: &AppState,
+    session: &CurrentSession,
+) -> Result<SessionUser, AuthError> {
+    queries::find_session_user(&state.pool, session.user_id)
+        .await?
+        .ok_or(AuthError::InvalidSession)
+}
+
+pub async fn sign_out(state: &AppState, session: &CurrentSession) -> Result<(), AuthError> {
+    queries::close_session(&state.pool, &state.redis, session.session_id).await
+}
+
 pub async fn refresh(
     state: &AppState,
+    client: SessionClient,
     presented: Option<&str>,
 ) -> Result<SessionTokens, AuthError> {
     let (session_id, secret) = presented
         .and_then(token::parse_refresh_token)
         .ok_or(AuthError::InvalidSession)?;
+    admit(state, SESSION_REFRESHES, &session_id.to_string()).await?;
     let issued = token::issue()?;
-    let rotation = queries::rotate_session(
+    let user_id = queries::rotate_session(
         &state.pool,
         &state.redis,
         session_id,
+        client,
         &token::hash(secret),
         &issued.hash,
     )
     .await?;
-    match rotation {
-        Rotation::Rotated { user_id, client } => {
-            tokens(state, user_id, session_id, client, &issued.secret)
-        }
-        Rotation::Invalid => Err(AuthError::InvalidSession),
-        Rotation::Reused => Err(AuthError::SessionReused),
+    tokens(state, user_id, session_id, client, &issued.secret)
+}
+
+async fn admit(state: &AppState, quota: Quota, identity: &str) -> Result<(), AuthError> {
+    if !rate_limit::admit(&state.redis, quota, identity).await? {
+        return Err(AuthError::RateLimited);
     }
+    Ok(())
 }
 
 async fn open(

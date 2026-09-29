@@ -9,15 +9,16 @@ use axum_extra::extract::cookie::CookieJar;
 use clinicore_core::redis::{Redis, RedisError};
 use uuid::Uuid;
 
-use super::{access_token, cookies};
+use super::error::AuthError;
+use super::{SESSION_REQUESTS, access_token, cookies};
 use crate::AppState;
 use crate::http::client::SessionClient;
 use crate::http::error::AppError;
+use crate::http::rate_limit;
 
 pub struct CurrentSession {
     pub user_id: Uuid,
     pub session_id: Uuid,
-    pub client: SessionClient,
 }
 
 impl FromRequestParts<AppState> for CurrentSession {
@@ -36,17 +37,22 @@ impl FromRequestParts<AppState> for CurrentSession {
                 .and_then(|value| value.strip_prefix("Bearer "))
                 .map(str::to_string),
         };
-        let claims = token
-            .and_then(|token| access_token::verify(&state.access_keys, &token))
+        let Some(token) = token else {
+            return Err(AppError::InvalidSession);
+        };
+        let claims = access_token::verify(&state.access_keys, &token)
+            .map_err(AuthError::from)?
             .filter(|claims| claims.cli == client)
             .ok_or(AppError::InvalidSession)?;
         if state.redis.exists(&revoked_key(claims.sid)).await? {
             return Err(AppError::InvalidSession);
         }
+        if !rate_limit::admit(&state.redis, SESSION_REQUESTS, &claims.sid.to_string()).await? {
+            return Err(AppError::RateLimited);
+        }
         Ok(Self {
             user_id: claims.sub,
             session_id: claims.sid,
-            client,
         })
     }
 }
@@ -75,6 +81,8 @@ impl<State: Send + Sync> FromRequestParts<State> for Device {
         })
     }
 }
+
+pub const ABSOLUTE_LIFETIME: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 
 pub fn lifetime(client: SessionClient) -> Duration {
     match client {

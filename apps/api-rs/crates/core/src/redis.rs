@@ -37,6 +37,16 @@ impl Redis {
         Ok(hits)
     }
 
+    pub async fn undo_hit(&self, key: &str) -> RedisResult<()> {
+        let mut connection = self.connection.clone();
+        redis::Script::new(
+            "if redis.call('EXISTS', KEYS[1]) == 1 then redis.call('DECR', KEYS[1]) end return 0",
+        )
+        .key(key)
+        .invoke_async(&mut connection)
+        .await
+    }
+
     pub async fn set_expiring(&self, keys: &[String], ttl: Duration) -> RedisResult<()> {
         if keys.is_empty() {
             return Ok(());

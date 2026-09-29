@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT user_id, client AS \"client: SessionClient\",\n            expires_at > now() AS \"live!\", refresh_token_hash = $2 AS \"matches!\"\n        FROM sessions WHERE id = $1 FOR UPDATE",
+  "query": "SELECT user_id, client AS \"client: SessionClient\",\n            expires_at > now() AND created_at > now() - make_interval(secs => $3) AS \"live!\",\n            refresh_token_hash = $2 AS \"matches!\"\n        FROM sessions WHERE id = $1 FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -51,7 +51,8 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Text"
+        "Text",
+        "Float8"
       ]
     },
     "nullable": [
@@ -61,5 +62,5 @@
       null
     ]
   },
-  "hash": "52fd527da3f4ae8546a1d2768bad4d8269a1d5b5811f6719ccca07cfe254b206"
+  "hash": "3efba054b4f267caee96feb262821e1b1f7a3ac20d5537fa0a43a3057ce03132"
 }

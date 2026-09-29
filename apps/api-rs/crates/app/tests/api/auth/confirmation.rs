@@ -1,18 +1,17 @@
 use axum::http::StatusCode;
+use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
-use super::{MOBILE, app_with, count, register};
-use crate::support::{fresh_client, json_body, request, set_cookie};
+use super::{MOBILE, app_with, count, fresh_email, register};
+use crate::support::{config_with, fresh_client, json_body, request, state_on_redis};
 
-const EMAIL: &str = "ana@example.com";
-
-async fn pending_link(pool: &PgPool, secret: &str, expires_in: &str) {
+async fn pending_link(pool: &PgPool, email: &str, secret: &str, expires_in: &str) {
     sqlx::query(
         "INSERT INTO verifications (email, purpose, token_hash, expires_at)
         VALUES ($1, 'email_verification', encode(sha256($2::bytea), 'hex'), now() + $3::interval)",
     )
-    .bind(EMAIL)
+    .bind(email)
     .bind(secret)
     .bind(expires_in)
     .execute(pool)
@@ -34,25 +33,23 @@ async fn confirm(app: &axum::Router, secret: &str) -> axum::response::Response {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn confirming_the_email_signs_in_once_with_cookies(pool: PgPool) {
+async fn confirming_the_email_verifies_it_once_and_opens_no_session(pool: PgPool) {
+    let email = fresh_email();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, false).await;
+    register(&app, &pool, &email, false).await;
     let first = "a".repeat(43);
     let second = "b".repeat(43);
-    pending_link(&pool, &first, "1 hour").await;
-    pending_link(&pool, &second, "1 hour").await;
+    pending_link(&pool, &email, &first, "1 hour").await;
+    pending_link(&pool, &email, &second, "1 hour").await;
 
     let response = confirm(&app, &first).await;
 
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
-    assert!(set_cookie(&response, "clinicore_access").is_some());
-    assert!(set_cookie(&response, "clinicore_refresh").is_some());
+    assert!(response.headers().get("set-cookie").is_none());
     let verified = "SELECT count(*) FROM users WHERE email_verified";
     let pending = "SELECT count(*) FROM verifications WHERE consumed_at IS NULL";
-    let web_sessions = "SELECT count(*) FROM sessions WHERE client = 'web'";
     assert_eq!(count(&pool, verified).await, 1);
     assert_eq!(count(&pool, pending).await, 0);
-    assert_eq!(count(&pool, web_sessions).await, 1);
 
     for secret in [&first, &second] {
         let again = confirm(&app, secret).await;
@@ -62,15 +59,36 @@ async fn confirming_the_email_signs_in_once_with_cookies(pool: PgPool) {
             json!({"type": "tag:clinicore.com.br,2026:invalid-token", "title": "Invalid token", "status": 400})
         );
     }
-    assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 1);
+    assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn two_links_of_one_address_confirmed_together_verify_it_once(pool: PgPool) {
+    let app = app_with(&pool);
+
+    for round in 0..10 {
+        let email = fresh_email();
+        register(&app, &pool, &email, false).await;
+        let first = format!("f{round:0>42}");
+        let second = format!("s{round:0>42}");
+        pending_link(&pool, &email, &first, "1 hour").await;
+        pending_link(&pool, &email, &second, "1 hour").await;
+
+        let (one, other) = tokio::join!(confirm(&app, &first), confirm(&app, &second));
+
+        let mut statuses = [one.status().as_u16(), other.status().as_u16()];
+        statuses.sort();
+        assert_eq!(statuses, [204, 400], "round {round}");
+    }
 }
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn an_unknown_or_expired_link_is_refused_with_its_code(pool: PgPool) {
+    let email = fresh_email();
     let app = app_with(&pool);
-    register(&app, &pool, EMAIL, false).await;
+    register(&app, &pool, &email, false).await;
     let expired = "c".repeat(43);
-    pending_link(&pool, &expired, "-1 minute").await;
+    pending_link(&pool, &email, &expired, "-1 minute").await;
 
     for (secret, slug, title) in [
         ("d".repeat(43), "invalid-token", "Invalid token"),
@@ -89,5 +107,45 @@ async fn an_unknown_or_expired_link_is_refused_with_its_code(pool: PgPool) {
         count(&pool, "SELECT count(*) FROM users WHERE email_verified").await,
         0
     );
-    assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn confirmations_stop_at_the_total_ceiling_whatever_the_address(pool: PgPool) {
+    let redis_url = format!(
+        "{}/15",
+        std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run")
+    );
+    let config = config_with(&[]);
+    let app = clinicore_app::app(
+        &config,
+        state_on_redis(
+            &config,
+            pool.clone(),
+            AsyncStubTransport::new_ok(),
+            &redis_url,
+        ),
+    );
+    let mut connection = redis::Client::open(redis_url)
+        .expect("a redis url")
+        .get_multiplexed_async_connection()
+        .await
+        .expect("a redis connection");
+    let key = "rate:email-confirmation-total:all";
+    let _: () = redis::cmd("SET")
+        .arg(key)
+        .arg(300)
+        .arg("EX")
+        .arg(60)
+        .query_async(&mut connection)
+        .await
+        .expect("a ceiling already reached");
+
+    let response = confirm(&app, &"e".repeat(43)).await;
+
+    let _: () = redis::cmd("DEL")
+        .arg(key)
+        .query_async(&mut connection)
+        .await
+        .expect("the ceiling cleared");
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
 }

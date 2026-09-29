@@ -80,8 +80,18 @@ pub fn lazy_state(config: &Config) -> AppState {
 }
 
 pub fn state(config: &Config, pool: PgPool, mail: AsyncStubTransport) -> AppState {
+    let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run");
+    state_on_redis(config, pool, mail, &redis_url)
+}
+
+pub fn state_on_redis(
+    config: &Config,
+    pool: PgPool,
+    mail: AsyncStubTransport,
+    redis_url: &str,
+) -> AppState {
     let mut config = config.clone();
-    config.redis_url = std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run");
+    config.redis_url = redis_url.to_string();
     AppState::new(
         &config,
         pool,
