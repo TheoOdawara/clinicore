@@ -96,8 +96,8 @@ migrations/  .sqlx/
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
   campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
   O request tem `#[serde(deny_unknown_fields)]`, e campo desconhecido ou de tipo errado sai como
-  `invalid`. JSON malformado sai como `400 about:blank`, e content-type que não é JSON como `415`. O tipo Rust é `<Operação>Request`, e o nome do schema no
-  OpenAPI é fixado por `#[schema(as = …)]` onde o cliente Dart depende dele.
+  `invalid`. JSON malformado sai como `400 about:blank`, e content-type que não é JSON como `415`.
+  O tipo Rust é `<Operação>Request`, e é também o nome do schema no OpenAPI.
 - **Concorrência se resolve no Postgres, sem retry na aplicação.** Unicidade por
   `ON CONFLICT … DO NOTHING`, e a serialização por chave (o registro de envio por endereço) por
   `pg_advisory_xact_lock` dentro da transação.

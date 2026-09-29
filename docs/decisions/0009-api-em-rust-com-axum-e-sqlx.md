@@ -1,7 +1,7 @@
 # 0009. API em Rust, com axum e sqlx, num workspace por camada
 
-- Status: superseded by 0010 na organização do workspace, no erro e nos códigos de campo; a troca de
-  stack segue valendo
+- Status: superseded by 0010 na organização do workspace, no erro, nos códigos de campo e nos nomes
+  do OpenAPI; a troca de stack segue valendo
 - Date: 2026-09-28
 - Substitui: `0001-api-em-nestjs-typeorm-e-redis.md`
 - Emenda: a seção Arquitetura do `CLAUDE.md` da raiz e o `apps/api/CLAUDE.md`, reescritos na

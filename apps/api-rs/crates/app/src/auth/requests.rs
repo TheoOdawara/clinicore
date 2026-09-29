@@ -5,7 +5,6 @@ use validator::Validate;
 use crate::http::validation;
 
 #[derive(Deserialize, Validate, ToSchema)]
-#[schema(as = SignUpDto)]
 #[serde(deny_unknown_fields)]
 pub struct SignUpRequest {
     #[serde(default, deserialize_with = "validation::trimmed")]
@@ -21,7 +20,6 @@ pub struct SignUpRequest {
 }
 
 #[derive(Deserialize, Validate, ToSchema)]
-#[schema(as = EmailDto)]
 #[serde(deny_unknown_fields)]
 pub struct EmailRequest {
     #[serde(default)]
