@@ -44,67 +44,51 @@ struct Problem {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let message = self.to_string();
-        match self {
-            Self::Validation(errors) => coded(
-                StatusCode::BAD_REQUEST,
-                "validation-failed",
-                message,
-                errors,
-            ),
-            Self::InvalidOrigin => {
-                coded(StatusCode::FORBIDDEN, "invalid-origin", message, Vec::new())
-            }
-            Self::RateLimited => coded(
-                StatusCode::TOO_MANY_REQUESTS,
-                "rate-limited",
-                message,
-                Vec::new(),
-            ),
+        let title = self.to_string();
+        let (status, slug, errors) = match self {
+            Self::Validation(errors) => (StatusCode::BAD_REQUEST, "validation-failed", errors),
+            Self::InvalidOrigin => (StatusCode::FORBIDDEN, "invalid-origin", Vec::new()),
+            Self::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "rate-limited", Vec::new()),
             Self::Unavailable(cause) => {
                 tracing::error!(cause = %cause, "a dependency is unavailable");
-                coded(
+                (
                     StatusCode::SERVICE_UNAVAILABLE,
                     "service-unavailable",
-                    message,
                     Vec::new(),
                 )
             }
-            Self::Rejected(status) => blank(status),
+            Self::Rejected(status) => return blank(status),
             Self::Database(_) | Self::Internal(_) => {
-                tracing::error!(cause = %message, "unhandled error");
-                blank(StatusCode::INTERNAL_SERVER_ERROR)
+                tracing::error!(cause = %title, "unhandled error");
+                return blank(StatusCode::INTERNAL_SERVER_ERROR);
             }
-        }
+        };
+        problem(
+            status,
+            format!("tag:clinicore.com.br,2026:{slug}"),
+            title,
+            errors,
+        )
     }
 }
 
-fn coded(status: StatusCode, slug: &str, title: String, errors: Vec<FieldError>) -> Response {
-    problem(
-        status,
-        Problem {
-            problem_type: format!("tag:clinicore.com.br,2026:{slug}"),
-            title,
-            status: status.as_u16(),
-            errors,
-        },
-    )
-}
-
 fn blank(status: StatusCode) -> Response {
-    let title = status.canonical_reason().unwrap_or("Unknown Error");
-    problem(
-        status,
-        Problem {
-            problem_type: "about:blank".to_string(),
-            title: title.to_string(),
-            status: status.as_u16(),
-            errors: Vec::new(),
-        },
-    )
+    let title = status.canonical_reason().unwrap_or("Unknown Error").into();
+    problem(status, "about:blank".into(), title, Vec::new())
 }
 
-fn problem(status: StatusCode, body: Problem) -> Response {
+fn problem(
+    status: StatusCode,
+    problem_type: String,
+    title: String,
+    errors: Vec<FieldError>,
+) -> Response {
+    let body = Problem {
+        problem_type,
+        title,
+        status: status.as_u16(),
+        errors,
+    };
     (
         status,
         [(CONTENT_TYPE, "application/problem+json")],

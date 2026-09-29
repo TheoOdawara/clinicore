@@ -1,4 +1,4 @@
-use crate::support::{CapturedLog, config_with, content_type, json_body, send_with_headers};
+use crate::support::{capture_log, config_with, content_type, json_body, send_with_headers};
 use axum::http::StatusCode;
 use axum::routing::get;
 use clinicore_app::http::error::AppError;
@@ -15,12 +15,7 @@ async fn failing() -> Result<&'static str, AppError> {
 #[tokio::test]
 async fn an_unhandled_error_answers_500_without_detail_through_cors_and_logs_the_cause() {
     let config = config_with(&[("LOG_LEVEL", Some("error"))]);
-    let log = CapturedLog::default();
-    let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
-        &config,
-        move || writer.clone(),
-    ));
+    let (log, _subscriber) = capture_log(&config);
     let app = clinicore_app::with_layers(
         clinicore_app::routes(&config, crate::support::lazy_state(&config))
             .route("/boom", get(panicking))

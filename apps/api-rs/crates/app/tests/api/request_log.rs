@@ -1,14 +1,9 @@
-use crate::support::{CapturedLog, config_with, send};
+use crate::support::{capture_log, config_with, send};
 
 #[tokio::test]
 async fn health_is_not_logged_and_any_other_request_is() {
     let config = config_with(&[("LOG_LEVEL", Some("info"))]);
-    let log = CapturedLog::default();
-    let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
-        &config,
-        move || writer.clone(),
-    ));
+    let (log, _subscriber) = capture_log(&config);
 
     send(crate::support::app(&config), "GET", "/health").await;
     send(crate::support::app(&config), "HEAD", "/health").await;
@@ -31,12 +26,7 @@ async fn health_is_not_logged_and_any_other_request_is() {
 #[test]
 fn log_level_debug_reaches_the_api_crates_and_not_the_dependencies() {
     let config = config_with(&[("LOG_LEVEL", Some("debug"))]);
-    let log = CapturedLog::default();
-    let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
-        &config,
-        move || writer.clone(),
-    ));
+    let (log, _subscriber) = capture_log(&config);
 
     tracing::debug!(target: "clinicore_app", "from the api");
     tracing::debug!(target: "hyper", "from a dependency");

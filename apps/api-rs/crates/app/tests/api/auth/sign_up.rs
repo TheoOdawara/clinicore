@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::support::{
-    CapturedLog, app, config_with, content_type, eventually, fresh_client, json_body, post_json,
+    app, capture_log, config_with, content_type, eventually, fresh_client, json_body, post_json,
     state, text_body,
 };
 use axum::http::StatusCode;
@@ -106,12 +106,7 @@ async fn a_repeated_sign_up_writes_nothing_sends_nothing_and_answers_the_same(po
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_failing_smtp_keeps_the_sign_up_and_the_answer_and_logs_the_failure(pool: PgPool) {
     let config = config_with(&[("LOG_LEVEL", Some("error"))]);
-    let log = CapturedLog::default();
-    let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
-        &config,
-        move || writer.clone(),
-    ));
+    let (log, _subscriber) = capture_log(&config);
     let app = clinicore_app::app(
         &config,
         state(&config, pool.clone(), AsyncStubTransport::new_error()),

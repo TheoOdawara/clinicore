@@ -1,4 +1,4 @@
-use clinicore_core::config::{AppEnv, Config, LogLevel};
+use clinicore_core::config::{AppEnv, Config};
 use tracing::Subscriber;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter::Targets;
@@ -9,14 +9,7 @@ pub fn subscriber<Writer>(config: &Config, writer: Writer) -> Box<dyn Subscriber
 where
     Writer: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
 {
-    let level = match config.log_level {
-        LogLevel::Error => LevelFilter::ERROR,
-        LogLevel::Warn => LevelFilter::WARN,
-        LogLevel::Info => LevelFilter::INFO,
-        LogLevel::Debug => LevelFilter::DEBUG,
-        LogLevel::Trace => LevelFilter::TRACE,
-        LogLevel::Off => LevelFilter::OFF,
-    };
+    let level = config.log_level;
     let targets = Targets::new()
         .with_default(level.min(LevelFilter::WARN))
         .with_target("clinicore_app", level)

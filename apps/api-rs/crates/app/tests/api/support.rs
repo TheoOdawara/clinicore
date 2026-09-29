@@ -19,6 +19,7 @@ use http_body_util::BodyExt;
 use lettre::transport::stub::AsyncStubTransport;
 use sqlx::PgPool;
 use tower::ServiceExt;
+use tracing::subscriber::DefaultGuard;
 
 pub const VALID_ENVIRONMENT: [(&str, &str); 17] = [
     ("ALLOWED_ORIGINS", "http://localhost:3000"),
@@ -179,6 +180,16 @@ pub fn content_type(response: &Response) -> &str {
         .get("content-type")
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default()
+}
+
+pub fn capture_log(config: &Config) -> (CapturedLog, DefaultGuard) {
+    let log = CapturedLog::default();
+    let writer = log.clone();
+    let guard =
+        tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(config, move || {
+            writer.clone()
+        }));
+    (log, guard)
 }
 
 #[derive(Clone, Default)]

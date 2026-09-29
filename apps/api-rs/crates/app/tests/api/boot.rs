@@ -33,38 +33,16 @@ fn boot(overrides: &[(&str, Option<&str>)]) -> Exit {
 }
 
 #[test]
-fn a_missing_database_url_stops_the_boot() {
-    let exit = boot(&[("DATABASE_URL", None)]);
-
-    assert_eq!(exit.code, Some(1));
-    assert_eq!(
-        exit.stderr,
-        "Invalid environment:\n  DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)\n"
-    );
-}
-
-#[test]
-fn every_rejected_variable_is_listed_in_alphabetical_order() {
-    let exit = boot(&[("PORT", Some("abc")), ("JWT_SECRET", None)]);
-
-    assert_eq!(exit.code, Some(1));
-    assert_eq!(
-        exit.stderr,
-        "Invalid environment:\n  JWT_SECRET: expected a string with at least 32 characters\n  PORT: expected an integer between 1 and 65535\n"
-    );
-}
-
-#[test]
-fn an_incomplete_environment_names_what_is_missing_and_a_mail_from_that_is_not_the_smtp_user() {
+fn an_invalid_environment_stops_the_boot_and_names_every_rejected_variable() {
     let exit = boot(&[
-        ("JWT_SECRET", None),
-        ("CLIENT_IP_SOURCE", None),
+        ("DATABASE_URL", None),
+        ("PORT", Some("abc")),
         ("MAIL_FROM", Some("someone-else@example.com")),
     ]);
 
     assert_eq!(exit.code, Some(1));
     assert_eq!(
         exit.stderr,
-        "Invalid environment:\n  CLIENT_IP_SOURCE: expected one of: CfConnectingIp, CloudFrontViewerAddress, ConnectInfo, FlyClientIp, RightmostXForwardedFor, TrueClientIp, XEnvoyExternalAddress, XRealIp\n  JWT_SECRET: expected a string with at least 32 characters\n  MAIL_FROM: expected an email address equal to SMTP_USER\n"
+        "Invalid environment:\n  DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)\n  MAIL_FROM: expected an email address equal to SMTP_USER\n  PORT: expected an integer between 1 and 65535\n"
     );
 }

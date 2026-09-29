@@ -2,6 +2,7 @@ use std::fmt;
 
 use axum_client_ip::ClientIpSource;
 use email_address::EmailAddress;
+use tracing::level_filters::LevelFilter;
 use url::Url;
 
 const ABSOLUTE_URL: &str = "expected an absolute URL with no trailing slash (https://…)";
@@ -15,16 +16,6 @@ pub enum AppEnv {
     Test,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum LogLevel {
-    Error,
-    Warn,
-    Info,
-    Debug,
-    Trace,
-    Off,
-}
-
 #[derive(Clone)]
 pub struct Config {
     pub allowed_origins: Vec<String>,
@@ -36,7 +27,7 @@ pub struct Config {
     pub google_client_id: String,
     pub google_client_secret: String,
     pub jwt_secret: String,
-    pub log_level: LogLevel,
+    pub log_level: LevelFilter,
     pub mail_from: String,
     pub port: u16,
     pub redis_url: String,
@@ -53,10 +44,8 @@ pub struct InvalidEnvironment {
 
 impl fmt::Display for InvalidEnvironment {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut rejected = self.rejected.clone();
-        rejected.sort();
         write!(formatter, "Invalid environment:")?;
-        for (name, expected) in rejected {
+        for (name, expected) in &self.rejected {
             write!(formatter, "\n  {name}: {expected}")?;
         }
         Ok(())
@@ -99,7 +88,11 @@ impl Config {
         let allowed_origins = reader.require(
             "ALLOWED_ORIGINS",
             "expected a comma-separated list of absolute URLs with no trailing slash (https://…)",
-            |raw| list_of(&raw, absolute_origin),
+            |raw| {
+                raw.split(',')
+                    .map(|origin| absolute_origin(origin.trim().to_string()))
+                    .collect()
+            },
         );
         let api_url = reader.require("API_URL", ABSOLUTE_URL, absolute_origin);
         let app_env = reader.require(
@@ -134,12 +127,12 @@ impl Config {
             "LOG_LEVEL",
             "expected one of: error, warn, info, debug, trace, off",
             |raw| match raw.as_str() {
-                "error" => Some(LogLevel::Error),
-                "warn" => Some(LogLevel::Warn),
-                "info" => Some(LogLevel::Info),
-                "debug" => Some(LogLevel::Debug),
-                "trace" => Some(LogLevel::Trace),
-                "off" => Some(LogLevel::Off),
+                "error" => Some(LevelFilter::ERROR),
+                "warn" => Some(LevelFilter::WARN),
+                "info" => Some(LevelFilter::INFO),
+                "debug" => Some(LevelFilter::DEBUG),
+                "trace" => Some(LevelFilter::TRACE),
+                "off" => Some(LevelFilter::OFF),
                 _ => None,
             },
         );
@@ -163,75 +156,33 @@ impl Config {
         let smtp_password = reader.require("SMTP_PASSWORD", NON_EMPTY, non_empty);
         let smtp_port = reader.require("SMTP_PORT", PORT_RANGE, parse_port);
 
-        let (
-            Some(allowed_origins),
-            Some(api_url),
-            Some(app_env),
-            Some(app_origin),
-            Some(client_ip_source),
-            Some(database_url),
-            Some(google_client_id),
-            Some(google_client_secret),
-            Some(jwt_secret),
-            Some(log_level),
-            Some(mail_from),
-            Some(port),
-            Some(redis_url),
-            Some(smtp_host),
-            Some(smtp_password),
-            Some(smtp_port),
-            Some(smtp_user),
-        ) = (
-            allowed_origins,
-            api_url,
-            app_env,
-            app_origin,
-            client_ip_source,
-            database_url,
-            google_client_id,
-            google_client_secret,
-            jwt_secret,
-            log_level,
-            mail_from,
-            port,
-            redis_url,
-            smtp_host,
-            smtp_password,
-            smtp_port,
-            smtp_user,
-        )
-        else {
-            return Err(InvalidEnvironment {
-                rejected: reader.rejected,
-            });
-        };
-
-        Ok(Config {
-            allowed_origins,
-            api_url,
-            app_env,
-            app_origin,
-            client_ip_source,
-            database_url,
-            google_client_id,
-            google_client_secret,
-            jwt_secret,
-            log_level,
-            mail_from,
-            port,
-            redis_url,
-            smtp_host,
-            smtp_password,
-            smtp_port,
-            smtp_user,
+        let config = (|| {
+            Some(Config {
+                allowed_origins: allowed_origins?,
+                api_url: api_url?,
+                app_env: app_env?,
+                app_origin: app_origin?,
+                client_ip_source: client_ip_source?,
+                database_url: database_url?,
+                google_client_id: google_client_id?,
+                google_client_secret: google_client_secret?,
+                jwt_secret: jwt_secret?,
+                log_level: log_level?,
+                mail_from: mail_from?,
+                port: port?,
+                redis_url: redis_url?,
+                smtp_host: smtp_host?,
+                smtp_password: smtp_password?,
+                smtp_port: smtp_port?,
+                smtp_user: smtp_user?,
+            })
+        })();
+        config.ok_or_else(|| {
+            let mut rejected = reader.rejected;
+            rejected.sort();
+            InvalidEnvironment { rejected }
         })
     }
-}
-
-fn list_of<Item>(raw: &str, parse: impl Fn(String) -> Option<Item>) -> Option<Vec<Item>> {
-    raw.split(',')
-        .map(|item| parse(item.trim().to_string()))
-        .collect()
 }
 
 fn absolute_origin(raw: String) -> Option<String> {
@@ -323,7 +274,7 @@ mod tests {
             ["http://localhost:3000", "https://app.example.com"]
         );
         assert_eq!(config.app_env, AppEnv::Development);
-        assert_eq!(config.log_level, LogLevel::Off);
+        assert_eq!(config.log_level, LevelFilter::OFF);
         assert_eq!(config.port, 3333);
         assert_eq!(config.smtp_port, 587);
         assert_eq!(

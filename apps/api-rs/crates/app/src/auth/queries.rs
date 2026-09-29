@@ -1,4 +1,4 @@
-use sqlx::{PgConnection, PgPool};
+use sqlx::{PgConnection, PgExecutor, PgPool};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SignUpOutcome {
@@ -44,7 +44,7 @@ pub async fn create_user(
         return Ok(SignUpOutcome::Created);
     }
 
-    insert_verification(&mut transaction, email, token_hash).await?;
+    create_verification(&mut *transaction, email, token_hash).await?;
     transaction.commit().await?;
     Ok(SignUpOutcome::CreatedWithToken)
 }
@@ -97,8 +97,8 @@ pub async fn reserve_dispatch(pool: &PgPool, email: &str) -> Result<bool, sqlx::
     Ok(claimed)
 }
 
-async fn insert_verification(
-    connection: &mut PgConnection,
+pub async fn create_verification(
+    executor: impl PgExecutor<'_>,
     email: &str,
     token_hash: &str,
 ) -> Result<(), sqlx::Error> {
@@ -108,16 +108,7 @@ async fn insert_verification(
         email,
         token_hash
     )
-    .execute(connection)
+    .execute(executor)
     .await?;
     Ok(())
-}
-
-pub async fn create_verification(
-    pool: &PgPool,
-    email: &str,
-    token_hash: &str,
-) -> Result<(), sqlx::Error> {
-    let mut connection = pool.acquire().await?;
-    insert_verification(&mut connection, email, token_hash).await
 }
