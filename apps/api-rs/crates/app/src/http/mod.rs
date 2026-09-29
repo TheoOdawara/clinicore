@@ -1,3 +1,4 @@
+pub(crate) mod client;
 pub mod error;
 
 pub(crate) mod openapi;

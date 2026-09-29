@@ -20,12 +20,12 @@ pub struct Limit {
 }
 
 impl Limit {
-    pub fn per_minute(state: &AppState, name: &'static str, count: u64) -> Self {
+    pub fn new(state: &AppState, name: &'static str, count: u64, window: Duration) -> Self {
         Self {
             redis: state.redis.clone(),
             name,
             count,
-            window: Duration::from_secs(60),
+            window,
         }
     }
 }

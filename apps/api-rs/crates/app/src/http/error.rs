@@ -12,6 +12,20 @@ use serde::Serialize;
 pub enum AppError {
     #[error("Validation failed")]
     Validation(Vec<FieldError>),
+    #[error("Invalid client")]
+    InvalidClient,
+    #[error("Invalid token")]
+    InvalidToken,
+    #[error("Token expired")]
+    TokenExpired,
+    #[error("Invalid email or password")]
+    InvalidCredentials,
+    #[error("Invalid session")]
+    InvalidSession,
+    #[error("Refresh token reuse detected")]
+    SessionReused,
+    #[error("Email not verified")]
+    EmailNotVerified,
     #[error("Invalid origin")]
     InvalidOrigin,
     #[error("Too many requests")]
@@ -47,6 +61,15 @@ impl IntoResponse for AppError {
         let title = self.to_string();
         let (status, slug, errors) = match self {
             Self::Validation(errors) => (StatusCode::BAD_REQUEST, "validation-failed", errors),
+            Self::InvalidClient => (StatusCode::BAD_REQUEST, "invalid-client", Vec::new()),
+            Self::InvalidToken => (StatusCode::BAD_REQUEST, "invalid-token", Vec::new()),
+            Self::TokenExpired => (StatusCode::BAD_REQUEST, "token-expired", Vec::new()),
+            Self::InvalidCredentials => {
+                (StatusCode::UNAUTHORIZED, "invalid-credentials", Vec::new())
+            }
+            Self::InvalidSession => (StatusCode::UNAUTHORIZED, "invalid-session", Vec::new()),
+            Self::SessionReused => (StatusCode::UNAUTHORIZED, "session-reused", Vec::new()),
+            Self::EmailNotVerified => (StatusCode::FORBIDDEN, "email-not-verified", Vec::new()),
             Self::InvalidOrigin => (StatusCode::FORBIDDEN, "invalid-origin", Vec::new()),
             Self::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "rate-limited", Vec::new()),
             Self::Unavailable(cause) => {

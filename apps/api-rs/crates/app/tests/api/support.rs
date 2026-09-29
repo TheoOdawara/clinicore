@@ -76,6 +76,7 @@ pub fn lazy_state(config: &Config) -> AppState {
         Redis::connect_lazy(config).expect("a lazy redis"),
         Mailer::stub(config, AsyncStubTransport::new_ok()).expect("a valid sender"),
     )
+    .expect("an unmatchable hash")
 }
 
 pub fn state(config: &Config, pool: PgPool, mail: AsyncStubTransport) -> AppState {
@@ -87,6 +88,7 @@ pub fn state(config: &Config, pool: PgPool, mail: AsyncStubTransport) -> AppStat
         Redis::connect_lazy(&config).expect("a lazy redis"),
         Mailer::stub(&config, mail).expect("a valid sender"),
     )
+    .expect("an unmatchable hash")
 }
 
 pub fn app(config: &Config) -> Router {
@@ -118,13 +120,32 @@ pub async fn post_json(
     body: &serde_json::Value,
     client: SocketAddr,
 ) -> Response {
-    let request = Request::builder()
-        .method("POST")
+    request(app, "POST", path, &[], Some(body), client).await
+}
+
+pub async fn request(
+    app: Router,
+    method: &str,
+    path: &str,
+    headers: &[(&str, &str)],
+    body: Option<&serde_json::Value>,
+    client: SocketAddr,
+) -> Response {
+    let mut request = Request::builder()
+        .method(method)
         .uri(path)
-        .header("content-type", "application/json")
-        .extension(ConnectInfo(client))
-        .body(Body::from(body.to_string()))
-        .expect("a valid request");
+        .extension(ConnectInfo(client));
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    let body = match body {
+        Some(body) => {
+            request = request.header("content-type", "application/json");
+            Body::from(body.to_string())
+        }
+        None => Body::empty(),
+    };
+    let request = request.body(body).expect("a valid request");
     app.oneshot(request).await.expect("an infallible router")
 }
 
@@ -143,21 +164,22 @@ where
 }
 
 pub async fn send(app: Router, method: &str, path: &str) -> Response {
-    send_with_headers(app, method, path, &[]).await
+    request(app, method, path, &[], None, fresh_client()).await
 }
 
-pub async fn send_with_headers(
-    app: Router,
-    method: &str,
-    path: &str,
-    headers: &[(&str, &str)],
-) -> Response {
-    let mut request = Request::builder().method(method).uri(path);
-    for (name, value) in headers {
-        request = request.header(*name, *value);
-    }
-    let request = request.body(Body::empty()).expect("a valid request");
-    app.oneshot(request).await.expect("an infallible router")
+pub fn set_cookie(response: &Response, name: &str) -> Option<String> {
+    response
+        .headers()
+        .get_all("set-cookie")
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .find(|value| value.starts_with(&format!("{name}=")))
+        .map(str::to_string)
+}
+
+pub fn cookie_value(set_cookie: &str) -> &str {
+    let pair = set_cookie.split(';').next().unwrap_or_default();
+    pair.split_once('=').map_or("", |(_, value)| value)
 }
 
 pub async fn text_body(response: Response) -> String {

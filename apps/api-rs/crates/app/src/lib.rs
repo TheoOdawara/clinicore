@@ -5,6 +5,8 @@ mod auth;
 mod health;
 mod users;
 
+use std::sync::Arc;
+
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::http::header::CONTENT_TYPE;
@@ -24,16 +26,27 @@ pub struct AppState {
     redis: Redis,
     mailer: Mailer,
     app_origin: String,
+    access_keys: auth::AccessKeys,
+    secure_cookies: bool,
+    unmatchable_hash: Arc<str>,
 }
 
 impl AppState {
-    pub fn new(config: &Config, pool: PgPool, redis: Redis, mailer: Mailer) -> Self {
-        Self {
+    pub fn new(
+        config: &Config,
+        pool: PgPool,
+        redis: Redis,
+        mailer: Mailer,
+    ) -> Result<Self, argon2::password_hash::Error> {
+        Ok(Self {
             pool,
             redis,
             mailer,
             app_origin: config.app_origin.clone(),
-        }
+            access_keys: auth::AccessKeys::new(&config.jwt_secret),
+            secure_cookies: config.app_env == AppEnv::Production,
+            unmatchable_hash: auth::password::unmatchable_hash()?.into(),
+        })
     }
 }
 
@@ -75,6 +88,7 @@ pub fn with_layers(router: Router, config: &Config) -> Router {
 
     router
         .route_layer(origin_guard)
+        .route_layer(axum::middleware::from_fn(http::client::guard))
         .fallback(not_found)
         .method_not_allowed_fallback(not_found)
         .layer(

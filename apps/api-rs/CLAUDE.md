@@ -59,22 +59,24 @@ crates/
     │   ├── http/                                    o encanamento HTTP
     │   │   ├── mod.rs
     │   │   ├── error.rs  validation.rs  request_log.rs  openapi.rs
-    │   │   └── origin.rs  rate_limit.rs
+    │   │   └── client.rs  origin.rs  rate_limit.rs
     │   ├── health.rs                                feature de uma rota só
     │   ├── users/                                   o cadastro
     │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs
     │   └── auth/                                    verificação de e-mail e sessão
     │       ├── mod.rs                               routes(): o Router, que liga URL e handler
     │       ├── handlers.rs                          recebe o request, chama o service, devolve o status
-    │       ├── requests.rs                          corpos que chegam e a validação deles
+    │       ├── requests.rs  responses.rs            corpos que chegam, com a validação, e os que saem
     │       ├── service.rs                           a regra
     │       ├── queries.rs                           o SQL
     │       ├── error.rs                             o erro da feature e o From para o AppError
-    │       └── password.rs  token.rs  emails.rs     o que a regra usa
+    │       ├── session.rs                           o extractor CurrentSession e a denylist no Redis
+    │       └── password.rs  token.rs  access_token.rs  cookies.rs  emails.rs
     └── tests/api/
         ├── main.rs  support.rs
         ├── boot.rs  errors.rs  health.rs  openapi.rs  request_log.rs
-        └── users/  mod.rs  sign_up.rs
+        ├── users/  mod.rs  sign_up.rs
+        └── auth/  mod.rs  sign_in.rs  sessions.rs  refresh.rs  confirmation.rs
 migrations/  .sqlx/
 ```
 
@@ -97,9 +99,15 @@ migrations/  .sqlx/
 
 ## Regras
 
-- **A ordem de uma rota limitada é origem, limite, validação.** O guard de `Origin` é `route_layer` do
-  `with_layers`, o limite é `route_layer` da própria rota e a validação é o extractor `ValidJson`, então
-  uma origem recusada não conta no limite e um corpo inválido conta.
+- **A ordem de uma rota limitada é cliente, origem, limite, validação.** O guard do `Clinicore-Client` e o
+  de `Origin` são `route_layer` do `with_layers`, o limite é `route_layer` da própria rota e a validação é
+  o extractor `ValidJson`, então uma origem recusada não conta no limite e um corpo inválido conta.
+- **O `Clinicore-Client` escolhe o transporte em toda rota.** Ausente é `web`, `mobile` é o token no
+  `Authorization`, e qualquer outro valor é `400 invalid-client` antes de tudo. O `SessionClient` sai das
+  extensions, e o `CurrentSession` lê o token só do transporte declarado.
+- **Toda revogação escreve `auth:revoked:<sessão>` no Redis antes do commit**, dentro da função do
+  `queries.rs` que apaga a sessão: logout, reuso do refresh e o teto de 5. Com o Redis fora, a transação
+  desfaz e a rota responde `503`, nunca uma sessão apagada com o access token ainda aceito.
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
   campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
   O request tem `#[serde(deny_unknown_fields)]`, e campo desconhecido ou de tipo errado sai como

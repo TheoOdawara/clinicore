@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 pub use redis::RedisError;
-use redis::RedisResult;
 use redis::aio::{ConnectionManager, ConnectionManagerConfig};
+use redis::{AsyncTypedCommands, RedisResult};
 
 use crate::config::Config;
 
@@ -35,5 +35,22 @@ impl Redis {
             .query_async(&mut connection)
             .await?;
         Ok(hits)
+    }
+
+    pub async fn set_expiring(&self, keys: &[String], ttl: Duration) -> RedisResult<()> {
+        if keys.is_empty() {
+            return Ok(());
+        }
+        let mut connection = self.connection.clone();
+        let mut pipe = redis::pipe();
+        for key in keys {
+            pipe.set_ex(key, 1, ttl.as_secs()).ignore();
+        }
+        pipe.query_async(&mut connection).await
+    }
+
+    pub async fn exists(&self, key: &str) -> RedisResult<bool> {
+        let mut connection = self.connection.clone();
+        connection.exists(key).await
     }
 }

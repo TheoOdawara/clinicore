@@ -62,7 +62,7 @@ fn connect(config: &Config) -> Result<AppState, Box<dyn std::error::Error + Send
         db::connect_lazy(config)?,
         Redis::connect_lazy(config)?,
         Mailer::smtp(config)?,
-    ))
+    )?)
 }
 
 async fn shutdown_signal() {
