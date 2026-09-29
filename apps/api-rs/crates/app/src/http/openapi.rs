@@ -7,7 +7,7 @@ use utoipa_swagger_ui::SwaggerUi;
     info(title = "Clinicore API", version = "0.1.0"),
     paths(
         crate::health::check,
-        crate::auth::handlers::sign_up,
+        crate::users::handlers::sign_up,
         crate::auth::handlers::request_email_verification
     )
 )]

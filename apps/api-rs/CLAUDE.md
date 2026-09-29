@@ -61,7 +61,9 @@ crates/
     │   │   ├── error.rs  validation.rs  request_log.rs  openapi.rs
     │   │   └── origin.rs  rate_limit.rs
     │   ├── health.rs                                feature de uma rota só
-    │   └── auth/
+    │   ├── users/                                   o cadastro
+    │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs
+    │   └── auth/                                    verificação de e-mail e sessão
     │       ├── mod.rs                               routes(): o Router, que liga URL e handler
     │       ├── handlers.rs                          recebe o request, chama o service, devolve o status
     │       ├── requests.rs                          corpos que chegam e a validação deles
@@ -72,7 +74,7 @@ crates/
     └── tests/api/
         ├── main.rs  support.rs
         ├── boot.rs  errors.rs  health.rs  openapi.rs  request_log.rs
-        └── auth/  mod.rs  sign_up.rs
+        └── users/  mod.rs  sign_up.rs
 migrations/  .sqlx/
 ```
 

@@ -1,27 +1,7 @@
 use super::error::AuthError;
-use super::queries::{self, SignUpOutcome};
-use super::{emails, password, token};
+use super::queries;
+use super::{emails, token};
 use crate::AppState;
-
-pub async fn sign_up(
-    state: &AppState,
-    name: &str,
-    email: &str,
-    password: &str,
-) -> Result<(), AuthError> {
-    let address = email.to_lowercase();
-    let password_hash = password::hash(password.to_string()).await?;
-    let issued = token::issue()?;
-    let message = emails::verification(name, &verification_link(state, &issued.secret))?;
-
-    let outcome =
-        queries::create_user(&state.pool, name, &address, &password_hash, &issued.hash).await?;
-
-    if outcome == SignUpOutcome::CreatedWithToken {
-        state.mailer.send(&address, message);
-    }
-    Ok(())
-}
 
 pub async fn request_email_verification(state: &AppState, email: &str) -> Result<(), AuthError> {
     let address = email.to_lowercase();
@@ -42,6 +22,6 @@ pub async fn request_email_verification(state: &AppState, email: &str) -> Result
     Ok(())
 }
 
-fn verification_link(state: &AppState, secret: &str) -> String {
+pub fn verification_link(state: &AppState, secret: &str) -> String {
     format!("{}/verify-email?token={secret}", state.app_origin)
 }

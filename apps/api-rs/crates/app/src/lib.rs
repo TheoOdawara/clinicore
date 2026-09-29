@@ -3,6 +3,7 @@ pub mod telemetry;
 
 mod auth;
 mod health;
+mod users;
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
@@ -43,6 +44,7 @@ pub fn app(config: &Config, state: AppState) -> Router {
 pub fn routes(config: &Config, state: AppState) -> Router {
     let router = Router::new()
         .route("/health", get(health::check))
+        .merge(users::routes(&state))
         .merge(auth::routes(&state));
     if config.app_env == AppEnv::Production {
         return router;

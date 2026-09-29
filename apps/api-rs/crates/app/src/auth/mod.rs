@@ -1,11 +1,11 @@
-mod emails;
-mod error;
+pub(crate) mod emails;
+pub(crate) mod error;
 pub(crate) mod handlers;
-mod password;
-mod queries;
+pub(crate) mod password;
+pub(crate) mod queries;
 mod requests;
-mod service;
-mod token;
+pub(crate) mod service;
+pub(crate) mod token;
 
 use axum::Router;
 use axum::routing::post;
@@ -21,10 +21,6 @@ pub fn routes(state: &AppState) -> Router {
         )
     };
     Router::new()
-        .route(
-            "/users",
-            post(handlers::sign_up).route_layer(per_minute("sign-up", 3)),
-        )
         .route(
             "/email-verifications",
             post(handlers::request_email_verification)
