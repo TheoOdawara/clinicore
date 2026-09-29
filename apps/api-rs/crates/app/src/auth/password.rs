@@ -1,6 +1,6 @@
 use argon2::{Argon2, PasswordHasher};
 
-use crate::error::AppError;
+use crate::http::error::AppError;
 
 pub async fn hash(password: String) -> Result<String, AppError> {
     let hashed = tokio::task::spawn_blocking(move || {

@@ -7,7 +7,7 @@ use axum::middleware::Next;
 use axum::response::Response;
 use clinicore_core::config::Config;
 
-use crate::error::{AppError, ErrorCode};
+use super::error::{AppError, ErrorCode};
 
 #[derive(Clone)]
 pub struct AllowedOrigins(Arc<Vec<String>>);

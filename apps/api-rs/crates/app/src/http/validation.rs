@@ -12,7 +12,7 @@ use serde::{Deserialize, Deserializer};
 use serde_path_to_error::Segment;
 use validator::{Validate, ValidationError};
 
-use crate::error::{ErrorCode, FieldError, blank_problem, business_problem};
+use super::error::{ErrorCode, FieldError, blank_problem, business_problem};
 
 #[derive(Deserialize)]
 struct Envelope<Body> {

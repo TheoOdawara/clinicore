@@ -1,6 +1,6 @@
 use clinicore_core::mail::{MailContent, MailMessage, compose};
 
-use crate::error::AppError;
+use crate::http::error::AppError;
 
 pub fn email_verification(name: &str, link: &str) -> Result<MailMessage, AppError> {
     compose(

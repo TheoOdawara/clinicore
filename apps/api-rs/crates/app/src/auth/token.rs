@@ -2,7 +2,7 @@ use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use sha2::{Digest, Sha256};
 
-use crate::error::AppError;
+use crate::http::error::AppError;
 
 pub struct IssuedToken {
     pub secret: String,

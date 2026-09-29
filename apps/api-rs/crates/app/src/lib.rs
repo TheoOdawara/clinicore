@@ -1,12 +1,7 @@
-pub mod error;
-pub mod telemetry;
+pub mod http;
 
 mod auth;
-mod client_ip;
 mod health;
-mod middleware;
-mod openapi;
-mod validation;
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
@@ -52,7 +47,7 @@ pub fn routes(config: &Config, state: AppState) -> Router {
     if config.app_env == AppEnv::Production {
         return router;
     }
-    router.merge(openapi::docs())
+    router.merge(http::openapi::docs())
 }
 
 pub fn serve_layers(router: Router, config: &Config) -> Router {
@@ -72,8 +67,8 @@ pub fn serve_layers(router: Router, config: &Config) -> Router {
         ])
         .allow_headers([CONTENT_TYPE]);
     let origin_guard = axum::middleware::from_fn_with_state(
-        middleware::origin::AllowedOrigins::from(config),
-        middleware::origin::guard,
+        http::origin::AllowedOrigins::from(config),
+        http::origin::guard,
     );
 
     router
@@ -82,14 +77,14 @@ pub fn serve_layers(router: Router, config: &Config) -> Router {
         .method_not_allowed_fallback(not_found)
         .layer(
             ServiceBuilder::new()
-                .layer(telemetry::request_log())
+                .layer(http::telemetry::request_log())
                 .layer(cors)
-                .layer(CatchPanicLayer::custom(error::panic_response))
+                .layer(CatchPanicLayer::custom(http::error::panic_response))
                 .layer(config.client_ip_source.clone().into_extension())
                 .layer(DefaultBodyLimit::max(100 * 1024)),
         )
 }
 
 async fn not_found() -> Response {
-    error::blank_problem(StatusCode::NOT_FOUND)
+    http::error::blank_problem(StatusCode::NOT_FOUND)
 }

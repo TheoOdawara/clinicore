@@ -20,7 +20,7 @@ async fn main() -> ExitCode {
         }
     };
 
-    tracing::subscriber::set_global_default(clinicore_app::telemetry::subscriber(
+    tracing::subscriber::set_global_default(clinicore_app::http::telemetry::subscriber(
         &config,
         io::stdout,
     ))

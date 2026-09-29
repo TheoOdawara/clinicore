@@ -1,7 +1,7 @@
 use super::queries::{self, SignUpOutcome};
 use super::{messages, password, token};
 use crate::AppState;
-use crate::error::AppError;
+use crate::http::error::AppError;
 
 pub async fn sign_up(
     state: &AppState,

@@ -2,7 +2,7 @@ use serde::Deserialize;
 use utoipa::ToSchema;
 use validator::Validate;
 
-use crate::validation;
+use crate::http::validation;
 
 #[derive(Deserialize, Validate, ToSchema)]
 #[schema(as = SignUpDto)]

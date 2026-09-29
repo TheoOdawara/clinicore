@@ -1,7 +1,7 @@
 use crate::support::{CapturedLog, config_with, content_type, json_body, send_with_headers};
 use axum::http::StatusCode;
 use axum::routing::get;
-use clinicore_app::error::AppError;
+use clinicore_app::http::error::AppError;
 use serde_json::json;
 
 async fn panicking() -> &'static str {
@@ -17,7 +17,7 @@ async fn an_unhandled_error_answers_500_without_detail_through_cors_and_logs_the
     let config = config_with(&[("LOG_LEVEL", Some("error"))]);
     let log = CapturedLog::default();
     let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
+    let _subscriber = tracing::subscriber::set_default(clinicore_app::http::telemetry::subscriber(
         &config,
         move || writer.clone(),
     ));

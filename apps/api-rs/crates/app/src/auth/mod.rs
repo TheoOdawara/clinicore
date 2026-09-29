@@ -11,9 +11,9 @@ use axum::http::StatusCode;
 use axum::routing::post;
 
 use crate::AppState;
-use crate::error::AppError;
-use crate::middleware::rate_limit::{self, Limit};
-use crate::validation::ValidJson;
+use crate::http::error::AppError;
+use crate::http::rate_limit::{self, Limit};
+use crate::http::validation::ValidJson;
 use requests::{EmailRequest, SignUpRequest};
 
 pub fn routes(state: &AppState) -> Router {

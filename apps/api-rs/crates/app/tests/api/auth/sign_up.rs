@@ -105,7 +105,7 @@ async fn a_failing_smtp_keeps_the_sign_up_and_the_answer_and_logs_the_failure(po
     let config = config_with(&[("LOG_LEVEL", Some("error"))]);
     let log = CapturedLog::default();
     let writer = log.clone();
-    let _subscriber = tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(
+    let _subscriber = tracing::subscriber::set_default(clinicore_app::http::telemetry::subscriber(
         &config,
         move || writer.clone(),
     ));

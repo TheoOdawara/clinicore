@@ -52,11 +52,15 @@ crates/
 │   └── src/  lib.rs  config.rs  db.rs  redis.rs  mail.rs
 └── app/
     ├── src/
-    │   ├── main.rs  lib.rs                          boot, AppState, Router e camadas do tower
-    │   ├── error.rs  telemetry.rs  openapi.rs  validation.rs  client_ip.rs  health.rs
-    │   ├── middleware.rs  middleware/  origin.rs  rate_limit.rs
-    │   ├── auth.rs                                  Router e handlers da feature
+    │   ├── main.rs                                  liga o servidor
+    │   ├── lib.rs                                   AppState, Router e camadas do tower
+    │   ├── http/                                    o encanamento HTTP
+    │   │   ├── mod.rs
+    │   │   ├── error.rs  validation.rs  telemetry.rs  openapi.rs
+    │   │   └── client_ip.rs  origin.rs  rate_limit.rs
+    │   ├── health.rs                                feature de uma rota só
     │   └── auth/
+    │       ├── mod.rs                               Router e handlers da feature
     │       ├── requests.rs                          corpos que chegam
     │       ├── service.rs                           a regra
     │       ├── queries.rs                           o SQL
@@ -64,16 +68,15 @@ crates/
     └── tests/api/
         ├── main.rs  support.rs
         ├── boot.rs  errors.rs  health.rs  openapi.rs  request_log.rs
-        ├── auth.rs
-        └── auth/  sign_up.rs
+        └── auth/  mod.rs  sign_up.rs
 migrations/  .sqlx/
 ```
 
-- **A raiz do `src/` só tem plataforma**, o que serve a qualquer feature: erro, telemetria, extractor,
-  middleware.
-- **A feature começa como `<feature>.rs`, com o `Router`, os handlers e o SQL juntos.** Ela ganha a
-  pasta `<feature>/` quando um pedaço tiver responsabilidade própria; o `<feature>.rs` fica ao lado da
-  pasta e declara os submódulos, e `mod.rs` não é usado.
+- **A raiz do `src/` tem o boot, o `http/` e as features.** O que serve a qualquer feature (erro,
+  validação, telemetria, OpenAPI, middleware) fica em `http/`, sem subpasta.
+- **A feature começa como `<feature>.rs`, com o `Router`, os handlers e o SQL juntos.** Ela vira a
+  pasta `<feature>/` quando um pedaço tiver responsabilidade própria, e o `<feature>.rs` vira o
+  `<feature>/mod.rs`. Arquivo com o nome de uma pasta ao lado dela não é usado.
 - **A camada nasce quando tem conteúdo.** Uma leitura simples vai do handler direto à consulta. O
   `service.rs` existe quando há decisão: regra de negócio, mais de uma escrita ou efeito colateral.
   Nenhum service só repassa a chamada.
@@ -103,7 +106,7 @@ migrations/  .sqlx/
 - **A URL é um recurso, nunca um verbo** (ADR 0006). Substantivo no plural e em kebab-case, e o método
   HTTP diz a operação. Token nunca vai no path. A única exceção é o OAuth, em `/oauth/<provedor>`.
 - **Todo erro é Problem Details da RFC 9457** (ADR 0006), em `application/problem+json`, montado só
-  pelo `crates/app/src/error.rs`:
+  pelo `crates/app/src/http/error.rs`:
   - O `AppError` implementa o `IntoResponse`, e o handler devolve `Result<_, AppError>`.
   - O catálogo (`ErrorCode` → status, slug e `title`) mora no `catalog()`, e o `type` é
     `tag:clinicore.com.br,2026:<slug>`.
