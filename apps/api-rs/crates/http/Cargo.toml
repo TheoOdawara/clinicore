@@ -1,0 +1,28 @@
+[package]
+name = "api-http"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+api-app = { path = "../app" }
+axum = "0.8.9"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "signal", "net"] }
+tower = { version = "0.5.3", features = ["util"] }
+tower-http = { version = "0.7.1", features = ["trace", "cors", "catch-panic"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["json"] }
+utoipa = "6.0.0"
+utoipa-swagger-ui = { version = "10.0.1", features = ["axum", "vendored"] }
+
+[[bin]]
+name = "api"
+path = "src/main.rs"
+
+[dev-dependencies]
+http-body-util = "0.1.5"

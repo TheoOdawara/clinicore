@@ -12,29 +12,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  api:
+  api-rs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/api
+        working-directory: apps/api-rs
     env:
       DATABASE_URL: postgresql://clinicore:local@localhost:5432/clinicore
-      PORT: "3333"
-      NODE_ENV: test
-      APP_ORIGIN: http://localhost:3000
-      API_URL: http://localhost:3333
-      ALLOWED_ORIGINS: http://localhost:3000
-      TRUSTED_PROXIES: 10.0.0.0/8
-      LOG_LEVEL: silent
-      REDIS_URL: redis://localhost:6379
-      JWT_SECRET: a-ci-jwt-secret-with-at-least-32-characters
-      GOOGLE_CLIENT_ID: ci-client-id.apps.googleusercontent.com
-      GOOGLE_CLIENT_SECRET: ci-google-client-secret
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: "587"
-      SMTP_USER: ci@clinicore.com.br
-      SMTP_PASSWORD: ci-smtp-password
-      MAIL_FROM: ci@clinicore.com.br
     services:
       postgres:
         image: postgres:18
@@ -60,20 +44,16 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
-          node-version: 26
-          cache: npm
-          cache-dependency-path: apps/api/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run format:check
-      - run: npm run typecheck
-      - run: npm run migration:run
-      - name: schema matches the entities
-        run: npm run migration:generate -- --check "$RUNNER_TEMP/Drift"
-      - run: npm run test
-      - run: npm run test:e2e
+          rust-src-dir: apps/api-rs
+          cache-workspaces: apps/api-rs
+      - run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: sqlx migrate run
+      - run: cargo sqlx prepare --workspace --check
+      - run: cargo test
 
   web:
     runs-on: ubuntu-latest
