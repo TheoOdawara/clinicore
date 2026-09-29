@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+pub use redis::RedisError;
 use redis::RedisResult;
 use redis::aio::{ConnectionManager, ConnectionManagerConfig};
 

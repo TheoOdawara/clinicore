@@ -369,6 +369,7 @@ dependencies = [
  "lettre",
  "redis",
  "sqlx",
+ "thiserror",
  "tokio",
  "tracing",
  "url",

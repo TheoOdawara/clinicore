@@ -1,8 +1,6 @@
-use clinicore_core::mail::{MailContent, MailMessage, compose};
+use clinicore_core::mail::{MailContent, MailError, MailMessage, compose};
 
-use crate::http::error::AppError;
-
-pub fn email_verification(name: &str, link: &str) -> Result<MailMessage, AppError> {
+pub fn email_verification(name: &str, link: &str) -> Result<MailMessage, MailError> {
     compose(
         "Confirme seu e-mail no Clinicore",
         &MailContent {
@@ -15,5 +13,4 @@ pub fn email_verification(name: &str, link: &str) -> Result<MailMessage, AppErro
             link,
         },
     )
-    .map_err(AppError::internal)
 }

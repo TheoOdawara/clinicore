@@ -1,14 +1,14 @@
+use super::error::AuthError;
 use super::queries::{self, SignUpOutcome};
 use super::{messages, password, token};
 use crate::AppState;
-use crate::http::error::AppError;
 
 pub async fn sign_up(
     state: &AppState,
     name: &str,
     email: &str,
     password: &str,
-) -> Result<(), AppError> {
+) -> Result<(), AuthError> {
     let address = email.to_lowercase();
     let password_hash = password::hash(password.to_string()).await?;
     let issued = token::issue()?;
@@ -29,7 +29,7 @@ pub async fn sign_up(
     Ok(())
 }
 
-pub async fn request_email_verification(state: &AppState, email: &str) -> Result<(), AppError> {
+pub async fn request_email_verification(state: &AppState, email: &str) -> Result<(), AuthError> {
     let address = email.to_lowercase();
     let accepted = queries::register_verification(&state.pool, &address).await?;
     if !accepted {

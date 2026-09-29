@@ -65,6 +65,7 @@ crates/
     │       ├── requests.rs                          corpos que chegam
     │       ├── service.rs                           a regra
     │       ├── queries.rs                           o SQL
+    │       ├── error.rs                             o erro da feature e o From para o AppError
     │       └── password.rs  token.rs  messages.rs   o que a regra usa
     └── tests/api/
         ├── main.rs  support.rs
@@ -113,10 +114,14 @@ migrations/  .sqlx/
   - Cada variante com código leva status, slug e `title`; o `type` é
     `tag:clinicore.com.br,2026:<slug>`. `Rejected(status)` é o `about:blank` do protocolo: 404, 415,
     JSON malformado e corpo grande.
-  - O `sqlx::Error` vira `AppError::Database` pelo `#[from]`, então o `?` basta. Outra falha
-    inesperada entra por `AppError::internal(causa)`.
-  - Erro de uma feature só nasce como `enum` na feature, com `impl From<ErroDaFeature> for AppError`.
-  - `Database`, `Internal` e panic viram `500` sem detalhe, com a causa logada em `error`.
+  - O `core` é biblioteca e não conhece HTTP: cada módulo devolve o erro tipado dele (`MailError`,
+    `RedisError`, `sqlx::Error`, `InvalidEnvironment`), nunca `Box<dyn Error>`.
+  - A feature tem o próprio `enum` em `<feature>/error.rs` e o `impl From<ErroDaFeature> for
+    AppError`. Service e helpers da feature devolvem o erro dela, e o handler converte com `?`.
+  - O `sqlx::Error` vira `AppError::Database` e o `RedisError` vira `AppError::Unavailable` pelo
+    `#[from]`, para o handler que chama o `core` direto.
+  - `Database`, `Internal` e panic viram `500` sem detalhe, e `Unavailable` vira `503`; a causa é
+    logada em `error` só no `error.rs`.
 
 ## Segredos
 

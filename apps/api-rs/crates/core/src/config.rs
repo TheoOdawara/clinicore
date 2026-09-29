@@ -46,6 +46,7 @@ pub struct Config {
     pub smtp_user: String,
 }
 
+#[derive(Debug)]
 pub struct InvalidEnvironment {
     rejected: Vec<(&'static str, &'static str)>,
 }
@@ -61,6 +62,8 @@ impl fmt::Display for InvalidEnvironment {
         Ok(())
     }
 }
+
+impl std::error::Error for InvalidEnvironment {}
 
 struct Reader<Read> {
     read: Read,

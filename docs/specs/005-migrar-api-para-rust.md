@@ -22,7 +22,7 @@ de origem:
 
 | Método | Rota | Auth / Role | Idempotente | Origem |
 | --- | --- | --- | --- | --- |
-| `GET` | `/health` | público | Sim | 002 |
+| `GET` | `/health` | público | Sim | 002, com o corpo `{"status":"ok"}` |
 | `POST` | `/users` | público | Não | 003, regras 4, 5, 8 |
 | `POST` | `/email-verifications` | público | Não | 003, regras 5, 15 |
 | `POST` | `/email-verifications/confirmation` | público | Não | 003, regra 5 |

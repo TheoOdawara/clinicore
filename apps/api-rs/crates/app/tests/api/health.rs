@@ -3,14 +3,11 @@ use axum::http::StatusCode;
 use serde_json::json;
 
 #[tokio::test]
-async fn health_answers_ok_with_the_terminus_body() {
+async fn health_answers_ok() {
     let response = send(crate::support::app(&config_with(&[])), "GET", "/health").await;
 
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        text_body(response).await,
-        r#"{"status":"ok","info":{},"error":{},"details":{}}"#
-    );
+    assert_eq!(text_body(response).await, r#"{"status":"ok"}"#);
 }
 
 #[tokio::test]

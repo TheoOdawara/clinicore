@@ -1,3 +1,4 @@
+mod error;
 mod messages;
 mod password;
 mod queries;

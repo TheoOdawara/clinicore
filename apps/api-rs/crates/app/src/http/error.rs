@@ -5,6 +5,7 @@ use axum::Json;
 use axum::http::StatusCode;
 use axum::http::header::CONTENT_TYPE;
 use axum::response::{IntoResponse, Response};
+use clinicore_core::redis::RedisError;
 use serde::Serialize;
 
 #[derive(Debug, thiserror::Error)]
@@ -16,19 +17,13 @@ pub enum AppError {
     #[error("Too many requests")]
     RateLimited,
     #[error("Service temporarily unavailable")]
-    Unavailable,
+    Unavailable(#[from] RedisError),
     #[error("{0}")]
     Rejected(StatusCode),
     #[error(transparent)]
     Database(#[from] sqlx::Error),
     #[error("{0}")]
     Internal(Box<dyn Error + Send + Sync>),
-}
-
-impl AppError {
-    pub fn internal(cause: impl Error + Send + Sync + 'static) -> Self {
-        Self::Internal(Box::new(cause))
-    }
 }
 
 #[derive(Debug, Serialize)]
@@ -66,12 +61,15 @@ impl IntoResponse for AppError {
                 message,
                 Vec::new(),
             ),
-            Self::Unavailable => coded(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "service-unavailable",
-                message,
-                Vec::new(),
-            ),
+            Self::Unavailable(cause) => {
+                tracing::error!(cause = %cause, "a dependency is unavailable");
+                coded(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "service-unavailable",
+                    message,
+                    Vec::new(),
+                )
+            }
             Self::Rejected(status) => blank(status),
             Self::Database(_) | Self::Internal(_) => {
                 tracing::error!(cause = %message, "unhandled error");

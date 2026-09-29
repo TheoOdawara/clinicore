@@ -36,10 +36,7 @@ pub async fn guard(
     next: Next,
 ) -> Result<Response, AppError> {
     let key = format!("rate:{}:{}", limit.route, client_ip::tracker(client));
-    let hits = limit.redis.hit(&key, limit.window).await.map_err(|error| {
-        tracing::error!(cause = %error, "the rate limit store is unreachable");
-        AppError::Unavailable
-    })?;
+    let hits = limit.redis.hit(&key, limit.window).await?;
     if hits > limit.count {
         return Err(AppError::RateLimited);
     }

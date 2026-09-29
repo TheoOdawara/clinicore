@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use askama::Template;
 use lettre::message::{Mailbox, MultiPart};
 use lettre::transport::smtp::authentication::Credentials;
@@ -8,7 +6,19 @@ use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
 use crate::config::Config;
 
-type MailError = Box<dyn Error + Send + Sync>;
+#[derive(Debug, thiserror::Error)]
+pub enum MailError {
+    #[error(transparent)]
+    Address(#[from] lettre::address::AddressError),
+    #[error(transparent)]
+    Message(#[from] lettre::error::Error),
+    #[error(transparent)]
+    Smtp(#[from] lettre::transport::smtp::Error),
+    #[error(transparent)]
+    Stub(#[from] lettre::transport::stub::Error),
+    #[error(transparent)]
+    Template(#[from] askama::Error),
+}
 
 #[derive(Clone)]
 enum Transport {
@@ -99,7 +109,7 @@ struct TextBody<'a> {
     content: &'a MailContent<'a>,
 }
 
-pub fn compose(subject: &'static str, content: &MailContent) -> Result<MailMessage, askama::Error> {
+pub fn compose(subject: &'static str, content: &MailContent) -> Result<MailMessage, MailError> {
     Ok(MailMessage {
         subject,
         html: HtmlBody { content }.render()?,
