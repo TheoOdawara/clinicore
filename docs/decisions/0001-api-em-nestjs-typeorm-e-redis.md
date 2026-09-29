@@ -1,6 +1,6 @@
 # 0001. API em NestJS, TypeORM e Redis
 
-- Status: accepted
+- Status: superseded by 0009
 - Date: 2026-09-19
 
 ## Context
