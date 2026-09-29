@@ -1,10 +1,10 @@
 # 005 — Migrar a API para Rust e extrair o scaffold NestJS
 
-> **Status:** fechada
+> **Status:** publicada
 > **Perfil:** API
 > **Módulo:** `apps/api` (durante a migração, `apps/api-rs`), `.github/workflows/ci.yml`, e fora do repo
 > `~/Projects/nestjs-scaffold` e `~/Projects/nestjs-scaffold-auth`
-> **Epic:** —
+> **Epic:** #114, dentro da #1 — Plataforma
 > **Decisões:** `docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md` ·
 > `docs/decisions/0006-api-rest-e-problem-details.md`
 > **Oráculo de comportamento:** `docs/specs/002-scaffold-apps-e-ci.md`,
@@ -16,7 +16,7 @@
 
 ### Contrato
 
-Nenhuma rota nova, nenhuma removida. São as 14 rotas que existem hoje, com o comportamento das specs
+Nenhuma rota nova, nenhuma removida. São as 13 rotas que existem hoje, com o comportamento das specs
 de origem:
 
 | Método | Rota | Auth / Role | Idempotente | Origem |
@@ -73,6 +73,15 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 - **Validação:** cada cenário Gherkin das specs 002, 003 e 004 cuja rota existe hoje é portado para um
   teste de integração em `crates/http/tests/` e passa contra a API Rust. Ficam de fora a regra 17 da
   003 (#71) e as regras 5 a 9 da 004 (#94 e #100), que não estão implementadas.
+- Cada cenário de origem pertence à primeira task em que todas as rotas que ele chama existem. O
+  mecanismo é construído onde o escopo da task diz; o teste de ponta a ponta fecha na task dona do
+  cenário.
+- Quatro cenários de origem são adaptados ao Rust:
+  - O Cenário 4 da 002 e o Cenário 35 da 003 provam o TypeORM e são substituídos pelos Cenários 1 e 7
+    desta spec: o schema vem só da migration sqlx, e o `.sqlx/` é conferido contra as consultas.
+  - O Cenário 29 da 003 é portado sem a linha do worker, que é a #71.
+  - O Cenário 28 da 003 confere a causa no log em nível `error` pelo `tracing`, no lugar da stack no
+    log do Pino.
 
 ### 2. O OpenAPI gera o mesmo cliente
 
@@ -88,7 +97,7 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 - `NODE_ENV` passa a se chamar `APP_ENV`. `LOG_LEVEL` troca `fatal` e `silent` por `off`.
 - Com uma ou mais inválidas ou ausentes, o processo escreve em `stderr` a linha `Invalid environment:`
   seguida de uma linha por variável recusada, em ordem alfabética, no formato
-  `  <NOME>: <formato esperado>`, e sai com código diferente de 0, sem abrir a porta.
+  `  <NOME>: <formato esperado>`, e sai com código `1`, sem abrir a porta.
 
 | Variável | Formato esperado (texto literal da linha) |
 | --- | --- |
@@ -222,7 +231,7 @@ Quando o binário sobe
 Então o stderr contém "Invalid environment:"
 E a linha "  JWT_SECRET: expected a string with at least 32 characters"
 E a linha "  PORT: expected an integer between 1 and 65535", nessa ordem
-E o processo sai com código diferente de 0 sem abrir a porta
+E o processo sai com código 1 sem abrir a porta
 ```
 
 ### Cenário 4 — O health check não é logado (caminho alternativo, regra 4)
@@ -302,12 +311,12 @@ E o CI tem o job api rodando os gates do Rust e nenhum job Node para a API
 
 ## Quebra em Tasks
 
-| # | Título | Escopo | Critério de aceite | Depende de |
-| --- | --- | --- | --- | --- |
-| 1 | Extract the NestJS scaffold into two reusable folders | `~/Projects/nestjs-scaffold` e `~/Projects/nestjs-scaffold-auth`, cópia do `apps/api` com os nomes trocados, `CLAUDE.md` e `.env.example` genéricos | Cenários 8 e 9 | — |
-| 2 | Boot apps/api-rs with validated env, logging, problem details and health | workspace `http`/`app`/`infra`, `rust-toolchain.toml`, `config.rs`, telemetria, `ApiError`, guard de `Origin`, `/health`, OpenAPI fora de produção, `compose.yaml`, job `api-rs` no lugar do `api`, linha do `apps/api-rs` no `CLAUDE.md` raiz | Cenários 3, 4, 6 e 7; cenários 1 e 2 da 002; cenários de `Origin` e de 404 da 003 | — |
-| 3 | Sign up and verify the email on apps/api-rs | migration inicial, `POST /users`, `POST /email-verifications[/confirmation]`, e-mail pelo `lettre`, rate limit por IP e por endereço no Redis | Cenários da 003 das regras 4, 5, 8, 11, 13 e 15 | 2 |
-| 4 | Open, read, refresh and close sessions on apps/api-rs | `/sessions`, `/sessions/current`, `/sessions/current/tokens`, JWT, denylist no Redis, teto de 5, transporte por cookie e por `Clinicore-Client: mobile` | Cenário 5; cenários da 003 das regras 2, 3 e 16; cenários 1 a 7 e 16 da 004 | 3 |
-| 5 | Reset and change the password on apps/api-rs | `/password-resets[/confirmation]`, `PUT /users/me/password` | Cenários da 003 da regra 7 | 4 |
-| 6 | Sign in with Google on apps/api-rs | `/oauth/google` e `/oauth/google/callback`, vínculo com a conta existente | Cenários da 003 da regra 6 | 4 |
-| 7 | Replace apps/api with the Rust implementation | tag `api-nestjs-final`, apaga o NestJS, renomeia `apps/api-rs` → `apps/api`, job `api`, reescreve `apps/api/CLAUDE.md` e o `CLAUDE.md` raiz, regenera o cliente Dart | Cenários 1, 2 e 10 | 1, 5, 6 |
+| # | Issue | Título | Escopo | Critério de aceite | Depende de |
+| --- | --- | --- | --- | --- | --- |
+| 1 | #115 | Extract the NestJS scaffold into two reusable folders | `~/Projects/nestjs-scaffold` e `~/Projects/nestjs-scaffold-auth`, cópia do `apps/api` com os nomes trocados, `CLAUDE.md` e `.env.example` genéricos | Cenários 8 e 9 | — |
+| 2 | #116 | Boot apps/api-rs with validated env, logging, problem details and health | workspace `http`/`app`/`infra`, `rust-toolchain.toml`, `config.rs`, telemetria, `ApiError`, guard de `Origin`, `/health`, OpenAPI fora de produção, `compose.yaml`, job `api-rs` no lugar do `api`, linha do `apps/api-rs` no `CLAUDE.md` raiz | Cenários 3, 4, 6 e 7; cenários 1 e 2 da 002; cenários 28 e 29 da 003 | — |
+| 3 | #117 | Sign up and request the verification email on apps/api-rs | migration inicial, `POST /users`, `POST /email-verifications`, e-mail pelo `lettre`, limite por IP no Redis, limite por endereço em `emailDispatch` | Cenários 1, 2 e 32 da 003 | 2 |
+| 4 | #118 | Open, read, refresh and close sessions on apps/api-rs | `/sessions`, `/sessions/current`, `/sessions/current/tokens`, `POST /email-verifications/confirmation`, JWT, denylist no Redis, teto de 5, transporte por cookie e por `Clinicore-Client: mobile` | Cenário 5; cenários 3 a 10, 23 a 27, 30 e 31 da 003; cenários 1 a 7 e 16 da 004 | 3 |
+| 5 | #119 | Reset and change the password on apps/api-rs | `/password-resets[/confirmation]`, `PUT /users/me/password` | Cenários 11, 12 e 16 a 22 da 003 | 4 |
+| 6 | #120 | Sign in with Google on apps/api-rs | `/oauth/google` e `/oauth/google/callback`, vínculo com a conta existente | Cenários 13, 14 e 15 da 003 | 4 |
+| 7 | #121 | Replace apps/api with the Rust implementation | tag `api-nestjs-final`, apaga o NestJS, renomeia `apps/api-rs` → `apps/api`, job `api`, reescreve `apps/api/CLAUDE.md` e o `CLAUDE.md` raiz, regenera o cliente Dart | Cenários 1, 2 e 10 | 1, 5, 6 |
