@@ -1,8 +1,8 @@
 use lettre::transport::stub::AsyncStubTransport;
 use sqlx::PgPool;
 
-use crate::auth::{PASSWORD, Transport, register};
-use crate::support::{capture_log, config_with, send, state};
+use crate::sessions::Transport;
+use crate::support::{PASSWORD, capture_log, config_with, register, send, state};
 
 #[tokio::test]
 async fn health_is_not_logged_and_any_other_request_is() {

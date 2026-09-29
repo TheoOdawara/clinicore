@@ -1,15 +1,17 @@
 pub mod http;
 pub mod telemetry;
 
-mod auth;
+mod credentials;
+mod email_verifications;
 mod health;
+mod sessions;
 mod users;
 
 use std::sync::Arc;
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
-use axum::http::header::CONTENT_TYPE;
+use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::{HeaderValue, Method, StatusCode};
 use axum::routing::get;
 use clinicore_core::config::{AppEnv, Config};
@@ -19,6 +21,7 @@ use sqlx::PgPool;
 use tower::ServiceBuilder;
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::set_header::SetResponseHeaderLayer;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -26,7 +29,7 @@ pub struct AppState {
     redis: Redis,
     mailer: Mailer,
     app_origin: String,
-    access_keys: auth::AccessKeys,
+    access_keys: sessions::AccessKeys,
     secure_cookies: bool,
     unmatchable_hash: Arc<str>,
 }
@@ -43,9 +46,9 @@ impl AppState {
             redis,
             mailer,
             app_origin: config.app_origin.clone(),
-            access_keys: auth::AccessKeys::new(&config.jwt_secret),
+            access_keys: sessions::AccessKeys::new(&config.jwt_secret),
             secure_cookies: config.api_url.starts_with("https://"),
-            unmatchable_hash: auth::password::unmatchable_hash()?.into(),
+            unmatchable_hash: credentials::password::unmatchable_hash()?.into(),
         })
     }
 }
@@ -58,7 +61,15 @@ pub fn routes(config: &Config, state: AppState) -> Router {
     let router = Router::new()
         .route("/health", get(health::check))
         .merge(users::routes(&state))
-        .merge(auth::routes(&state));
+        .merge(
+            Router::new()
+                .merge(email_verifications::routes(&state))
+                .merge(sessions::routes(&state))
+                .layer(SetResponseHeaderLayer::overriding(
+                    CACHE_CONTROL,
+                    HeaderValue::from_static("no-store"),
+                )),
+        );
     if config.app_env == AppEnv::Production {
         return router;
     }

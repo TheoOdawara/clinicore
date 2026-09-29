@@ -6,11 +6,11 @@ use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
-use super::{
-    MOBILE, PASSWORD, Transport, WEB_ORIGIN, app_with, fresh_email, register, revoked_ttl,
-    session_exists, sign_in,
+use super::{Transport, WEB_ORIGIN, revoked_ttl, session_exists, sign_in};
+use crate::support::{
+    MOBILE, PASSWORD, app_with, config_with, fresh_client, fresh_email, json_body, register,
+    request, send, set_cookie,
 };
-use crate::support::{config_with, fresh_client, json_body, request, send, set_cookie};
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn sign_out_revokes_the_session_at_once_on_each_transport(pool: PgPool) {

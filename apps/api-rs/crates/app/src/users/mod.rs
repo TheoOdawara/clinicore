@@ -1,3 +1,4 @@
+mod error;
 pub(crate) mod handlers;
 mod queries;
 mod requests;

@@ -8,12 +8,12 @@ use utoipa_swagger_ui::SwaggerUi;
     paths(
         crate::health::check,
         crate::users::handlers::sign_up,
-        crate::auth::handlers::request_email_verification,
-        crate::auth::handlers::confirm_email,
-        crate::auth::handlers::sign_in,
-        crate::auth::handlers::current,
-        crate::auth::handlers::sign_out,
-        crate::auth::handlers::refresh
+        crate::email_verifications::handlers::request_email_verification,
+        crate::email_verifications::handlers::confirm_email,
+        crate::sessions::handlers::sign_in,
+        crate::sessions::handlers::current,
+        crate::sessions::handlers::sign_out,
+        crate::sessions::handlers::refresh
     )
 )]
 struct ApiDoc;

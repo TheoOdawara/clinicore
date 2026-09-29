@@ -1,8 +1,9 @@
-mod auth;
 mod boot;
+mod email_verifications;
 mod errors;
 mod health;
 mod openapi;
 mod request_log;
+mod sessions;
 mod support;
 mod users;

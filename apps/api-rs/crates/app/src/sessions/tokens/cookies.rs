@@ -1,7 +1,7 @@
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use cookie::time::Duration;
 
-use super::responses::SessionTokens;
+use crate::sessions::responses::SessionTokens;
 
 pub const ACCESS: &str = "clinicore_access";
 pub const REFRESH: &str = "clinicore_refresh";

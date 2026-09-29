@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::net::{Ipv6Addr, SocketAddr};
-use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::atomic::{AtomicU16, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -9,6 +9,7 @@ use axum::Router;
 use axum::body::Body;
 use axum::extract::ConnectInfo;
 use axum::http::Request;
+use axum::http::StatusCode;
 use axum::response::Response;
 use clinicore_app::AppState;
 use clinicore_core::config::Config;
@@ -17,6 +18,7 @@ use clinicore_core::mail::Mailer;
 use clinicore_core::redis::Redis;
 use http_body_util::BodyExt;
 use lettre::transport::stub::AsyncStubTransport;
+use serde_json::json;
 use sqlx::PgPool;
 use tower::ServiceExt;
 use tracing::subscriber::DefaultGuard;
@@ -99,6 +101,46 @@ pub fn state_on_redis(
         Mailer::stub(&config, mail).expect("a valid sender"),
     )
     .expect("an unmatchable hash")
+}
+
+pub const PASSWORD: &str = "Clinica#2026";
+pub const MOBILE: (&str, &str) = ("clinicore-client", "mobile");
+
+pub fn fresh_email() -> String {
+    static SEQUENCE: AtomicU32 = AtomicU32::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("a clock after the epoch")
+        .as_nanos();
+    let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!("ana.{nanos}.{sequence}@example.com")
+}
+
+pub fn app_with(pool: &PgPool) -> Router {
+    let config = config_with(&[]);
+    clinicore_app::app(
+        &config,
+        state(&config, pool.clone(), AsyncStubTransport::new_ok()),
+    )
+}
+
+pub async fn register(app: &Router, pool: &PgPool, email: &str, verified: bool) {
+    let body = json!({"name": "Ana Souza", "email": email, "password": PASSWORD});
+    let response = post_json(app.clone(), "/users", &body, fresh_client()).await;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    sqlx::query("UPDATE users SET email_verified = $2 WHERE email = $1")
+        .bind(email)
+        .bind(verified)
+        .execute(pool)
+        .await
+        .expect("an updated user");
+}
+
+pub async fn count(pool: &PgPool, sql: &'static str) -> i64 {
+    sqlx::query_scalar(sql)
+        .fetch_one(pool)
+        .await
+        .expect("a count")
 }
 
 pub fn app(config: &Config) -> Router {

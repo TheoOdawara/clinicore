@@ -1,58 +1,21 @@
-mod confirmation;
+mod current_session;
 mod refresh;
-mod sessions;
 mod sign_in;
 
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::Router;
 use axum::http::StatusCode;
 use axum::response::Response;
-use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::support::{
-    config_with, cookie_value, fresh_client, json_body, post_json, request, set_cookie, state,
+    MOBILE, PASSWORD, cookie_value, fresh_client, json_body, request, set_cookie,
 };
 
-pub const PASSWORD: &str = "Clinica#2026";
 pub const WEB_ORIGIN: (&str, &str) = ("origin", "http://localhost:3000");
-pub const MOBILE: (&str, &str) = ("clinicore-client", "mobile");
-
-pub fn fresh_email() -> String {
-    static SEQUENCE: AtomicU32 = AtomicU32::new(0);
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("a clock after the epoch")
-        .as_nanos();
-    let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    format!("ana.{nanos}.{sequence}@example.com")
-}
-
-pub fn app_with(pool: &PgPool) -> Router {
-    let config = config_with(&[]);
-    clinicore_app::app(
-        &config,
-        state(&config, pool.clone(), AsyncStubTransport::new_ok()),
-    )
-}
-
-pub async fn register(app: &Router, pool: &PgPool, email: &str, verified: bool) {
-    let body = json!({"name": "Ana Souza", "email": email, "password": PASSWORD});
-    let response = post_json(app.clone(), "/users", &body, fresh_client()).await;
-    assert_eq!(response.status(), StatusCode::ACCEPTED);
-    sqlx::query("UPDATE users SET email_verified = $2 WHERE email = $1")
-        .bind(email)
-        .bind(verified)
-        .execute(pool)
-        .await
-        .expect("an updated user");
-}
-
 pub async fn sign_in(
     app: &Router,
     email: &str,
@@ -70,13 +33,6 @@ pub async fn sign_in(
         client,
     )
     .await
-}
-
-pub async fn count(pool: &PgPool, sql: &'static str) -> i64 {
-    sqlx::query_scalar(sql)
-        .fetch_one(pool)
-        .await
-        .expect("a count")
 }
 
 pub async fn session_exists(pool: &PgPool, session_id: Uuid) -> bool {

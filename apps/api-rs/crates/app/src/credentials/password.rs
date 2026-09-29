@@ -5,13 +5,13 @@ use argon2::password_hash::Error;
 use argon2::{Argon2, PasswordHasher, PasswordVerifier};
 use tokio::sync::Semaphore;
 
-use super::error::AuthError;
+use super::error::CredentialError;
 
 static HASHING_SLOTS: LazyLock<Semaphore> = LazyLock::new(|| {
     Semaphore::new(std::thread::available_parallelism().map_or(1, NonZeroUsize::get))
 });
 
-pub async fn hash(password: String) -> Result<String, AuthError> {
+pub async fn hash(password: String) -> Result<String, CredentialError> {
     let hashed = on_a_hashing_slot(move || {
         Argon2::default()
             .hash_password(password.as_bytes())
@@ -21,7 +21,7 @@ pub async fn hash(password: String) -> Result<String, AuthError> {
     Ok(hashed?)
 }
 
-pub async fn verify(hash: String, password: String) -> Result<bool, AuthError> {
+pub async fn verify(hash: String, password: String) -> Result<bool, CredentialError> {
     let outcome = on_a_hashing_slot(move || {
         Argon2::default().verify_password(password.as_bytes(), hash.as_str())
     })
@@ -41,7 +41,7 @@ pub fn unmatchable_hash() -> Result<String, Error> {
 
 async fn on_a_hashing_slot<Output: Send + 'static>(
     work: impl FnOnce() -> Output + Send + 'static,
-) -> Result<Output, AuthError> {
+) -> Result<Output, CredentialError> {
     let slot = HASHING_SLOTS.acquire().await?;
     let output = tokio::task::spawn_blocking(move || {
         let _held = slot;

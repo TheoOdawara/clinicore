@@ -1,16 +1,15 @@
 use std::net::IpAddr;
-use std::time::Duration;
 
 use axum::extract::FromRequestParts;
 use axum::http::header::{AUTHORIZATION, USER_AGENT};
 use axum::http::request::Parts;
 use axum_client_ip::ClientIp;
 use axum_extra::extract::cookie::CookieJar;
-use clinicore_core::redis::{Redis, RedisError};
 use uuid::Uuid;
 
-use super::error::AuthError;
-use super::{SESSION_REQUESTS, access_token, cookies};
+use super::SESSION_REQUESTS;
+use super::error::SessionError;
+use super::tokens::{access, cookies};
 use crate::AppState;
 use crate::http::client::SessionClient;
 use crate::http::error::AppError;
@@ -40,16 +39,14 @@ impl FromRequestParts<AppState> for CurrentSession {
         let Some(token) = token else {
             return Err(AppError::InvalidSession);
         };
-        let claims = access_token::verify(&state.access_keys, &token)
-            .map_err(AuthError::from)?
+        let claims = access::verify(&state.access_keys, &token)
+            .map_err(SessionError::from)?
             .filter(|claims| claims.cli == client)
             .ok_or(AppError::InvalidSession)?;
-        if state.redis.exists(&revoked_key(claims.sid)).await? {
+        if access::is_revoked(&state.redis, claims.sid).await? {
             return Err(AppError::InvalidSession);
         }
-        if !rate_limit::admit(&state.redis, SESSION_REQUESTS, &claims.sid.to_string()).await? {
-            return Err(AppError::RateLimited);
-        }
+        rate_limit::enforce(&state.redis, SESSION_REQUESTS, &claims.sid.to_string()).await?;
         Ok(Self {
             user_id: claims.sub,
             session_id: claims.sid,
@@ -80,22 +77,4 @@ impl<State: Send + Sync> FromRequestParts<State> for Device {
             user_agent,
         })
     }
-}
-
-pub const ABSOLUTE_LIFETIME: Duration = Duration::from_secs(30 * 24 * 60 * 60);
-
-pub fn lifetime(client: SessionClient) -> Duration {
-    match client {
-        SessionClient::Web => Duration::from_secs(24 * 60 * 60),
-        SessionClient::Mobile => Duration::from_secs(7 * 24 * 60 * 60),
-    }
-}
-
-pub async fn revoke(redis: &Redis, session_ids: &[Uuid]) -> Result<(), RedisError> {
-    let keys: Vec<String> = session_ids.iter().copied().map(revoked_key).collect();
-    redis.set_expiring(&keys, access_token::LIFETIME).await
-}
-
-fn revoked_key(session_id: Uuid) -> String {
-    format!("auth:revoked:{session_id}")
 }

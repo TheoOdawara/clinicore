@@ -1,17 +1,19 @@
+use super::error::UserError;
 use super::queries::{self, SignUpOutcome};
 use crate::AppState;
-use crate::auth::error::AuthError;
-use crate::auth::{emails, password, service::verification_link, token};
+use crate::credentials::{password, secret};
+use crate::email_verifications::emails;
+use crate::email_verifications::service::verification_link;
 
 pub async fn sign_up(
     state: &AppState,
     name: &str,
     email: &str,
     password: &str,
-) -> Result<(), AuthError> {
+) -> Result<(), UserError> {
     let address = email.to_lowercase();
     let password_hash = password::hash(password.to_string()).await?;
-    let issued = token::issue()?;
+    let issued = secret::issue()?;
     let message = emails::verification(name, &verification_link(state, &issued.secret))?;
 
     let outcome =

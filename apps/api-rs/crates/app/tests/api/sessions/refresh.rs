@@ -2,11 +2,10 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
-use super::{
-    Transport, WEB_ORIGIN, app_with, fresh_email, lifetime_matches, register, revoked_ttl,
-    session_exists,
+use super::{Transport, WEB_ORIGIN, lifetime_matches, revoked_ttl, session_exists};
+use crate::support::{
+    app_with, fresh_client, fresh_email, json_body, register, request, set_cookie,
 };
-use crate::support::{fresh_client, json_body, request, set_cookie};
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_refresh_rotates_the_tokens_on_each_transport(pool: PgPool) {

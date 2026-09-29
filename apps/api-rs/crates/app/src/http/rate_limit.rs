@@ -49,15 +49,33 @@ pub async fn guard(
     request: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    if !admit(&limit.redis, limit.quota, &client_key(client)).await? {
-        return Err(AppError::RateLimited);
-    }
+    enforce(&limit.redis, limit.quota, &client_key(client)).await?;
     Ok(next.run(request).await)
 }
 
-pub async fn admit(redis: &Redis, quota: Quota, identity: &str) -> Result<bool, RedisError> {
+#[derive(Debug, thiserror::Error)]
+pub enum RateLimitError {
+    #[error("rate limited")]
+    Exceeded,
+    #[error(transparent)]
+    Redis(#[from] RedisError),
+}
+
+impl From<RateLimitError> for AppError {
+    fn from(error: RateLimitError) -> Self {
+        match error {
+            RateLimitError::Exceeded => Self::RateLimited,
+            RateLimitError::Redis(error) => Self::Unavailable(error),
+        }
+    }
+}
+
+pub async fn enforce(redis: &Redis, quota: Quota, identity: &str) -> Result<(), RateLimitError> {
     let hits = redis.hit(&key(quota, identity), quota.window).await?;
-    Ok(hits <= quota.count)
+    if hits > quota.count {
+        return Err(RateLimitError::Exceeded);
+    }
+    Ok(())
 }
 
 pub async fn refund(redis: &Redis, quota: Quota, identity: &str) -> Result<(), RedisError> {

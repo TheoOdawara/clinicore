@@ -1,6 +1,6 @@
 use sqlx::PgPool;
 
-use crate::auth::queries::{claim_dispatch, create_verification};
+use crate::email_verifications::queries::{claim_dispatch, create_verification};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SignUpOutcome {

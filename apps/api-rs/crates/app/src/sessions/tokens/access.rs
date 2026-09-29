@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use clinicore_core::redis::{Redis, RedisError};
 use jsonwebtoken::errors::{Error, ErrorKind};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
@@ -75,4 +76,17 @@ pub fn verify(keys: &AccessKeys, token: &str) -> Result<Option<Claims>, Error> {
         | ErrorKind::Utf8(_) => Ok(None),
         _ => Err(error),
     }
+}
+
+pub async fn revoke(redis: &Redis, session_ids: &[Uuid]) -> Result<(), RedisError> {
+    let keys: Vec<String> = session_ids.iter().copied().map(revoked_key).collect();
+    redis.set_expiring(&keys, LIFETIME).await
+}
+
+pub async fn is_revoked(redis: &Redis, session_id: Uuid) -> Result<bool, RedisError> {
+    redis.exists(&revoked_key(session_id)).await
+}
+
+fn revoked_key(session_id: Uuid) -> String {
+    format!("auth:revoked:{session_id}")
 }

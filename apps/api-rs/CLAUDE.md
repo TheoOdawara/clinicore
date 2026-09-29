@@ -61,22 +61,28 @@ crates/
     │   │   ├── error.rs  validation.rs  request_log.rs  openapi.rs
     │   │   └── client.rs  origin.rs  rate_limit.rs
     │   ├── health.rs                                feature de uma rota só
+    │   ├── credentials/                             senha e segredo aleatório, de várias features
+    │   │   └── mod.rs  password.rs  secret.rs  error.rs
     │   ├── users/                                   o cadastro
-    │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs
-    │   └── auth/                                    verificação de e-mail e sessão
+    │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  error.rs
+    │   ├── email_verifications/                     o link de confirmação do e-mail
+    │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  emails.rs  error.rs
+    │   └── sessions/                                login, refresh e logout
     │       ├── mod.rs                               routes(): o Router, que liga URL e handler
     │       ├── handlers.rs                          recebe o request, chama o service, devolve o status
     │       ├── requests.rs  responses.rs            corpos que chegam, com a validação, e os que saem
     │       ├── service.rs                           a regra
     │       ├── queries.rs                           o SQL
     │       ├── error.rs                             o erro da feature e o From para o AppError
-    │       ├── session.rs                           o extractor CurrentSession e a denylist no Redis
-    │       └── password.rs  token.rs  access_token.rs  cookies.rs  emails.rs
+    │       ├── extractors.rs                        CurrentSession e Device
+    │       └── tokens/                              o que a sessão entrega ao cliente
+    │           └── mod.rs  access.rs  refresh.rs  cookies.rs
     └── tests/api/
         ├── main.rs  support.rs
         ├── boot.rs  errors.rs  health.rs  openapi.rs  request_log.rs
         ├── users/  mod.rs  sign_up.rs
-        └── auth/  mod.rs  sign_in.rs  sessions.rs  refresh.rs  confirmation.rs
+        ├── email_verifications/  mod.rs  confirmation.rs
+        └── sessions/  mod.rs  sign_in.rs  current_session.rs  refresh.rs
 migrations/  .sqlx/
 ```
 
@@ -86,6 +92,10 @@ migrations/  .sqlx/
 - **A feature começa como `<feature>.rs`, com o `Router`, os handlers e o SQL juntos.** Ela vira a
   pasta `<feature>/` quando um pedaço tiver responsabilidade própria, e o `<feature>.rs` vira o
   `<feature>/mod.rs`. Arquivo com o nome de uma pasta ao lado dela não é usado.
+- **Dentro da pasta, um grupo com consumidor ou ciclo de vida próprio vira subpasta**, como os tokens
+  em `sessions/tokens/`, e o fluxo da requisição fica plano. Arquivo novo numa feature reabre a
+  pergunta para a pasta inteira. Regra que várias features usam e que não é de nenhuma mora numa
+  pasta própria em `src/`, como `credentials/`.
 - **Na pasta, o fluxo se lê pelos arquivos: `mod.rs` → `handlers.rs` → `service.rs` → `queries.rs`.**
   O `mod.rs` só declara os módulos e monta o `routes()`. O nome é o do axum: handler, não controller.
 - **A camada nasce quando tem conteúdo.** Uma leitura simples vai do handler direto à consulta. O
@@ -103,7 +113,7 @@ migrations/  .sqlx/
   de `Origin` são `route_layer` do `with_layers`, o limite é `route_layer` da própria rota e a validação é
   o extractor `ValidJson`, então uma origem recusada não conta no limite e um corpo inválido conta.
 - **Toda rota limitada conta em duas chaves, nunca numa só.** O IP é a do `route_layer`; a segunda é
-  a identidade, contada por `rate_limit::admit` com uma `Quota` de `auth/mod.rs`: a sessão no
+  a identidade, contada por `rate_limit::enforce` com uma `Quota` do `mod.rs` da feature: a sessão no
   `CurrentSession`, a sessão do refresh e as falhas de senha por e-mail no service, e o teto total na
   confirmação. As rotas que mandam e-mail têm a segunda no `email_dispatches`. Rota nova limitada
   nasce com as duas.

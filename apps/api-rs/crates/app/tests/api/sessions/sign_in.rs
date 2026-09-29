@@ -5,12 +5,10 @@ use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
-use super::{
-    MOBILE, PASSWORD, Transport, app_with, count, fresh_email, lifetime_matches, register,
-    session_exists, sign_in,
-};
+use super::{Transport, lifetime_matches, session_exists, sign_in};
 use crate::support::{
-    config_with, eventually, fresh_client, json_body, request, set_cookie, state,
+    MOBILE, PASSWORD, app_with, config_with, count, eventually, fresh_client, fresh_email,
+    json_body, register, request, set_cookie, state,
 };
 
 #[sqlx::test(migrations = "../../migrations")]
