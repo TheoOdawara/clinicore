@@ -3,5 +3,13 @@
     "*.plist": "xml",
     "*.xcscheme": "xml",
     "*.xcworkspacedata": "xml"
-  }
+  },
+  "rust-analyzer.linkedProjects": [
+    "apps/api-rs/Cargo.toml"
+  ],
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ]
 }
