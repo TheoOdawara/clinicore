@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::net::{Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicU16, AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::Router;
@@ -21,7 +21,7 @@ use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 use tower::ServiceExt;
-use tracing::subscriber::DefaultGuard;
+use tracing::subscriber::{DefaultGuard, NoSubscriber};
 
 pub const VALID_ENVIRONMENT: [(&str, &str); 17] = [
     ("ALLOWED_ORIGINS", "http://localhost:3000"),
@@ -72,11 +72,10 @@ pub fn config_with(overrides: &[(&str, Option<&str>)]) -> Config {
 }
 
 pub fn lazy_state(config: &Config) -> AppState {
-    AppState::new(
+    state(
         config,
         db::connect_lazy(config).expect("a lazy database"),
-        Redis::connect_lazy(config).expect("a lazy redis"),
-        Mailer::stub(config, AsyncStubTransport::new_ok()).expect("a valid sender"),
+        AsyncStubTransport::new_ok(),
     )
 }
 
@@ -261,6 +260,11 @@ pub fn content_type(response: &Response) -> &str {
 }
 
 pub fn capture_log(config: &Config) -> (CapturedLog, DefaultGuard) {
+    static SHARED_DISPATCHER: Once = Once::new();
+    SHARED_DISPATCHER.call_once(|| {
+        tracing::subscriber::set_global_default(NoSubscriber::default())
+            .expect("no other global subscriber in the test binary");
+    });
     let log = CapturedLog::default();
     let writer = log.clone();
     let guard =
