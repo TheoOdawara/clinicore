@@ -187,7 +187,8 @@ migrations/  .sqlx/
 
 - **Os valores de desenvolvimento moram no Infisical, no plano grátis, no ambiente `dev` do projeto `Clinicore`, na pasta `/api`.**
   Nenhum `.env` com valor real fica no disco, e ninguém manda variável para ninguém.
-- **O `.infisical.json` é commitado.** Ele liga esta pasta ao projeto e não tem segredo.
+- **O projeto é ligado pelo `.infisical.json` da raiz do repo, commitado e sem segredo.** A CLI sobe
+  os diretórios até achá-lo, e cada app separa os seus valores pela pasta do `--path`.
 - **Todo comando que precisa de variável roda dentro do `infisical run --path=/api --`**: `cargo run`,
   `docker compose up`, `sqlx migrate run` e `cargo sqlx prepare`. O `--env` padrão já é `dev`.
 - **Um valor só da sua máquina é override pessoal**, com

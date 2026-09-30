@@ -68,6 +68,10 @@ Cada comando roda de dentro do diretório do seu app.
 
 Instalação: `npm ci` nos três apps Node e `flutter pub get --enforce-lockfile` no `apps/mobile`.
 
+**Os valores de desenvolvimento moram no Infisical**, no projeto `Clinicore` que o `.infisical.json`
+da raiz liga ao repo inteiro, com uma pasta por app (`/api` para o `apps/api-rs`). Comando que precisa
+de variável roda dentro de `infisical run --path=/<pasta> --`, e o `CLAUDE.md` de cada app diz quais.
+
 O gate de tipos do web exige o `src/routeTree.gen.ts`, gerado pelo plugin do TanStack Router.
 Ele é commitado, então só um `src/routes/` alterado sem `vite build` ou `vite dev` desde a alteração
 deixa o `tsc` olhando para uma árvore velha.

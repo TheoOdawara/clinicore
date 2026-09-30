@@ -30,9 +30,23 @@ Os apps são independentes: cada um tem o próprio manifesto e lockfile, e a fro
 - Log estruturado em JSON com redação de campos sensíveis
 - Configuração validada no boot: variável ausente derruba a API com o nome dela
 
-## Rodando a API
+## Rodando a API em Rust
 
-Preencha o `.env` a partir do exemplo; o `compose.yaml` sobe Postgres e Redis.
+Os valores de desenvolvimento vêm do [Infisical](https://infisical.com), na pasta `/api` do projeto
+ligado pelo `.infisical.json` da raiz; nenhum `.env` com valor real fica no disco.
+
+```sh
+infisical login
+cd apps/api-rs
+infisical run --path=/api -- docker compose up -d --wait
+infisical run --path=/api -- sqlx migrate run
+infisical run --path=/api -- cargo run
+```
+
+## Rodando a API em NestJS
+
+Congelada até a migração para Rust terminar. Preencha o `.env` a partir do exemplo; o `compose.yaml`
+sobe Postgres e Redis.
 
 ```sh
 cd apps/api
