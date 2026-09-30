@@ -30,6 +30,10 @@ pub fn lifetime(client: SessionClient) -> Duration {
     }
 }
 
+pub fn longest_lifetime() -> Duration {
+    lifetime(SessionClient::Web).max(lifetime(SessionClient::Mobile))
+}
+
 pub fn compose(session_id: Uuid, secret: &str) -> String {
     format!("{session_id}.{secret}")
 }

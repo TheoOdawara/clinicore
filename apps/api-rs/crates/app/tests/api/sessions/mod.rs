@@ -43,17 +43,31 @@ pub async fn lifetime_matches(pool: &PgPool, session_id: Uuid, seconds: i32) -> 
 }
 
 pub async fn revoked_ttl(session_id: Uuid) -> i64 {
-    let url = std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run");
-    let client = redis::Client::open(url).expect("a redis url");
-    let mut connection = client
-        .get_multiplexed_async_connection()
-        .await
-        .expect("a redis connection");
     redis::cmd("TTL")
         .arg(format!("auth:revoked:{session_id}"))
-        .query_async(&mut connection)
+        .query_async(&mut redis_connection().await)
         .await
         .expect("a ttl")
+}
+
+pub async fn revoke_without_deleting(session_id: Uuid) {
+    redis::cmd("SET")
+        .arg(format!("auth:revoked:{session_id}"))
+        .arg(1)
+        .arg("EX")
+        .arg(60)
+        .query_async::<()>(&mut redis_connection().await)
+        .await
+        .expect("a revocation");
+}
+
+async fn redis_connection() -> redis::aio::MultiplexedConnection {
+    let url = std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run");
+    redis::Client::open(url)
+        .expect("a redis url")
+        .get_multiplexed_async_connection()
+        .await
+        .expect("a redis connection")
 }
 
 pub struct Session {

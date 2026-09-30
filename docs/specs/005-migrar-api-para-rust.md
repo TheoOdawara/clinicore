@@ -87,7 +87,7 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
     desta spec: o schema vem só da migration sqlx, e o `.sqlx/` é conferido contra as consultas.
   - O Cenário 29 da 003 é portado sem a linha do worker, que é a #71.
   - **A regra 17 da 003 roda dentro da API, sem fila.** O `purge::run` apaga o que venceu ao subir e
-    a cada 24 horas, em toda réplica, porque o `DELETE` repetido apaga zero linhas. A sessão passada
+    a cada hora, em toda réplica, porque o `DELETE` repetido apaga zero linhas. A sessão passada
     do teto de 30 dias também é apagada, porque nenhum refresh a renova. O Cenário 33 é portado
     chamando o `purge_expired` direto; o 34 é da #71.
   - O Cenário 28 da 003 confere a causa no log em nível `error` pelo `tracing`, no lugar da stack no

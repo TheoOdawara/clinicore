@@ -265,6 +265,29 @@ async fn the_sixth_sign_in_drops_the_oldest_session(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_sign_in_that_waited_for_the_lock_keeps_its_own_session(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
+    let app = app_with(&pool);
+    register(&app, &pool, email, true).await;
+    for _ in 0..5 {
+        Transport::Mobile.sign_in(&app, email).await;
+    }
+    sqlx::query("UPDATE sessions SET created_at = now() + interval '1 minute'")
+        .execute(&pool)
+        .await
+        .expect("sessions that started after the next sign-in");
+
+    let latest = Transport::Web.sign_in(&app, email).await;
+
+    assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 5);
+    let current = Transport::Web
+        .call(&app, "GET", "/sessions/current", &latest.access)
+        .await;
+    assert_eq!(current.status(), StatusCode::OK);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn the_sign_in_limit_refuses_the_sixth_attempt_even_with_a_forged_forwarded_for(
     pool: PgPool,
 ) {

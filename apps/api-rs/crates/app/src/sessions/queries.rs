@@ -77,11 +77,12 @@ pub async fn open_session(
 
     let evicted = sqlx::query_scalar!(
         "DELETE FROM sessions WHERE id IN (
-            SELECT id FROM sessions WHERE user_id = $1
-            ORDER BY created_at DESC, id DESC OFFSET 5
+            SELECT id FROM sessions WHERE user_id = $1 AND id <> $2
+            ORDER BY created_at DESC, id DESC OFFSET 4
         )
         RETURNING id",
-        user_id
+        user_id,
+        session_id
     )
     .fetch_all(&mut *transaction)
     .await?;

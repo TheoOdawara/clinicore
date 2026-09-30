@@ -28,8 +28,12 @@ ida ao Redis, e no logout e no reuso ela não protegia nada que a ordem sozinha 
 - **O teto de 5 mantém a transação.** Os ids a despejar só existem no `RETURNING` do `DELETE`, então a
   ordem é apagar, revogar e fazer o commit; com o Redis fora, o `DELETE` desfaz e o login responde
   `503`.
-- **A chave vive o mesmo tempo que o access token** (`access::LIFETIME`), porque depois disso nenhum
-  token daquela sessão passa pela assinatura.
+- **A chave vive o maior tempo de vida do refresh** (`refresh::longest_lifetime`, 7 dias), e o
+  refresh consulta a chave antes de rotacionar. Uma sessão revogada cuja linha sobreviveu não renova,
+  e depois de 7 dias a linha já venceu sozinha, porque nada mais estende o `expires_at` dela.
+- **O teto de 5 nunca despeja a sessão que acabou de abrir.** O `created_at` é a hora do início da
+  transação, então um login que esperou o lock do usuário parece mais antigo que as outras; o
+  `DELETE` exclui o id recém-criado e mantém as 4 mais recentes além dele.
 
 ## Consequences
 
@@ -37,7 +41,7 @@ Fica mais fácil:
 
 - O logout e o reuso não seguram linha nem conexão durante a ida ao Redis.
 - Toda falha parcial fecha a porta: se o `DELETE` falha depois da revogação, a linha fica, mas nenhum
-  access token dela passa; o refresh até renova, e o token novo também é recusado até a chave vencer.
+  access token dela passa e o refresh responde `401 invalid-session` até a linha vencer.
 
 Fica mais difícil, e é aceito:
 
@@ -46,8 +50,10 @@ Fica mais difícil, e é aceito:
   ordem. Um teste exigiria um Redis que falha só na escrita.
 - **Uma sessão revogada cujo `DELETE` falhou fica no banco até vencer.** Ela não serve para nada, e a
   purga de vencidas a remove.
+- **Cada logout deixa uma chave no Redis por 7 dias.** É uma chave curta por sessão encerrada, e é o
+  que impede a linha sobrevivente de voltar a valer.
 - **O Redis precisa persistir.** Um Redis que reinicia vazio devolve a validade aos access tokens de
-  sessões apagadas nos últimos 15 minutos.
+  sessões apagadas nos últimos 15 minutos e ao refresh de toda sessão revogada cuja linha sobreviveu.
 
 ## Alternatives considered
 

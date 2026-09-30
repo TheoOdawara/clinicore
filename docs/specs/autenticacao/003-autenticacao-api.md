@@ -487,10 +487,15 @@ Uma senha é aceita quando cumpre **todas** as condições:
   | Rota | Segunda chave | Janela | Máximo |
   | --- | --- | --- | --- |
   | `/sessions` | falhas de senha por e-mail, em minúsculas | 15 min | 10 |
-  | rotas com sessão | a sessão do access token | 10 s | 100 |
+  | rotas com sessão | a sessão do access token, por rota | 10 s | 100 |
   | `/sessions/current/tokens` | a sessão do refresh token | 60 s | 30 |
-  | `/email-verifications/confirmation` | teto total da rota | 60 s | 300 |
+  | `/email-verifications/confirmation` | a faixa de rede do IP: /48 no IPv6, /24 no IPv4 | 60 s | 300 |
   | `/users`, `/email-verifications`, `/password-resets` | o endereço, pela regra 15 | — | — |
+
+- **A confirmação é a única segunda chave que sai do IP.** O corpo dela só traz o token, e o e-mail só
+  aparece quando o token é válido, então nenhuma identidade conta um palpite. A faixa de rede pega quem
+  troca de endereço dentro da mesma rede, e um teto total da rota deixaria um cliente só travar a
+  confirmação de todo mundo.
 
 - **O contador do login por e-mail conta só falha e barra antes do argon2**, inclusive com a senha
   certa. Cada tentativa soma antes de conferir a senha e devolve o ponto quando ela confere, então uma

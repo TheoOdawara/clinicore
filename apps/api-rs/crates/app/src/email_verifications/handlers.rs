@@ -4,6 +4,7 @@ use axum::http::StatusCode;
 use super::requests::{EmailConfirmationRequest, EmailVerificationRequest};
 use super::service;
 use crate::AppState;
+use crate::http::client::ClientAddress;
 use crate::http::error::{AppError, Problem};
 use crate::http::validation::ValidJson;
 
@@ -38,8 +39,9 @@ pub async fn request_email_verification(
 )]
 pub async fn confirm_email(
     State(state): State<AppState>,
+    client: ClientAddress,
     ValidJson(body): ValidJson<EmailConfirmationRequest>,
 ) -> Result<StatusCode, AppError> {
-    service::confirm_email(&state, &body.token).await?;
+    service::confirm_email(&state, client, &body.token).await?;
     Ok(StatusCode::NO_CONTENT)
 }

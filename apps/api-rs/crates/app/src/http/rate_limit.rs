@@ -5,7 +5,7 @@ use axum::extract::{Request, State};
 use axum::middleware::Next;
 use axum::response::Response;
 use clinicore_core::redis::{Redis, RedisError};
-use ipnet::Ipv6Net;
+use ipnet::{Ipv4Net, Ipv6Net};
 
 use super::client::ClientAddress;
 use super::error::AppError;
@@ -91,5 +91,13 @@ fn client_key(ClientAddress(address): ClientAddress) -> String {
         None => "unknown".to_string(),
         Some(IpAddr::V6(address)) => Ipv6Net::new_assert(address, 64).trunc().to_string(),
         Some(address) => address.to_string(),
+    }
+}
+
+pub fn network_key(ClientAddress(address): ClientAddress) -> String {
+    match address {
+        None => "unknown".to_string(),
+        Some(IpAddr::V6(address)) => Ipv6Net::new_assert(address, 48).trunc().to_string(),
+        Some(IpAddr::V4(address)) => Ipv4Net::new_assert(address, 24).trunc().to_string(),
     }
 }

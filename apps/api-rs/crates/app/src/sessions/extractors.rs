@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 use std::net::IpAddr;
 
-use axum::extract::FromRequestParts;
+use axum::extract::{FromRequestParts, MatchedPath};
 use axum::http::header::{AUTHORIZATION, USER_AGENT};
 use axum::http::request::Parts;
 use axum_extra::extract::cookie::CookieJar;
@@ -35,8 +35,9 @@ impl FromRequestParts<AppState> for CurrentSession {
                 .headers
                 .get(AUTHORIZATION)
                 .and_then(|value| value.to_str().ok())
-                .and_then(|value| value.strip_prefix("Bearer "))
-                .map(str::to_string),
+                .and_then(|value| value.split_once(' '))
+                .filter(|(scheme, _)| scheme.eq_ignore_ascii_case("bearer"))
+                .map(|(_, token)| token.to_string()),
         };
         let Some(token) = token else {
             return Err(AppError::InvalidSession);
@@ -48,10 +49,14 @@ impl FromRequestParts<AppState> for CurrentSession {
         if access::is_revoked(&state.redis, claims.session_id).await? {
             return Err(AppError::InvalidSession);
         }
+        let route = parts
+            .extensions
+            .get::<MatchedPath>()
+            .map_or("", MatchedPath::as_str);
         rate_limit::enforce(
             &state.redis,
             SESSION_REQUESTS,
-            &claims.session_id.to_string(),
+            &format!("{}:{} {route}", claims.session_id, parts.method),
         )
         .await?;
         Ok(Self {

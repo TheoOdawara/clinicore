@@ -63,6 +63,9 @@ pub async fn refresh(
         .and_then(refresh::parse)
         .ok_or(SessionError::InvalidSession)?;
     rate_limit::enforce(&state.redis, SESSION_REFRESHES, &session_id.to_string()).await?;
+    if access::is_revoked(&state.redis, session_id).await? {
+        return Err(SessionError::InvalidSession);
+    }
     let issued = secret::issue()?;
     let user_id = queries::rotate_session(
         &state.pool,

@@ -1,10 +1,9 @@
 use axum::http::StatusCode;
-use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
 use crate::support::{
-    MOBILE, app_with, config_with, count, fresh_email, json_body, register, request, state_on_redis,
+    MOBILE, app_with, count, fresh_email, json_body, register, request, request_from,
 };
 
 async fn pending_link(pool: &PgPool, email: &str, secret: &str, expires_in: &str) {
@@ -110,27 +109,15 @@ async fn an_unknown_or_expired_link_is_refused_with_its_code(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn confirmations_stop_at_the_total_ceiling_whatever_the_address(pool: PgPool) {
-    let redis_url = format!(
-        "{}/15",
-        std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run")
-    );
-    let config = config_with(&[]);
-    let app = clinicore_app::app(
-        &config,
-        state_on_redis(
-            &config,
-            pool.clone(),
-            AsyncStubTransport::new_ok(),
-            &redis_url,
-        ),
-    );
-    let mut connection = redis::Client::open(redis_url)
+async fn confirmations_stop_at_the_network_ceiling_and_spare_every_other_network(pool: PgPool) {
+    let app = app_with(&pool);
+    let url = std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run");
+    let mut connection = redis::Client::open(url)
         .expect("a redis url")
         .get_multiplexed_async_connection()
         .await
         .expect("a redis connection");
-    let key = "rate:email-confirmation-total:all";
+    let key = "rate:email-confirmation-network:203.0.113.0/24";
     let _: () = redis::cmd("SET")
         .arg(key)
         .arg(300)
@@ -138,14 +125,25 @@ async fn confirmations_stop_at_the_total_ceiling_whatever_the_address(pool: PgPo
         .arg(60)
         .query_async(&mut connection)
         .await
-        .expect("a ceiling already reached");
+        .expect("a network ceiling already reached");
 
-    let response = confirm(&app, &"e".repeat(43)).await;
+    let body = json!({"token": "e".repeat(43)});
+    let path = "/email-verifications/confirmation";
+    let mut statuses = Vec::new();
+    for address in ["203.0.113.8:4000", "198.51.100.8:4000"] {
+        let client = address.parse().expect("a socket address");
+        let response =
+            request_from(client, app.clone(), "POST", path, &[MOBILE], Some(&body)).await;
+        statuses.push(response.status());
+    }
 
     let _: () = redis::cmd("DEL")
         .arg(key)
         .query_async(&mut connection)
         .await
         .expect("the ceiling cleared");
-    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        statuses,
+        [StatusCode::TOO_MANY_REQUESTS, StatusCode::BAD_REQUEST]
+    );
 }

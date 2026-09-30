@@ -2,7 +2,9 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
-use super::{Transport, WEB_ORIGIN, lifetime_matches, revoked_ttl, session_exists};
+use super::{
+    Transport, WEB_ORIGIN, lifetime_matches, revoke_without_deleting, revoked_ttl, session_exists,
+};
 use crate::support::{app_with, fresh_email, json_body, register, request, set_cookie};
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -71,7 +73,7 @@ async fn reusing_an_old_refresh_token_drops_the_whole_session(pool: PgPool) {
         );
         assert!(!session_exists(&pool, session.id()).await);
         let ttl = revoked_ttl(session.id()).await;
-        assert!((1..=900).contains(&ttl), "{ttl}");
+        assert!((604_700..=604_800).contains(&ttl), "{ttl}");
         let current = transport
             .call(&app, "GET", "/sessions/current", &rotated.access)
             .await;
@@ -124,6 +126,26 @@ async fn a_session_stops_renewing_thirty_days_after_it_opened(pool: PgPool) {
         .execute(&pool)
         .await
         .expect("a session opened a month ago");
+
+        let response = transport.refresh(&app, &session.refresh).await;
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{transport:?}");
+        assert_eq!(
+            json_body(response).await["type"],
+            "tag:clinicore.com.br,2026:invalid-session"
+        );
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_revoked_session_never_renews_even_when_its_row_survived(pool: PgPool) {
+    let email = fresh_email();
+    let app = app_with(&pool);
+    register(&app, &pool, &email, true).await;
+
+    for transport in Transport::BOTH {
+        let session = transport.sign_in(&app, &email).await;
+        revoke_without_deleting(session.id()).await;
 
         let response = transport.refresh(&app, &session.refresh).await;
 

@@ -1,6 +1,10 @@
+use std::time::Duration;
+
 use sqlx::{PgConnection, PgExecutor, PgPool};
 
 use super::error::EmailVerificationError;
+
+pub const DISPATCH_WINDOW: Duration = Duration::from_secs(24 * 60 * 60);
 
 pub struct UserSummary {
     pub name: String,
@@ -32,8 +36,9 @@ pub async fn claim_dispatch(
         r#"SELECT count(*) AS "total!",
             coalesce(max(created_at) > now() - interval '60 seconds', false) AS "recent!"
         FROM email_dispatches
-        WHERE email = $1 AND kind = 'email_verification' AND created_at > now() - interval '24 hours'"#,
-        email
+        WHERE email = $1 AND kind = 'email_verification' AND created_at > now() - make_interval(secs => $2)"#,
+        email,
+        DISPATCH_WINDOW.as_secs_f64()
     )
     .fetch_one(&mut *connection)
     .await?;

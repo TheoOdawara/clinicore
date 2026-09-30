@@ -35,7 +35,7 @@ async fn sign_out_revokes_the_session_at_once_on_each_transport(pool: PgPool) {
         }
         assert!(!session_exists(&pool, session.id()).await);
         let ttl = revoked_ttl(session.id()).await;
-        assert!((1..=900).contains(&ttl), "{ttl}");
+        assert!((604_700..=604_800).contains(&ttl), "{ttl}");
 
         for method in ["GET", "DELETE"] {
             let again = transport
@@ -179,4 +179,8 @@ async fn a_session_answers_at_most_a_hundred_requests_in_ten_seconds_whatever_th
         .await;
 
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    let sign_out = Transport::Mobile
+        .call(&app, "DELETE", "/sessions/current", &session.access)
+        .await;
+    assert_eq!(sign_out.status(), StatusCode::NO_CONTENT);
 }

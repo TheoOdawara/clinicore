@@ -6,6 +6,7 @@ use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::refresh;
 use crate::http::client::SessionClient;
 
 pub const LIFETIME: Duration = Duration::from_secs(900);
@@ -83,7 +84,7 @@ pub fn verify(keys: &AccessKeys, token: &str) -> Result<Option<Claims>, Error> {
 
 pub async fn revoke(redis: &Redis, session_ids: &[Uuid]) -> Result<(), RedisError> {
     let keys: Vec<String> = session_ids.iter().copied().map(revoked_key).collect();
-    redis.set_expiring(&keys, LIFETIME).await
+    redis.set_expiring(&keys, refresh::longest_lifetime()).await
 }
 
 pub async fn is_revoked(redis: &Redis, session_id: Uuid) -> Result<bool, RedisError> {

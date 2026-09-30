@@ -11,7 +11,7 @@ use utoipa_axum::routes;
 use crate::AppState;
 use crate::http::rate_limit::{self, Limit, Quota};
 
-const EMAIL_CONFIRMATIONS: Quota = Quota::new("email-confirmation-total", 300, 60);
+const NETWORK_CONFIRMATIONS: Quota = Quota::new("email-confirmation-network", 300, 60);
 
 pub fn routes(state: &AppState) -> OpenApiRouter {
     let limit = |name, count, seconds| {

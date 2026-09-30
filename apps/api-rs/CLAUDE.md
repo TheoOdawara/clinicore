@@ -62,7 +62,7 @@ crates/
     │   ├── main.rs                                  liga o servidor
     │   ├── lib.rs                                   AppState, Router e camadas do tower
     │   ├── telemetry.rs                             o subscriber do tracing, do processo inteiro
-    │   ├── purge.rs                                 a limpeza diária do que venceu
+    │   ├── purge.rs                                 a limpeza periódica do que venceu
     │   ├── http/                                    o encanamento HTTP
     │   │   ├── mod.rs
     │   │   ├── error.rs  validation.rs  request_log.rs  openapi.rs
@@ -120,10 +120,11 @@ migrations/  .sqlx/
   de `Origin` são `route_layer` do `with_layers`, o limite é `route_layer` da própria rota e a validação é
   o extractor `ValidJson`, então uma origem recusada não conta no limite e um corpo inválido conta.
 - **Toda rota limitada conta em duas chaves, nunca numa só.** O IP é a do `route_layer`; a segunda é
-  a identidade, contada por `rate_limit::enforce` com uma `Quota` do `mod.rs` da feature: a sessão no
-  `CurrentSession`, a sessão do refresh e as falhas de senha por e-mail no service, e o teto total na
-  confirmação. As rotas que mandam e-mail têm a segunda no `email_dispatches`. Rota nova limitada
-  nasce com as duas.
+  a identidade, contada por `rate_limit::enforce` com uma `Quota` do `mod.rs` da feature: a sessão
+  por rota no `CurrentSession` (sessão, método e `MatchedPath`), a sessão do refresh e as falhas de
+  senha por e-mail no service, e a faixa de rede na confirmação (`network_key`: /48 no IPv6, /24 no
+  IPv4), porque o corpo dela só traz o token. As rotas que mandam e-mail têm a segunda no
+  `email_dispatches`. Rota nova limitada nasce com as duas.
 - **Rota nasce com `routes!` do `utoipa-axum` num `OpenApiRouter`** (ADR 0011), nunca com o `route`
   do axum, então a rota não existe sem o `#[utoipa::path]`. O header `Clinicore-Client` e as respostas
   dos guards (400, 403, 429, 503) entram sozinhos pelo `document_guards`; o handler declara só as
@@ -135,16 +136,18 @@ migrations/  .sqlx/
 - **Toda revogação escreve `auth:revoked:<sessão>` no Redis antes de a sessão sumir do Postgres**
   (ADR 0012). O logout e o reuso do refresh revogam e depois apagam, em autocommit; o teto de 5 apaga
   com `RETURNING`, revoga e faz o commit. Com o Redis fora, nada é apagado e a rota responde `503`.
+  A chave vive 7 dias, o maior tempo de vida do refresh, e o refresh a consulta antes de rotacionar.
 - **A denylist exige um Redis que persiste.** O `compose.yaml` sobe o Redis com `--appendonly yes`, e
   todo ambiente faz o mesmo: um Redis que reinicia vazio devolve a validade aos access tokens de
-  sessões apagadas nos últimos 15 minutos.
+  sessões apagadas nos últimos 15 minutos e ao refresh de sessões revogadas cuja linha sobreviveu.
 - **Apagar um usuário revoga as sessões dele antes do `DELETE`.** O `ON DELETE CASCADE` apaga as
   linhas de `sessions` sem passar pela denylist, e o access token de cada uma continuaria aceito.
-- **A purga do que venceu roda dentro da API, uma vez por dia**, no `purge::run` que o `main.rs` dispara.
+- **A purga do que venceu roda dentro da API, de hora em hora**, no `purge::run` que o `main.rs` dispara.
   Ela apaga a sessão vencida ou passada do teto de 30 dias, a verificação vencida e o envio de mais de
-  24 horas, sem escrever na denylist, porque o access token de uma sessão vencida já venceu. Cada
-  réplica roda a sua, e o `DELETE` repetido apaga zero linhas. Sobe para o `crates/worker/` quando a
-  #71 o criar.
+  24 horas (`DISPATCH_WINDOW`, a mesma janela do limite de envio), sem escrever na denylist, porque o
+  access token de uma sessão vencida já venceu. Cada réplica roda a sua, e o `DELETE` repetido apaga
+  zero linhas; uma rodada que falha, como a do boot com o Postgres subindo, tenta de novo na hora
+  seguinte. Sobe para o `crates/worker/` quando a #71 o criar.
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
   campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
   O request tem `#[serde(deny_unknown_fields)]`, e campo desconhecido ou de tipo errado sai como
@@ -221,8 +224,8 @@ migrations/  .sqlx/
 - **O Redis dos testes é o de dev, sem flush.** Cada requisição de teste sai de um `fresh_client()`, um
   /64 de documentação novo por chamada, então nenhum contador de limite atravessa testes nem execuções.
   **Pelo mesmo motivo, teste que faz login usa um `fresh_email()`**: o contador de falhas por e-mail
-  atravessaria testes e execuções. O teste de um teto total roda no índice 15 do Redis, pelo
-  `state_on_redis`, e é o único que usa esse índice.
+  atravessaria testes e execuções. O teste do teto por faixa de rede usa endereços IPv4 de
+  documentação, que o `fresh_client()` nunca gera.
 - **A consulta do teste é `sqlx::query_scalar` em runtime, com SQL literal.** O `.sqlx/` cobre só as
   consultas dos `queries.rs`.
 - **Teste unitário de lógica pura fica no próprio arquivo**, num `#[cfg(test)] mod tests` no fim, como
