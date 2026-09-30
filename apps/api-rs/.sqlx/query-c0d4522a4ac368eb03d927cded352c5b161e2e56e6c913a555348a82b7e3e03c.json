@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH created AS (\n            INSERT INTO users (name, email) VALUES ($1, $2)\n            ON CONFLICT (email) DO NOTHING\n            RETURNING id\n        )\n        INSERT INTO accounts (user_id, provider, password_hash)\n        SELECT id, 'credential', $3 FROM created",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c0d4522a4ac368eb03d927cded352c5b161e2e56e6c913a555348a82b7e3e03c"
+}

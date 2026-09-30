@@ -32,18 +32,22 @@ libera HTTP sem TLS só no build de debug.
 Com a API de pé em `:3333`, de dentro do `apps/mobile`:
 
 ```
+rm -rf lib/shared/api
 dart run swagger_parser
 dart run build_runner build --delete-conflicting-outputs
 dart format lib/shared/api
 ```
 
-O `swagger_parser` é configurado no próprio `pubspec.yaml`. Rota nova na API só chega ao app por essa
-regeração, e o diff do `lib/shared/api/` vai no mesmo pull request que a usa.
+O `swagger_parser` é configurado no próprio `pubspec.yaml`, com `merge_outputs`: o cliente inteiro sai em
+`lib/shared/api/api.dart`, e o `json_serializable` escreve o `api.g.dart` ao lado. Rota nova na API só
+chega ao app por essa regeração, e o diff do `lib/shared/api/` vai no mesmo pull request que a usa.
 
 ## Pegadinhas da stack
 
 Verificadas em 2026-09-24, contra Flutter 3.47.5 e `swagger_parser` 1.44.3.
 
+- **O `swagger_parser` não apaga o que deixou de existir.** Um schema renomeado na API deixa o arquivo
+  antigo para trás, e é por isso que a receita começa apagando a pasta.
 - **O código gerado não sai formatado.** Nem o `swagger_parser` nem o `build_runner` passam o
   `dart format`, e o gate `dart format --set-exit-if-changed .` reprova o cliente recém-gerado. Por
   isso o `dart format lib/shared/api` é o último passo da regeração.

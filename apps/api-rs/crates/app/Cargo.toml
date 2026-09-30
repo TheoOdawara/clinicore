@@ -1,0 +1,47 @@
+[package]
+name = "clinicore-app"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+argon2.workspace = true
+axum.workspace = true
+axum-client-ip.workspace = true
+axum-extra.workspace = true
+base64.workspace = true
+clinicore-core.workspace = true
+cookie.workspace = true
+getrandom.workspace = true
+hex.workspace = true
+ipnet.workspace = true
+jsonwebtoken.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_path_to_error.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net", "sync", "time"] }
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+utoipa.workspace = true
+utoipa-axum.workspace = true
+utoipa-swagger-ui.workspace = true
+uuid.workspace = true
+validator.workspace = true
+
+[[bin]]
+name = "api"
+path = "src/main.rs"
+
+[dev-dependencies]
+http-body-util.workspace = true
+lettre.workspace = true
+redis.workspace = true

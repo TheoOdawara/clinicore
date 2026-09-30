@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT true AS \"locked!\" FROM pg_advisory_xact_lock(hashtext('email_dispatches'), hashtext($1))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "locked!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5e991c25b268ac7c1d86cdb36b553dafcb7779f0441e3e96b8e26fcb2d782c3e"
+}

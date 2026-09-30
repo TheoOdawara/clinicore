@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM sessions\n        WHERE expires_at <= now() OR created_at <= now() - make_interval(secs => $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "57df7a2d2c604ef0131847a048d9f993711d5c488eef341a26d95a4ae4280e08"
+}

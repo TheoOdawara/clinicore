@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:clinicore/shared/api/auth/auth_client.dart';
+import 'package:clinicore/shared/api/api.dart';
 import 'package:clinicore/shared/http/http_client.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,7 +43,7 @@ void main() {
     final client = createHttpClient(Uri.parse('https://api.clinicore.com.br'))
       ..httpClientAdapter = adapter;
 
-    await AuthClient(client).authControllerSignOut();
+    await AuthClient(client).signOut();
 
     final request = adapter.lastRequest!;
     expect(

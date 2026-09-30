@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sessions\n        SET refresh_token_hash = $2, expires_at = now() + make_interval(secs => $3), updated_at = now()\n        WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a085953db7aef78b646a414710f1324ccee117438b5f48f642ed59e15d1c0101"
+}

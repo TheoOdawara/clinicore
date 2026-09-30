@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT expires_at > now() AS \"live!\"\n        FROM verifications\n        WHERE token_hash = $1 AND purpose = 'email_verification' AND consumed_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "live!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "cf520980c37dc5792d5d1e4ed771cf4d1f0836c45cdc86684c509bce215697cd"
+}

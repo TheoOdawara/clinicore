@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM sessions WHERE id IN (\n            SELECT id FROM sessions WHERE user_id = $1 AND id <> $2\n            ORDER BY created_at DESC, id DESC OFFSET 4\n        )\n        RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "sessions",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ed8fda85f8bae3481fdbcef1c2604b72af6126306a7b09315a941fedb6b9fff1"
+}

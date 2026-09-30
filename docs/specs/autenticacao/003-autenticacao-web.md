@@ -42,9 +42,11 @@ Sete telas. Cinco públicas, duas dentro da área logada.
   `Entrar com Google` e o link `Já tenho conta`. Abaixo do campo Senha, a regra de senha fica sempre
   visível como texto auxiliar.
 - **`/verify-email`** — é para onde o cadastro redireciona e para onde o link de confirmação aponta,
-  com `?token=` (ADR 0006). Três estados, decididos na abertura:
+  com `?token=` (ADR 0006). Ao abrir, a tela guarda o `token` em memória e o tira da URL com
+  `history.replaceState` antes de chamar a API, para ele não ficar no histórico nem numa aba
+  compartilhada. Três estados, decididos na abertura:
   - **com `token` na query** — chama `POST /email-verifications/confirmation` com `{ token }`. O `204`
-    traz a sessão nos cookies e leva para `/app`; o `400` com `type` `invalid-token` ou `token-expired`
+    não abre sessão e leva para `/login` com o e-mail confirmado; o `400` com `type` `invalid-token` ou `token-expired`
     mostra a mensagem de link expirado, o campo E-mail e o botão `Reenviar link`;
   - **com sessão válida e sem `token`** — redireciona para `/app`;
   - **sem sessão e sem `token`** — mostra a instrução, o e-mail para onde o link foi enviado, quando
@@ -52,9 +54,12 @@ Sete telas. Cinco públicas, duas dentro da área logada.
     mostra o campo E-mail.
 - **`/forgot-password`** — um campo E-mail, o botão `Enviar link` e o link `Voltar para entrar`.
 - **`/reset-password`** — chega pelo redirecionamento do link de reset da API, com `?token=` ou com
-  `?error=INVALID_TOKEN`. Com `token`, mostra os campos Nova senha e Confirmar nova senha, e o botão
-  `Redefinir senha`. Com `error`, ou sem nenhum dos dois, mostra o estado de erro e o link
-  `Pedir um novo link`.
+  `?error=INVALID_TOKEN`. Como em `/verify-email`, o `token` vai para a memória e sai da URL por
+  `history.replaceState` ao abrir; recarregar a tela depois disso cai no estado sem nenhum dos dois.
+  Com `token`, mostra os campos Nova senha e Confirmar nova senha, e o botão `Redefinir senha`. Com
+  `error`, ou sem nenhum dos dois, mostra o estado de erro e o link `Pedir um novo link`.
+- **O `index.html` declara `<meta name="referrer" content="no-referrer">`**, então nenhuma requisição
+  que a tela dispare leva a URL com o token no `Referer`.
 - **`/app`** — placeholder da aplicação: o nome e o e-mail do usuário logado, o link `Trocar senha` e
   o botão `Sair`. Não existe menu, nem barra lateral, nem qualquer outra funcionalidade.
 - **`/app/account/password`** — os campos Senha atual, Nova senha e Confirmar nova senha, o botão
@@ -181,7 +186,7 @@ nosso, não algo que o usuário possa corrigir. Os dois caem na mensagem genéri
 para o console, como manda o parágrafo acima.
 
 **Não existe `type` de senha fraca na API.** Senha fora da política volta como `validation-failed`, com
-`{ "pointer": "#/password", "code": "WEAK_PASSWORD" }` em `errors`. A mensagem de senha fraca que o
+`{ "pointer": "#/password", "code": "weak_password" }` em `errors`. A mensagem de senha fraca que o
 usuário lê é escrita no navegador, pela regra 4, antes de qualquer requisição sair.
 
 Mensagens validadas apenas no navegador, sem `type` correspondente na API:
@@ -199,6 +204,7 @@ Mensagens de sucesso:
 | Ação | Mensagem exibida |
 | --- | --- |
 | Cadastro concluído | "Enviamos um link de confirmação para {e-mail}." |
+| E-mail confirmado | "E-mail confirmado. Entre com a sua senha." |
 | Link de confirmação pedido | "Se houver uma confirmação pendente para este e-mail, você receberá um novo link." |
 | Recuperação solicitada | "Se este e-mail tiver cadastro, você receberá um link para redefinir a senha." |
 | Senha redefinida | "Senha redefinida. Entre com a nova senha." |
@@ -286,6 +292,10 @@ essa renovação; agora ela é código nosso, e mora inteira no interceptor de r
   requisição que também tomar `401` **espera essa mesma chamada** em vez de disparar a sua. Sem isso,
   uma tela que carrega três recursos de uma vez dispara três refreshes, e a rotação da regra 3 da spec
   irmã trata o segundo como reúso e **derruba a sessão do usuário**.
+- **A chamada roda dentro de `navigator.locks.request("clinicore-session-refresh", …)`**, que vale para
+  todas as abas da origem. Os cookies são os mesmos em todas elas, então duas abas renovando juntas
+  mandariam o mesmo refresh e a segunda seria tratada como reúso. Com o lock, a aba que espera renova
+  depois, com o cookie que a primeira acabou de receber.
 - **Sucesso:** a requisição original é repetida **uma vez**, com os cookies novos. Um segundo `401` na
   repetição não tenta renovar de novo.
 - **Falha:** o cache do TanStack Query é invalidado, o usuário vai para `/login` com o destino atual em
@@ -502,7 +512,7 @@ E o mesmo vale para os formulários de `/signup`, `/forgot-password`, `/reset-pa
 ```gherkin
 Dado um visitante que abre `/verify-email?token=<token válido>`
 Então `POST /email-verifications/confirmation` é chamado só com `token`
-E ele é levado para `/app`
+E ele é levado para `/login`, que exibe "E-mail confirmado. Entre com a sua senha."
 Quando ele abre `/verify-email` sem `token` e a sessão carregada é válida
 Então ele é levado para `/app`
 Quando ele abre `/verify-email?token=<token expirado>` e a API responde `400` com o `type` `token-expired`
@@ -559,6 +569,27 @@ E o usuário é levado para `/login` com `redirect` igual a `/app/account/passwo
 E a tela exibe "Sua sessão expirou. Entre de novo."
 E nenhuma segunda chamada a `POST /sessions/current/tokens` é disparada
 E um `401` em `POST /sessions` nunca dispara renovação
+```
+
+### Cenário 24 — Duas abas renovam uma depois da outra (caminho alternativo, regra 11)
+
+```gherkin
+Dado um usuário com `/app` aberto em duas abas, e o access token vencido
+Quando as duas tomam `401` com o código `INVALID_SESSION` ao mesmo tempo
+Então as duas chamadas a `POST /sessions/current/tokens` saem uma depois da outra, nunca juntas
+E a segunda leva o cookie `clinicore_refresh` que a primeira recebeu
+E as duas abas permanecem em `/app`, sem ver nenhuma mensagem
+```
+
+### Cenário 25 — O token do link sai da URL (caminho feliz, telas `/verify-email` e `/reset-password`)
+
+```gherkin
+Dado um visitante que abre `/verify-email?token=<token>` ou `/reset-password?token=<token>`
+Quando a tela abre
+Então a barra de endereço mostra a rota sem `token` antes de qualquer chamada à API
+E o `index.html` servido tem `<meta name="referrer" content="no-referrer">`
+Quando ele recarrega `/reset-password` depois disso
+Então a tela mostra o estado de erro e o link `Pedir um novo link`
 ```
 
 ---
@@ -657,9 +688,9 @@ A numeração continua a da spec irmã, `docs/specs/autenticacao/003-autenticaca
 
 | # | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- |
-| 8 | Create the sign-in and sign-up screens on apps/web | `@tanstack/react-query`, `@tanstack/react-form`, `axios` e `@testing-library/*` instalados, `setupFilesAfterEnv` no `jest.config.json`, `QueryClientProvider` e o contexto do router em `main.tsx`, `shared/http/` com a instância de axios, `features/auth/api/` com schemas Zod e `messages.ts`, `features/auth/password-policy.ts`, rotas `/login`, `/signup` e `/verify-email` | Cenários 1, 2, 3, 4, 5, 11, 13, 16, 17, 18 e 19 verdes; os quatro gates do web saem com código 0 | task de fundação do shadcn/ui (ADR 0003), #65, #66, #67 |
-| 9 | Protect the application area, refresh the session and sign out | `routes/(app)/route.tsx` com a guarda, `pendingComponent` e `errorComponent`, rota `/app`, ação `Sair`, o interceptor de renovação da regra 11 em `shared/http/`, `VITE_API_URL` no job `web` do CI | Cenários 7, 8, 9, 12, 22 e 23 verdes | 8 |
-| 10 | Recover, reset and change the password on apps/web | Rotas `/forgot-password`, `/reset-password` e `/app/account/password` | Cenários 10, 14 e 15 verdes | 9, #67, #70 |
+| 8 | Create the sign-in and sign-up screens on apps/web | `@tanstack/react-query`, `@tanstack/react-form`, `axios` e `@testing-library/*` instalados, `setupFilesAfterEnv` no `jest.config.json`, `QueryClientProvider` e o contexto do router em `main.tsx`, `shared/http/` com a instância de axios, `features/auth/api/` com schemas Zod e `messages.ts`, `features/auth/password-policy.ts`, rotas `/login`, `/signup` e `/verify-email`, `<meta name="referrer" content="no-referrer">` no `index.html` | Cenários 1, 2, 3, 4, 5, 11, 13, 16, 17, 18, 19 e 25 (em `/verify-email`) verdes; os quatro gates do web saem com código 0 | task de fundação do shadcn/ui (ADR 0003), #65, #66, #67 |
+| 9 | Protect the application area, refresh the session and sign out | `routes/(app)/route.tsx` com a guarda, `pendingComponent` e `errorComponent`, rota `/app`, ação `Sair`, o interceptor de renovação da regra 11 em `shared/http/`, `VITE_API_URL` no job `web` do CI | Cenários 7, 8, 9, 12, 22, 23 e 24 verdes | 8 |
+| 10 | Recover, reset and change the password on apps/web | Rotas `/forgot-password`, `/reset-password` e `/app/account/password` | Cenários 10, 14, 15 e 25 (em `/reset-password`) verdes | 9, #67, #70 |
 | 11 | Make apps/web an installable PWA | `vite-plugin-pwa` em `vite.config.ts`, manifesto da regra 9, ícones em `apps/web/public/` | Cenários 20 e 21 verdes | — |
 
 A task 11 não depende de outra task desta spec, mas só fecha quando a fase de design system entregar

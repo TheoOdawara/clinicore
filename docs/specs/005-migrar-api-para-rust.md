@@ -6,6 +6,7 @@
 > `~/Projects/nestjs-scaffold` e `~/Projects/nestjs-scaffold-auth`
 > **Epic:** #114, dentro da #1 — Plataforma
 > **Decisões:** `docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md` ·
+> `docs/decisions/0010-api-rs-com-crate-por-processo.md` ·
 > `docs/decisions/0006-api-rest-e-problem-details.md`
 > **Oráculo de comportamento:** `docs/specs/002-scaffold-apps-e-ci.md`,
 > `docs/specs/autenticacao/003-autenticacao-api.md` e
@@ -21,7 +22,7 @@ de origem:
 
 | Método | Rota | Auth / Role | Idempotente | Origem |
 | --- | --- | --- | --- | --- |
-| `GET` | `/health` | público | Sim | 002 |
+| `GET` | `/health` | público | Sim | 002, com o corpo `{"status":"ok"}` |
 | `POST` | `/users` | público | Não | 003, regras 4, 5, 8 |
 | `POST` | `/email-verifications` | público | Não | 003, regras 5, 15 |
 | `POST` | `/email-verifications/confirmation` | público | Não | 003, regra 5 |
@@ -40,9 +41,9 @@ como hoje.
 
 ### Request
 
-Idêntica, campo a campo, às specs de origem: os mesmos nomes, tipos, obrigatoriedades, limites e
-códigos de restrição em `errors[].code`. Campo desconhecido no corpo continua recusado com
-`400 VALIDATION_FAILED` (003, Cenário 12).
+Idêntica, campo a campo, às specs de origem: os mesmos nomes, tipos, obrigatoriedades e limites. O
+`errors[].code` de cada campo é o do `validator` (`email`, `length`, `name`, `weak_password`), e campo
+desconhecido ou de tipo errado sai como `invalid`, sempre em `400 VALIDATION_FAILED` (003, Cenário 12).
 
 ### Response
 
@@ -64,31 +65,48 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 
 ## Regras de Negócio
 
-### 1. Paridade observável
+### 1. Contrato observável
 
-- Toda requisição que a API NestJS atende hoje recebe da API Rust a mesma resposta: mesmo status,
-  mesmo corpo JSON, mesmos cookies com os mesmos atributos e os mesmos headers de contrato.
+- Toda rota das specs de origem responde na API Rust com a mesma URL, o mesmo status, os mesmos
+  cookies com os mesmos atributos e os mesmos headers de contrato. O corpo segue o Problem Details
+  da ADR 0006; os códigos de campo em `errors[].code` são os do Rust (seção Request).
 - Os limites continuam iguais: os por IP da regra 11 da 003 e da regra 8 da 004, o limite por
   endereço da regra 15 da 003, e o teto de 5 sessões da regra 16 da 003.
+- **O IP do cliente muda de mecanismo.** `TRUSTED_PROXIES` e o percurso do `trust proxy` do Express
+  saem; entra `CLIENT_IP_SOURCE`, lida pelo `axum-client-ip`: `ConnectInfo` sem proxy, ou o header que
+  o proxy escreve. O Cenário 26 da 003 é portado com `RightmostXForwardedFor`, e o IP contado é o
+  último salto do `x-forwarded-for`, o que o proxy acrescentou.
 - **Validação:** cada cenário Gherkin das specs 002, 003 e 004 cuja rota existe hoje é portado para um
-  teste de integração em `crates/http/tests/` e passa contra a API Rust. Ficam de fora a regra 17 da
+  teste de integração em `crates/app/tests/` e passa contra a API Rust. Ficam de fora o Cenário 34 da
   003 (#71) e as regras 5 a 9 da 004 (#94 e #100), que não estão implementadas.
 - Cada cenário de origem pertence à primeira task em que todas as rotas que ele chama existem. O
   mecanismo é construído onde o escopo da task diz; o teste de ponta a ponta fecha na task dona do
   cenário.
-- Quatro cenários de origem são adaptados ao Rust:
+- Cinco cenários de origem são adaptados ao Rust:
   - O Cenário 4 da 002 e o Cenário 35 da 003 provam o TypeORM e são substituídos pelos Cenários 1 e 7
     desta spec: o schema vem só da migration sqlx, e o `.sqlx/` é conferido contra as consultas.
   - O Cenário 29 da 003 é portado sem a linha do worker, que é a #71.
+  - **A regra 17 da 003 roda dentro da API, sem fila.** O `purge::run` apaga o que venceu ao subir e
+    a cada hora, em toda réplica, porque o `DELETE` repetido apaga zero linhas. A sessão passada
+    do teto de 30 dias também é apagada, porque nenhum refresh a renova. O Cenário 33 é portado
+    chamando o `purge_expired` direto; o 34 é da #71.
   - O Cenário 28 da 003 confere a causa no log em nível `error` pelo `tracing`, no lugar da stack no
     log do Pino.
 
-### 2. O OpenAPI gera o mesmo cliente
+### 2. O OpenAPI gera o cliente com as mesmas operações
 
 - O documento servido em `/api-json` pela API Rust, dado ao `swagger_parser` do `apps/mobile`, gera
-  `apps/mobile/lib/shared/api/` sem diff nenhum.
-- **Validação:** a task 7 regenera o cliente a partir da API Rust, e `git diff --exit-code apps/mobile/lib/shared/api`
-  sai 0.
+  `apps/mobile/lib/shared/api/` com as mesmas rotas, métodos, status e campos da API NestJS.
+- **O diff do cliente é só o que as ADRs 0010 e 0011 decidiram:** schemas com o nome do tipo Rust, o
+  método com o nome do handler Rust (`signIn` no lugar de `authControllerSignIn`), o modelo `Problem`,
+  o enum `ClinicoreClient`, o `tokens` opcional do sign-in e o corpo opcional do refresh, que o web não
+  manda. Qualquer outra linha do diff é regressão de contrato. As rotas de `/password-resets` somem até
+  a #119 portá-las.
+- **A #114 já regenerou o cliente contra a API Rust**, num arquivo só (`lib/shared/api/api.dart`), e a
+  task 7 regenera de novo com as rotas das tasks seguintes.
+- **Validação:** a task 7 regenera o cliente a partir da API Rust, revisa o diff de
+  `apps/mobile/lib/shared/api` contra a lista acima e ajusta o código do `apps/mobile` que usa os nomes
+  antigos, com os gates do Flutter verdes.
 
 ### 3. Toda variável de ambiente é obrigatória, tipada e validada no boot
 
@@ -105,6 +123,7 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 | `API_URL` | "expected an absolute URL with no trailing slash (https://…)" |
 | `APP_ENV` | "expected one of development, production, test" |
 | `APP_ORIGIN` | "expected an absolute URL with no trailing slash (https://…)" |
+| `CLIENT_IP_SOURCE` | "expected one of: CfConnectingIp, CloudFrontViewerAddress, ConnectInfo, FlyClientIp, RightmostXForwardedFor, TrueClientIp, XEnvoyExternalAddress, XRealIp" |
 | `DATABASE_URL` | "expected a PostgreSQL connection string (postgresql://…)" |
 | `GOOGLE_CLIENT_ID` | "expected a non-empty string" |
 | `GOOGLE_CLIENT_SECRET` | "expected a non-empty string" |
@@ -117,7 +136,6 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 | `SMTP_PASSWORD` | "expected a non-empty string" |
 | `SMTP_PORT` | "expected an integer between 1 and 65535" |
 | `SMTP_USER` | "expected an email address" |
-| `TRUSTED_PROXIES` | "expected a comma-separated list of CIDR blocks (10.0.0.0/8,…)" |
 
 ### 4. O log
 
@@ -131,10 +149,9 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 
 ### 5. As camadas e o SQL
 
-- O workspace tem três crates, `http` → `app` → `infra`, e o `http` não declara dependência de
-  `infra`. O `PgPool` não é `pub` no `infra`.
-- SQL só existe nos repositories do `infra`, e só por `query!` ou `query_as!`. SQL montado por
-  `format!` ou concatenação é proibido. Transação só no repository.
+- O workspace tem dois crates, `core` e `app`, e o `app` depende do `core` (ADR 0010).
+- SQL só existe no `queries.rs` de cada feature do `app`, e só por `query!` ou `query_as!`. SQL
+  montado por `format!` ou concatenação é proibido. Transação só no `queries.rs`.
 - O `.sqlx/` é commitado, e o CI roda `cargo sqlx prepare --workspace --check`.
 
 ### 6. A convivência e a troca
@@ -165,8 +182,9 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 
 ### 8. Persistência e Auditoria
 
-- **Tabelas/colunas:** as mesmas de hoje, criadas por uma única migration sqlx em `migrations/`,
-  equivalente ao resultado das três migrations do TypeORM. Nenhum dado é migrado.
+- **Modelo de dados:** o mesmo de hoje, com as mesmas entidades, relações, unicidades e enums, criado
+  por uma única migration sqlx em `migrations/` no idioma do Postgres: tabelas no plural, colunas em
+  snake_case, `text` e `timestamptz`. Nenhum dado é migrado.
 - **Auditoria:** a mesma da regra 12 da 003, sem mudança.
 - **Eventos/integrações disparados:** os mesmos de hoje, que são o e-mail pelo SMTP do Gmail e o
   OAuth do Google.
@@ -200,7 +218,7 @@ O catálogo não muda e não ganha código. Mensagem é o `title` do Problem Det
 - **Persistência:** a mesma das specs de origem.
 - **Concorrência:** a mesma. O teste de corrida da rotação do refresh e do registro de envio abre as
   conexões antes de disparar as requisições, como hoje faz o `openConnections()`.
-- **Transação:** a mesma das specs de origem, aberta só no repository.
+- **Transação:** a mesma das specs de origem, aberta só no `queries.rs`.
 
 ---
 
@@ -211,16 +229,17 @@ O catálogo não muda e não ganha código. Mensagem é o `title` do Problem Det
 ```gherkin
 Dado o workspace em apps/api-rs com Postgres e Redis de pé
 Quando roda `cargo test`
-Então cada cenário das specs 002, 003 e 004 cuja rota existe hoje tem um teste em crates/http/tests/
+Então cada cenário das specs 002, 003 e 004 cuja rota existe hoje tem um teste em crates/app/tests/
 E todos saem verdes contra o schema criado só pela migration de migrations/
 ```
 
-### Cenário 2 — O cliente Dart não muda (caminho feliz, regra 2)
+### Cenário 2 — O cliente Dart muda só nos renomes decididos (caminho feliz, regra 2)
 
 ```gherkin
 Dado a API Rust de pé com APP_ENV=development
 Quando o cliente do apps/mobile é regenerado a partir de `GET /api-json`
-Então `git diff --exit-code apps/mobile/lib/shared/api` sai 0
+Então o diff de `apps/mobile/lib/shared/api` tem só os renomes das ADRs 0010 e 0011
+E `flutter analyze --fatal-infos` e `flutter test` do apps/mobile saem 0
 ```
 
 ### Cenário 3 — Variável ausente ou inválida derruba o boot (exceção, regra 3)
@@ -258,12 +277,12 @@ Quando recebe `GET /api-json` e `GET /api`
 Então responde 404 nas duas, com Problem Details `about:blank`
 ```
 
-### Cenário 7 — As camadas são impostas pelo compilador (exceção, regra 5)
+### Cenário 7 — As consultas batem com o schema (exceção, regra 5)
 
 ```gherkin
 Dado o workspace compilando
-Quando um handler do crate http importa um repository do crate infra
-Então `cargo build` falha, porque http não depende de infra
+Quando uma consulta de um queries.rs não bate com o schema das migrations
+Então `cargo build` falha, porque o `query!` confere a consulta na compilação
 E o CI roda `cargo sqlx prepare --workspace --check` e falha se o .sqlx/ não bate com as consultas
 ```
 
@@ -298,8 +317,8 @@ E o CI tem o job api rodando os gates do Rust e nenhum job Node para a API
 
 ## Fora de Escopo
 
-- **#71, o job diário de limpeza.** O Rust não tem par oficial do BullMQ, e a fila e o agendador são
-  escolhidos na spec dela.
+- **#71, a fila e o worker.** O Rust não tem par oficial do BullMQ, e a fila e o agendador são
+  escolhidos na spec dela, que leva a purga para o `crates/worker/`.
 - **#94, #100 e #109.** Congeladas até a task 7; são implementadas depois, já em Rust.
 - **Dockerfile e deploy.** Não existem hoje para a API.
 - **O `compose.yaml` da raiz**, que o `CLAUDE.md` cita e não existe. Resolvido quando o deploy for

@@ -1,0 +1,89 @@
+use std::convert::Infallible;
+use std::net::IpAddr;
+
+use axum::extract::{FromRequestParts, MatchedPath};
+use axum::http::header::{AUTHORIZATION, USER_AGENT};
+use axum::http::request::Parts;
+use axum_extra::extract::cookie::CookieJar;
+use uuid::Uuid;
+
+use super::SESSION_REQUESTS;
+use super::error::SessionError;
+use super::tokens::{access, cookies};
+use crate::AppState;
+use crate::http::client::{ClientAddress, SessionClient};
+use crate::http::error::AppError;
+use crate::http::rate_limit;
+
+const USER_AGENT_CHARS: usize = 512;
+
+pub struct CurrentSession {
+    pub user_id: Uuid,
+    pub session_id: Uuid,
+}
+
+impl FromRequestParts<AppState> for CurrentSession {
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, AppError> {
+        let client = SessionClient::from_request_parts(parts, state).await?;
+        let token = match client {
+            SessionClient::Web => CookieJar::from_headers(&parts.headers)
+                .get(cookies::ACCESS)
+                .map(|cookie| cookie.value().to_string()),
+            SessionClient::Mobile => parts
+                .headers
+                .get(AUTHORIZATION)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.split_once(' '))
+                .filter(|(scheme, _)| scheme.eq_ignore_ascii_case("bearer"))
+                .map(|(_, token)| token.to_string()),
+        };
+        let Some(token) = token else {
+            return Err(AppError::InvalidSession);
+        };
+        let claims = access::verify(&state.access_keys, &token)
+            .map_err(SessionError::from)?
+            .filter(|claims| claims.client == client)
+            .ok_or(AppError::InvalidSession)?;
+        if access::is_revoked(&state.redis, claims.session_id).await? {
+            return Err(AppError::InvalidSession);
+        }
+        let route = parts
+            .extensions
+            .get::<MatchedPath>()
+            .map_or("", MatchedPath::as_str);
+        rate_limit::enforce(
+            &state.redis,
+            SESSION_REQUESTS,
+            &format!("{}:{} {route}", claims.session_id, parts.method),
+        )
+        .await?;
+        Ok(Self {
+            user_id: claims.user_id,
+            session_id: claims.session_id,
+        })
+    }
+}
+
+pub struct Device {
+    pub ip_address: Option<IpAddr>,
+    pub user_agent: Option<String>,
+}
+
+impl<State: Send + Sync> FromRequestParts<State> for Device {
+    type Rejection = Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, state: &State) -> Result<Self, Infallible> {
+        let ClientAddress(ip_address) = ClientAddress::from_request_parts(parts, state).await?;
+        let user_agent = parts
+            .headers
+            .get(USER_AGENT)
+            .and_then(|value| value.to_str().ok())
+            .map(|value| value.chars().take(USER_AGENT_CHARS).collect());
+        Ok(Self {
+            ip_address,
+            user_agent,
+        })
+    }
+}

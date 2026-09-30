@@ -14,6 +14,9 @@ o contrato HTTP.
 
 **`apps/api`, `apps/web` e `apps/site` usam npm sobre Node 26.** É estado decidido, não transitório.
 
+**`apps/api-rs` é a API em Rust, com axum e sqlx, e convive com o `apps/api` congelado e sem job no
+CI até a #121.** A stack, os gates e as camadas dele estão no `apps/api-rs/CLAUDE.md`.
+
 **`apps/mobile` é o app nativo iOS e Android em Flutter**, com paridade de telas com o web, offline com
 fila de escrita e cliente HTTP gerado do OpenAPI da API — gerar do contrato não é importar código.
 Decisão em `docs/decisions/0007-app-nativo-em-flutter-com-offline.md`.
@@ -76,7 +79,7 @@ deixa o `tsc` olhando para uma árvore velha.
 
 ```
 apps/
-├── api/                     NestJS · :3333
+├── api/                     NestJS · :3333 · congelado até a #121
 │   ├── compose.yaml         Postgres e Redis de desenvolvimento
 │   ├── test/                e2e: <name>.e2e-spec.ts e jest-e2e.json
 │   └── src/
@@ -98,6 +101,7 @@ apps/
 │           ├── entities/
 │           ├── enums/ constants/ utils/ job/ strategy/   só quando houver conteúdo
 │           └── __tests__/
+├── api-rs/                  Rust · axum · sqlx · :3333 · crates core e app
 ├── web/                     Vite · :3000 · app.clinicore.com.br
 │   └── src/
 │       ├── main.tsx
@@ -133,7 +137,7 @@ docs/
 produção, `app.clinicore.com.br` e `api.clinicore.com.br`. Por isso o `enableCors()` da API libera as
 origens de `ALLOWED_ORIGINS` com `credentials: true`, e o web chama com `withCredentials: true`.
 
-**A regra de cada app mora no `CLAUDE.md` dele** — `apps/api/CLAUDE.md`, `apps/web/CLAUDE.md`,
+**A regra de cada app mora no `CLAUDE.md` dele** — `apps/api/CLAUDE.md`, `apps/api-rs/CLAUDE.md`, `apps/web/CLAUDE.md`,
 `apps/site/CLAUDE.md` e `apps/mobile/CLAUDE.md` carregam as camadas, a forma da URL e as pegadinhas da stack daquele app,
 e só entram em contexto quando o trabalho toca a pasta.
 
