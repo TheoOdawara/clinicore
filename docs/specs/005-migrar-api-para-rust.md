@@ -156,13 +156,17 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 
 ### 6. A convivência e a troca
 
-- Durante as tasks 2 a 6 o Rust vive em `apps/api-rs`, e o NestJS fica em `apps/api`, congelado e sem
+- Durante as tasks 2 a 4 o Rust viveu em `apps/api-rs`, e o NestJS ficou em `apps/api`, congelado e sem
   gate de CI.
 - A task 2 troca o job `api` do CI pelo job `api-rs`, que roda `cargo fmt --check`,
   `cargo clippy --all-targets -- -D warnings`, `sqlx migrate run`, `cargo sqlx prepare --workspace --check`
   e `cargo test`, com Postgres 18 e Redis 8 como services.
 - A task 7 cria a tag `api-nestjs-final` no último commit em que `apps/api` é NestJS, apaga o NestJS e
   renomeia `apps/api-rs` para `apps/api`. O job volta a se chamar `api`.
+- **A task 7 veio antes das tasks 5 e 6**, por decisão do dono do produto em 2026-10-03: o NestJS
+  congelado contaminava o contexto de quem trabalha no Rust. As rotas das tasks 5 e 6 deixam de existir
+  no repositório até serem escritas em Rust, já em `apps/api`; o comportamento delas segue descrito na
+  spec 003, e o código antigo fica na tag.
 - A porta continua :3333.
 
 ### 7. O scaffold NestJS
@@ -227,7 +231,7 @@ O catálogo não muda e não ganha código. Mensagem é o `title` do Problem Det
 ### Cenário 1 — Os cenários das specs de origem passam contra o Rust (caminho feliz, regras 1 e 8)
 
 ```gherkin
-Dado o workspace em apps/api-rs com Postgres e Redis de pé
+Dado o workspace em apps/api com Postgres e Redis de pé
 Quando roda `cargo test`
 Então cada cenário das specs 002, 003 e 004 cuja rota existe hoje tem um teste em crates/app/tests/
 E todos saem verdes contra o schema criado só pela migration de migrations/
@@ -336,6 +340,6 @@ E o CI tem o job api rodando os gates do Rust e nenhum job Node para a API
 | 2 | #116 | Boot apps/api-rs with validated env, logging, problem details and health | workspace `http`/`app`/`infra`, `rust-toolchain.toml`, `config.rs`, telemetria, `ApiError`, guard de `Origin`, `/health`, OpenAPI fora de produção, `compose.yaml`, job `api-rs` no lugar do `api`, linha do `apps/api-rs` no `CLAUDE.md` raiz | Cenários 3, 4, 6 e 7; cenários 1 e 2 da 002; cenários 28 e 29 da 003 | — |
 | 3 | #117 | Sign up and request the verification email on apps/api-rs | migration inicial, `POST /users`, `POST /email-verifications`, e-mail pelo `lettre`, limite por IP no Redis, limite por endereço em `emailDispatch` | Cenários 1, 2 e 32 da 003 | 2 |
 | 4 | #118 | Open, read, refresh and close sessions on apps/api-rs | `/sessions`, `/sessions/current`, `/sessions/current/tokens`, `POST /email-verifications/confirmation`, JWT, denylist no Redis, teto de 5, transporte por cookie e por `Clinicore-Client: mobile` | Cenário 5; cenários 3 a 10, 23 a 27, 30 e 31 da 003; cenários 1 a 7 e 16 da 004 | 3 |
-| 5 | #119 | Reset and change the password on apps/api-rs | `/password-resets[/confirmation]`, `PUT /users/me/password` | Cenários 11, 12 e 16 a 22 da 003 | 4 |
-| 6 | #120 | Sign in with Google on apps/api-rs | `/oauth/google` e `/oauth/google/callback`, vínculo com a conta existente | Cenários 13, 14 e 15 da 003 | 4 |
-| 7 | #121 | Replace apps/api with the Rust implementation | tag `api-nestjs-final`, apaga o NestJS, renomeia `apps/api-rs` → `apps/api`, job `api`, reescreve `apps/api/CLAUDE.md` e o `CLAUDE.md` raiz, regenera o cliente Dart | Cenários 1, 2 e 10 | 1, 5, 6 |
+| 5 | #119 | Reset and change the password on apps/api | `/password-resets[/confirmation]`, `PUT /users/me/password` | Cenários 11, 12 e 16 a 22 da 003 | 4 |
+| 6 | #120 | Sign in with Google on apps/api | `/oauth/google` e `/oauth/google/callback`, vínculo com a conta existente | Cenários 13, 14 e 15 da 003 | 4 |
+| 7 | #121 | Replace apps/api with the Rust implementation | tag `api-nestjs-final`, apaga o NestJS, renomeia `apps/api-rs` → `apps/api`, job `api`, reescreve `apps/api/CLAUDE.md` e o `CLAUDE.md` raiz, regenera o cliente Dart | Cenários 1, 2 e 10 | 1, 4 |

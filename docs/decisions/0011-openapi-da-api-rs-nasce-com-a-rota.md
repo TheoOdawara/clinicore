@@ -31,7 +31,7 @@ A auditoria da sessão (#114) achou o documento mais pobre que a API:
   do documento com `split_for_parts`. O `http/openapi.rs` guarda só o `info` e o schema `Problem`, e
   perde a lista de `paths`. Rota registrada fora do `routes!` é proibida.
 - **O limite por IP continua `route_layer` da rota**, aplicado no `MethodRouter` que o `routes!`
-  devolve, com a mesma ordem da regra "cliente, origem, limite, validação" do `apps/api-rs/CLAUDE.md`.
+  devolve, com a mesma ordem da regra "cliente, origem, limite, validação" do `apps/api/CLAUDE.md`.
 - **O `Problem` e o `FieldError` são `ToSchema`, com o nome do tipo Rust** (ADR 0010). Toda resposta de
   erro documentada tem corpo `Problem` em `application/problem+json`.
 - **O que os guards fazem é documentado por uma função só, `http::openapi::document_guards`**, aplicada

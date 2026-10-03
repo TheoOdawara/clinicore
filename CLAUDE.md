@@ -12,10 +12,10 @@ Quatro apps **independentes** em `apps/`, cada um com o próprio manifesto e o p
 manifest na raiz, sem workspaces, sem código ou tipo compartilhado por import. A fronteira entre eles é
 o contrato HTTP.
 
-**`apps/api`, `apps/web` e `apps/site` usam npm sobre Node 26.** É estado decidido, não transitório.
+**`apps/web` e `apps/site` usam npm sobre Node 26.** É estado decidido, não transitório.
 
-**`apps/api-rs` é a API em Rust, com axum e sqlx, e convive com o `apps/api` congelado e sem job no
-CI até a #121.** A stack, os gates e as camadas dele estão no `apps/api-rs/CLAUDE.md`.
+**`apps/api` é a API em Rust, com axum e sqlx.** O NestJS que ela foi está na tag `api-nestjs-final`.
+As camadas, os gates completos e as pegadinhas estão no `apps/api/CLAUDE.md`.
 
 **`apps/mobile` é o app nativo iOS e Android em Flutter**, com paridade de telas com o web, offline com
 fila de escrita e cliente HTTP gerado do OpenAPI da API — gerar do contrato não é importar código.
@@ -28,21 +28,21 @@ cookie de sessão em `SameSite=Lax`.
 | | `apps/api` | `apps/web` | `apps/site` | `apps/mobile` |
 |---|---|---|---|---|
 | Papel | o contrato HTTP | sistema da clínica, PWA instalável, só usuário autenticado | landing pública e indexável | app nativo iOS e Android, só usuário autenticado |
-| Runtime e pacotes | Node 26 · npm | Node 26 · npm | Node 26 · npm | Flutter 3.47 · pub |
-| Tipos | TypeScript 6.0 | TypeScript 6.0 | TypeScript 6.0 | Dart 3.13, com `strict-casts`, `strict-inference` e `strict-raw-types` |
-| Lint e formato | ESLint 10 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · `eslint-config-next` 16.3 · Prettier 3 | `flutter_lints` 6 · `dart format` |
-| Framework | NestJS 11 sobre Express, validação e DTO em `class-validator` e `class-transformer`, OpenAPI por `@nestjs/swagger`, health check por `@nestjs/terminus` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Next.js 16.3 com App Router e `output: "standalone"` · `next/image` e `next/font` | Flutter 3.47 · `go_router` 18.0 |
-| Dados | PostgreSQL 18 · TypeORM 1.1 com `@nestjs/typeorm` e `pg` | TanStack Query 5.102 · axios 1 · Zod 4.6 | — | cliente Retrofit sobre `dio` 5.11, gerado por `swagger_parser` 1.44 com `json_serializable` |
+| Runtime e pacotes | Rust 1.98.1, edition 2024 · cargo | Node 26 · npm | Node 26 · npm | Flutter 3.47 · pub |
+| Tipos | Rust, com `unsafe_code = "forbid"` | TypeScript 6.0 | TypeScript 6.0 | Dart 3.13, com `strict-casts`, `strict-inference` e `strict-raw-types` |
+| Lint e formato | `cargo clippy` com `-D warnings` · `cargo fmt` | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · `eslint-config-next` 16.3 · Prettier 3 | `flutter_lints` 6 · `dart format` |
+| Framework | axum 0.8 sobre tokio e tower, validação por `validator`, OpenAPI por `utoipa` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Next.js 16.3 com App Router e `output: "standalone"` · `next/image` e `next/font` | Flutter 3.47 · `go_router` 18.0 |
+| Dados | PostgreSQL 18 · sqlx 0.9, com as consultas conferidas contra o schema na compilação | TanStack Query 5.102 · axios 1 · Zod 4.6 | — | cliente Retrofit sobre `dio` 5.11, gerado por `swagger_parser` 1.44 com `json_serializable` |
 | Formulário | — | TanStack Form 1.33 com schema Zod | — | — |
 | Estilo | — | Tailwind 4.3 · shadcn/ui sobre Radix e CVA · `tw-animate-css` | Tailwind 4.3 · shadcn/ui, com cópia própria | — |
-| Auth | `@nestjs/passport`, `@nestjs/jwt` e `@node-rs/argon2`; access token curto e refresh na tabela `session` | axios contra `/users` e `/sessions` da API, com o refresh no interceptor | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
-| Fila e agendamento | `@nestjs/bullmq` · `@nestjs/schedule` | — | — | — |
-| Redis 8 | fila, contagem do limite por IP e denylist de revogação de sessão | — | — | — |
-| HTTP de saída | `@nestjs/axios` sobre axios 1 | — | — | — |
-| Configuração | `@nestjs/config`, validada por `class-validator` no boot | — | — | `--dart-define-from-file`, lida e validada em `lib/shared/env/env.dart` |
-| E-mail | Nodemailer pelo SMTP do Gmail (`smtp.gmail.com:587`), em todos os ambientes | — | — | — |
-| Log | Pino 10 atrás de um `LoggerService` do Nest, JSON em stdout, com `redact` | — | — | — |
-| Testes | Jest 30 · `ts-jest` · supertest · `@nestjs/testing` | Jest 30 · `@swc/jest` · jsdom · Testing Library | — | `flutter_test` |
+| Auth | `jsonwebtoken` e `argon2`; access token curto e refresh na tabela `sessions` | axios contra `/users` e `/sessions` da API, com o refresh no interceptor | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
+| Fila e agendamento | limpeza periódica dentro do processo da API; o worker nasce com o primeiro job da fila | — | — | — |
+| Redis 8 | contagem do limite por IP e denylist de revogação de sessão | — | — | — |
+| HTTP de saída | — | — | — | — |
+| Configuração | variáveis de ambiente tipadas e validadas no boot, em `crates/core` | — | — | `--dart-define-from-file`, lida e validada em `lib/shared/env/env.dart` |
+| E-mail | `lettre` por SMTP, com o layout em `askama` | — | — | — |
+| Log | `tracing` com `tracing-subscriber`, JSON em stdout | — | — | — |
+| Testes | `cargo test`, com os testes de integração em `crates/app/tests/` | Jest 30 · `@swc/jest` · jsdom · Testing Library | — | `flutter_test` |
 
 As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0001-api-em-nestjs-typeorm-e-redis.md`,
@@ -51,8 +51,11 @@ As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0004-lint-do-front-em-eslint.md`,
 `docs/decisions/0005-front-em-npm-sobre-node.md`,
 `docs/decisions/0006-api-rest-e-problem-details.md`,
-`docs/decisions/0007-app-nativo-em-flutter-com-offline.md` e
-`docs/decisions/0008-site-em-next-standalone.md`.
+`docs/decisions/0007-app-nativo-em-flutter-com-offline.md`,
+`docs/decisions/0008-site-em-next-standalone.md`,
+`docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md`, que substitui a 0001,
+`docs/decisions/0010-api-rs-com-crate-por-processo.md` e
+`docs/decisions/0011-openapi-da-api-rs-nasce-com-a-rota.md`.
 
 ## Comandos
 
@@ -60,13 +63,15 @@ Cada comando roda de dentro do diretório do seu app.
 
 | Gate | `apps/api` | `apps/web` | `apps/site` | `apps/mobile` |
 |---|---|---|---|---|
-| Análise estática e formato | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` | `flutter analyze --fatal-infos` · `dart format --output=none --set-exit-if-changed .` |
-| Tipos | `npm run typecheck` | `npm run typecheck` | `npm run typecheck` | dentro do `flutter analyze` |
-| Build | `npm run build` | `npm run build` | `npm run build` | — fora do CI até a publicação |
-| Testes | `npm run test` | `npm run test` | — enquanto não houver lógica a testar | `flutter test` |
-| Testes e2e | `npm run test:e2e` | — | — | — |
+| Análise estática e formato | `cargo clippy --all-targets -- -D warnings` · `cargo fmt --check` | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` | `flutter analyze --fatal-infos` · `dart format --output=none --set-exit-if-changed .` |
+| Tipos | dentro do `cargo clippy` | `npm run typecheck` | `npm run typecheck` | dentro do `flutter analyze` |
+| Build | `cargo build` | `npm run build` | `npm run build` | — fora do CI até a publicação |
+| Testes | `cargo test` | `npm run test` | — enquanto não houver lógica a testar | `flutter test` |
+| Testes e2e | — dentro do `cargo test` | — | — | — |
 
-Instalação: `npm ci` nos três apps Node e `flutter pub get --enforce-lockfile` no `apps/mobile`.
+Instalação: `npm ci` nos dois apps Node e `flutter pub get --enforce-lockfile` no `apps/mobile`; o
+`apps/api` não tem passo de instalação, o `cargo` baixa as dependências no primeiro build. Os comandos
+da API que tocam o banco rodam sob `infisical run --path=/api --`, como diz o `apps/api/CLAUDE.md`.
 
 O gate de tipos do web exige o `src/routeTree.gen.ts`, gerado pelo plugin do TanStack Router.
 Ele é commitado, então só um `src/routes/` alterado sem `vite build` ou `vite dev` desde a alteração
@@ -79,29 +84,12 @@ deixa o `tsc` olhando para uma árvore velha.
 
 ```
 apps/
-├── api/                     NestJS · :3333 · congelado até a #121
+├── api/                     Rust · axum · sqlx · :3333
 │   ├── compose.yaml         Postgres e Redis de desenvolvimento
-│   ├── test/                e2e: <name>.e2e-spec.ts e jest-e2e.json
-│   └── src/
-│       ├── main.ts          entrada HTTP, só boot
-│       ├── worker.ts        entrada do worker da fila, só boot
-│       ├── app.module.ts    só fiação
-│       ├── common/          exceptions, filters, guards, pipes, decorators, types
-│       ├── core/            config, db, logger, mail, queue, redis
-│       │   ├── core.module.ts       agrega; só o AppModule alcança
-│       │   └── db/
-│       │       ├── migrations/
-│       │       └── data-source.ts   usado pela CLI do TypeORM
-│       └── features/<feature>/
-│           ├── <feature>.module.ts      único arquivo solto na raiz
-│           ├── controller/
-│           ├── service/
-│           ├── repository/
-│           ├── dto/
-│           ├── entities/
-│           ├── enums/ constants/ utils/ job/ strategy/   só quando houver conteúdo
-│           └── __tests__/
-├── api-rs/                  Rust · axum · sqlx · :3333 · crates core e app
+│   ├── migrations/          SQL aplicado pelo sqlx
+│   └── crates/
+│       ├── core/            configuração, Postgres, Redis e e-mail
+│       └── app/             a API inteira; gera o binário `api`
 ├── web/                     Vite · :3000 · app.clinicore.com.br
 │   └── src/
 │       ├── main.tsx
@@ -134,10 +122,10 @@ docs/
 ```
 
 **O browser fala direto com a API, em origem cruzada.** Em dev são as portas :3000 e :3333; em homolog e
-produção, `app.clinicore.com.br` e `api.clinicore.com.br`. Por isso o `enableCors()` da API libera as
+produção, `app.clinicore.com.br` e `api.clinicore.com.br`. Por isso o CORS da API libera as
 origens de `ALLOWED_ORIGINS` com `credentials: true`, e o web chama com `withCredentials: true`.
 
-**A regra de cada app mora no `CLAUDE.md` dele** — `apps/api/CLAUDE.md`, `apps/api-rs/CLAUDE.md`, `apps/web/CLAUDE.md`,
+**A regra de cada app mora no `CLAUDE.md` dele** — `apps/api/CLAUDE.md`, `apps/web/CLAUDE.md`,
 `apps/site/CLAUDE.md` e `apps/mobile/CLAUDE.md` carregam as camadas, a forma da URL e as pegadinhas da stack daquele app,
 e só entram em contexto quando o trabalho toca a pasta.
 

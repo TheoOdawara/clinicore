@@ -3,8 +3,8 @@
 SaaS de gestão para clínicas odontológicas: agenda, prontuário clínico e estético, financeiro, estoque e
 laboratório num só lugar, multi-tenant, para redes de clínicas e dentistas autônomos.
 
-> **Em desenvolvimento.** A API já tem a autenticação completa e está sendo migrada de NestJS para Rust,
-> sem mudar o contrato HTTP; os módulos de produto vêm em seguida.
+> **Em desenvolvimento.** A API é escrita em Rust e já tem cadastro, confirmação de e-mail e sessão.
+> Redefinição de senha e login com Google vêm a seguir (#119 e #120), e depois os módulos de produto.
 
 ## Motivação
 
@@ -17,7 +17,7 @@ cliente independente, e é contra a rotina real delas que cada módulo é valida
 
 | App | Papel | Tecnologia |
 |---|---|---|
-| `apps/api` | contrato HTTP | Rust com axum e sqlx, em migração a partir do NestJS 11 com TypeORM · PostgreSQL 18 · Redis 8 |
+| `apps/api` | contrato HTTP | Rust com axum e sqlx · PostgreSQL 18 · Redis 8 |
 | `apps/web` | sistema da clínica (PWA) | React 19 · Vite · TanStack Router/Query/Form · Zod · Tailwind + shadcn/ui |
 | `apps/site` | landing pública | Next.js 16 standalone · React 19 |
 | `apps/mobile` | app iOS e Android | Flutter · Dio · cliente HTTP gerado do OpenAPI da API |
@@ -26,12 +26,10 @@ Os apps são independentes: cada um tem o próprio manifesto e lockfile, e a fro
 
 ## O que a API já faz
 
-- Cadastro, login e sessão: cookie no web, token no app mobile; access token curto e refresh token rotacionado, guardado na tabela `session`
-- Login com Google, vinculado à conta existente pelo e-mail verificado
-- Troca de senha do usuário autenticado
+- Cadastro, login e sessão: cookie no web, token no app mobile; access token curto e refresh token rotacionado, guardado na tabela `sessions`
 - Reuso de refresh token derruba a sessão; revogação imediata por denylist no Redis
-- Limite de cinco sessões ativas por usuário, com lock de linha contra logins concorrentes
-- Verificação de e-mail e redefinição de senha, com limite de envio por endereço
+- Limite de cinco sessões ativas por usuário
+- Verificação de e-mail, com limite de envio por endereço
 - Rate limit das rotas de autenticação por IP de cliente confiável
 - Senha com hash Argon2 e política de senha forte
 - Todo erro responde em RFC 9457 (Problem Details)
@@ -40,15 +38,14 @@ Os apps são independentes: cada um tem o próprio manifesto e lockfile, e a fro
 
 ## Rodando a API
 
-Preencha o `.env` a partir do exemplo; o `compose.yaml` sobe Postgres e Redis.
+As variáveis vêm do Infisical, e o `.env.example` lista o nome e o formato de cada uma; o
+`compose.yaml` sobe Postgres e Redis.
 
 ```sh
 cd apps/api
-cp .env.example .env
-docker compose up -d
-npm ci
-npm run migration:run
-npm run start
+infisical run --path=/api -- docker compose up -d --wait
+infisical run --path=/api -- sqlx migrate run
+infisical run --path=/api -- cargo run
 ```
 
 Documentação OpenAPI em `http://localhost:3333/api` fora de produção.
@@ -56,8 +53,8 @@ Documentação OpenAPI em `http://localhost:3333/api` fora de produção.
 ## Qualidade
 
 Cada app tem o seu job de CI em todo pull request, com lint, formatação, tipos, build e testes. A API
-tem testes de unidade (Jest) e e2e (supertest) contra Postgres e Redis reais, além de um gate que
-reprova o build quando as entidades divergem das migrations.
+tem testes de integração (`cargo test`) contra Postgres e Redis reais, além de um gate que reprova o
+build quando uma consulta diverge do schema das migrations.
 
 ## Documentação
 

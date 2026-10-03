@@ -1,4 +1,4 @@
-# Clinicore `apps/api-rs` — camadas e pegadinhas
+# Clinicore `apps/api` — camadas e pegadinhas
 
 Aditivo ao `CLAUDE.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este arquivo
 apenas onde ela falar do mesmo assunto. A stack está em
@@ -6,16 +6,16 @@ apenas onde ela falar do mesmo assunto. A stack está em
 `docs/decisions/0010-api-rs-com-crate-por-processo.md`, o documento OpenAPI em
 `docs/decisions/0011-openapi-da-api-rs-nasce-com-a-rota.md`, a ordem da revogação em
 `docs/decisions/0012-revogacao-de-sessao-antes-de-apagar.md` e a migração em
-`docs/specs/005-migrar-api-para-rust.md`. Na #121 esta pasta vira `apps/api`, e este arquivo vai junto.
+`docs/specs/005-migrar-api-para-rust.md`.
 
 **O contrato é o HTTP que o web e o mobile consomem; a forma é a do Rust.** URL, status, cookies,
 limites, e-mail enviado e o formato Problem Details são contrato. Códigos de campo, validação, schema,
-transação e nomes internos seguem o idioma do Rust, do axum e do Postgres, e o `apps/api` não é
-referência de implementação.
+transação e nomes internos seguem o idioma do Rust, do axum e do Postgres, e o NestJS que a API foi,
+guardado na tag `api-nestjs-final`, não é referência de implementação.
 
 ## Comandos
 
-Cada comando roda de dentro do `apps/api-rs`. A toolchain é a do `rust-toolchain.toml` (Rust 1.98.1,
+Cada comando roda de dentro do `apps/api`. A toolchain é a do `rust-toolchain.toml` (Rust 1.98.1,
 edition 2024).
 
 | Gate             | Comando                                                                                                                 |
@@ -29,7 +29,7 @@ edition 2024).
 
 O `sqlx-cli` é instalado com
 `cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls`,
-a mesma versão do job `api-rs` do CI, e o `cargo-audit` com
+a mesma versão do job `api` do CI, e o `cargo-audit` com
 `cargo install cargo-audit --version 0.22.2 --locked`. **A RUSTSEC-2023-0071 é ignorada** porque o
 `rsa` vem do backend `rust_crypto` do `jsonwebtoken`, e a API só assina e confere HS256, sem chave RSA
 para o ataque de tempo alcançar. O `compose.yaml` sobe o Postgres 18 e o Redis 8 de

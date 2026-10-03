@@ -19,7 +19,7 @@ go-live. É isso que merece fronteira de crate. Camada não merece.
 
 ## Decision
 
-**Um crate por processo ou capacidade, cada um numa pasta de `apps/api-rs/crates/`:**
+**Um crate por processo ou capacidade, cada um numa pasta de `apps/api/crates/`:**
 
 | Pasta | Pacote | Tipo | Contém |
 | --- | --- | --- | --- |
