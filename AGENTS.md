@@ -15,7 +15,7 @@ o contrato HTTP.
 **`apps/web` e `apps/site` usam npm sobre Node 26.** É estado decidido, não transitório.
 
 **`apps/api` é a API em Rust, com axum e sqlx.** O NestJS que ela foi está na tag `api-nestjs-final`.
-As camadas, os gates completos e as pegadinhas estão no `apps/api/CLAUDE.md`.
+As camadas, os gates completos e as pegadinhas estão no `apps/api/AGENTS.md`.
 
 **`apps/mobile` é o app nativo iOS e Android em Flutter**, com paridade de telas com o web, offline com
 fila de escrita e cliente HTTP gerado do OpenAPI da API — gerar do contrato não é importar código.
@@ -54,8 +54,16 @@ As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0007-app-nativo-em-flutter-com-offline.md`,
 `docs/decisions/0008-site-em-next-standalone.md`,
 `docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md`, que substitui a 0001,
-`docs/decisions/0010-api-rs-com-crate-por-processo.md` e
-`docs/decisions/0011-openapi-da-api-rs-nasce-com-a-rota.md`.
+`docs/decisions/0010-api-rs-com-crate-por-processo.md`,
+`docs/decisions/0011-openapi-da-api-rs-nasce-com-a-rota.md`,
+`docs/decisions/0012-revogacao-de-sessao-antes-de-apagar.md` e
+`docs/decisions/0013-assinatura-digital-em-duas-camadas.md`.
+
+## Linguagem e scripts
+
+O código de aplicação é Rust no `apps/api`, TypeScript no `apps/web` e no `apps/site`, e Dart no
+`apps/mobile`. **O repo não tem nenhum script hoje**, e a linguagem do primeiro está em aberto: ela é
+decidida quando ele for necessário, e registrada aqui.
 
 ## Comandos
 
@@ -71,7 +79,7 @@ Cada comando roda de dentro do diretório do seu app.
 
 Instalação: `npm ci` nos dois apps Node e `flutter pub get --enforce-lockfile` no `apps/mobile`; o
 `apps/api` não tem passo de instalação, o `cargo` baixa as dependências no primeiro build. Os comandos
-da API que tocam o banco rodam sob `infisical run --path=/api --`, como diz o `apps/api/CLAUDE.md`.
+da API que tocam o banco rodam sob `infisical run --path=/api --`, como diz o `apps/api/AGENTS.md`.
 
 O gate de tipos do web exige o `src/routeTree.gen.ts`, gerado pelo plugin do TanStack Router.
 Ele é commitado, então só um `src/routes/` alterado sem `vite build` ou `vite dev` desde a alteração
@@ -117,16 +125,19 @@ apps/
         ├── app/             MaterialApp e o GoRouter
         ├── features/<feature>/
         └── shared/          env, http e api — o cliente gerado, nunca editado à mão
-compose.yaml                 stack inteira: site, web, api, worker, Postgres e Redis
 docs/
 ```
+
+**O `compose.yaml` da raiz, com a stack inteira, ainda não existe.** Não há hospedagem hoje: o
+deploy planejado é uma VPS com Coolify, e o compose da raiz nasce com ele. O único compose é o
+`apps/api/compose.yaml`, com o Postgres e o Redis de desenvolvimento.
 
 **O browser fala direto com a API, em origem cruzada.** Em dev são as portas :3000 e :3333; em homolog e
 produção, `app.clinicore.com.br` e `api.clinicore.com.br`. Por isso o CORS da API libera as
 origens de `ALLOWED_ORIGINS` com `credentials: true`, e o web chama com `withCredentials: true`.
 
-**A regra de cada app mora no `CLAUDE.md` dele** — `apps/api/CLAUDE.md`, `apps/web/CLAUDE.md`,
-`apps/site/CLAUDE.md` e `apps/mobile/CLAUDE.md` carregam as camadas, a forma da URL e as pegadinhas da stack daquele app,
+**A regra de cada app mora no `AGENTS.md` dele** — `apps/api/AGENTS.md`, `apps/web/AGENTS.md`,
+`apps/site/AGENTS.md` e `apps/mobile/AGENTS.md` carregam as camadas, a forma da URL e as pegadinhas da stack daquele app,
 e só entram em contexto quando o trabalho toca a pasta.
 
 **`apps/site` tem servidor, mas não tem sessão.** O processo Node do standalone serve a landing e
@@ -137,16 +148,24 @@ a origem dele entra em `ALLOWED_ORIGINS`. Redirecionamento de autenticação nun
 ## Branches
 
 - **`main` é produção e `develop` é homolog, as duas protegidas por convenção** — nunca commitar
-  direto nelas. O GitHub não aplica a proteção: o repo é privado numa conta sem GitHub Pro, e a API de
-  proteção e de rulesets responde 403.
+  direto nelas. O GitHub não aplica a proteção: nenhuma das duas tem regra de proteção nem ruleset
+  configurado.
 - Cada entrega nasce em `feature/<número>-<assunto>` a partir de `develop` e volta para ela por pull
   request. Correção urgente é `hotfix/<número>-<assunto>`, a partir da `main`.
 - Release é pull request de `develop` para `main`.
 - **A mensagem de commit é só o título.** O porquê e o detalhe vão na descrição do pull request.
 - **CI roda em pull request para `develop` e para `main`**, por `.github/workflows/ci.yml`, com um job por app.
 
+## Backlog
+
+- **O backlog é o GitHub Project `Clinicore`**, em `https://github.com/users/TheoOdawara/projects/3`, com a
+  sprint de duas semanas no campo `Sprint`.
+- **Toda issue leva a label do tipo do commit** (`feat`, `fix`, `refactor`, `docs`, `chore`, `ci`, `test`,
+  `build`) **e a `area:<app>`** do que ela toca: `area:api`, `area:web`, `area:site`, `area:mobile` ou
+  `area:ci`.
+
 ## Idioma
 
 **Só a documentação é pt-BR.** Código, identificadores, pastas, arquivos e mensagens de commit são
-inglês. O chat segue em pt-BR. **A URL é a única coisa que depende do app**, e o `CLAUDE.md` de
+inglês. O chat segue em pt-BR. **A URL é a única coisa que depende do app**, e o `AGENTS.md` de
 cada app diz a sua.

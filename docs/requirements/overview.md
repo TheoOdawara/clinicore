@@ -38,7 +38,7 @@ O paciente é alcançado por WhatsApp e por e-mail, nunca por uma tela do sistem
 - **O certificado ICP-Brasil é custo do dentista**, não do Clinicore.
 - **Convênio só por arquivo TISS**, sem integração direta com a operadora.
 - **Laboratório protético sem integração**: tudo é lançado à mão.
-- **A stack** é a do [`CLAUDE.md`](../../CLAUDE.md) da raiz e das ADRs em [`decisions/`](../decisions/).
+- **A stack** é a do [`AGENTS.md`](../../AGENTS.md) da raiz e das ADRs em [`decisions/`](../decisions/).
 
 ## Premissas e dependências
 

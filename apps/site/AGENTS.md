@@ -1,6 +1,6 @@
 # Clinicore `apps/site` — páginas públicas e pegadinhas
 
-Aditivo ao `CLAUDE.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este
+Aditivo ao `AGENTS.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este
 arquivo apenas onde ela falar do mesmo assunto. A raiz tem a stack, os comandos, a visão geral da
 arquitetura, as branches e o idioma.
 
@@ -50,5 +50,5 @@ Verificadas em 2026-09-24, contra `next@16.3.6`.
   arquivos `.mjs` e o lint type-aware aborta.
 - **O `no-deprecated` não pega prop obsoleta em JSX.** Medido: `"abc".substr(1)` reprova, e
   `<Image priority />` passa verde. Prop obsoleta de componente é conferida no review.
-- **O `next dev` escreve regras de agente no `CLAUDE.md` do app** a cada subida, em inglês e dentro
+- **O `next dev` escreve regras de agente no `CLAUDE.md` e no `AGENTS.md` do app** a cada subida, em inglês e dentro
   de um comentário HTML. O `agentRules: false` do `next.config.ts` desliga isso e não sai.

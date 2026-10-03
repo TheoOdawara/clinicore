@@ -1,9 +1,14 @@
 {
   "recommendations": [
+    "rust-lang.rust-analyzer",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
     "Dart-Code.flutter",
     "Dart-Code.dart-code",
     "mathiasfrohlich.Kotlin",
     "redhat.vscode-yaml",
-    "usernamehw.errorlens"
+    "usernamehw.errorlens",
+    "hediet.vscode-drawio"
   ]
 }

@@ -1,6 +1,6 @@
 # Clinicore `apps/api` — camadas e pegadinhas
 
-Aditivo ao `CLAUDE.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este arquivo
+Aditivo ao `AGENTS.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este arquivo
 apenas onde ela falar do mesmo assunto. A stack está em
 `docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md`, a organização dos crates em
 `docs/decisions/0010-api-rs-com-crate-por-processo.md`, o documento OpenAPI em
