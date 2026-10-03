@@ -4,7 +4,9 @@ Aditivo ao contrato global (`~/.claude/CLAUDE.md`); em conflito, **este arquivo 
 repete o que já é global.
 
 O produto — problema, escopo, go-live da clínica piloto e critérios de aceite — está em
-`docs/requirements/`. Este arquivo diz **como** o sistema é construído, nunca **o que** ele faz.
+`docs/requirements/`. Este arquivo diz **como** o sistema é construído, nunca **o que** ele faz. O mapa
+do sistema está em `docs/architecture/`, o modelo de dados em `docs/data-model/`, e o `docs/README.md` é o
+índice de tudo.
 
 ## Stack
 
@@ -160,6 +162,10 @@ a origem dele entra em `ALLOWED_ORIGINS`. Redirecionamento de autenticação nun
 
 - **O backlog é o GitHub Project `Clinicore`**, em `https://github.com/users/TheoOdawara/projects/3`, com a
   sprint de duas semanas no campo `Sprint`.
+- **A branch padrão do GitHub é a `main`**, então a palavra de fechamento só fecha a issue quando o
+  release chega nela. O pull request para a `develop` não liga a issue nem move o item.
+- **`In Review` e `Staging` são marcados à mão**, com `gh project item-edit`: `In Review` ao abrir o
+  pull request, `Staging` no merge na `develop`. O `Done` vem sozinho quando a issue fecha.
 - **Toda issue leva a label do tipo do commit** (`feat`, `fix`, `refactor`, `docs`, `chore`, `ci`, `test`,
   `build`) **e a `area:<app>`** do que ela toca: `area:api`, `area:web`, `area:site`, `area:mobile` ou
   `area:ci`.

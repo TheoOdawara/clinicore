@@ -67,7 +67,7 @@ Estão em [`requirements/overview.md`](../requirements/overview.md#restrições)
 | 6. Visão de runtime | [`runtime/`](runtime/README.md) |
 | 7. Visão de implantação | [`deployment.md`](deployment.md) |
 | 8. Conceitos transversais | [`concepts/`](concepts/README.md) |
-| 9. Decisões de arquitetura | [`../decisions/`](../decisions/) |
+| 9. Decisões de arquitetura | [`../decisions/`](../decisions/README.md) |
 | 10. Requisitos de qualidade | [`../requirements/`](../requirements/README.md#requisitos), nos `NFR-` |
 | 11. Riscos e dívida técnica | [`risks.md`](risks.md) |
 | 12. Glossário | [`../requirements/glossary.md`](../requirements/glossary.md) |
