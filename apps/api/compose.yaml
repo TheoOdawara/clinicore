@@ -17,6 +17,7 @@ services:
 
   redis:
     image: redis:8
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "${REDIS_PORT:?required}:6379"
     healthcheck:
