@@ -12,11 +12,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  api-rs:
+  api:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/api-rs
+        working-directory: apps/api
     env:
       DATABASE_URL: postgresql://clinicore:local@localhost:5432/clinicore
       REDIS_URL: redis://localhost:6379
@@ -47,8 +47,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
-          rust-src-dir: apps/api-rs
-          cache-workspaces: apps/api-rs
+          rust-src-dir: apps/api
+          cache-workspaces: apps/api
       - run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
       - run: cargo install cargo-audit --version 0.22.2 --locked
       - run: cargo fmt --check

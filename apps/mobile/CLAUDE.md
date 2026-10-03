@@ -34,7 +34,7 @@ Com a API de pé em `:3333`, de dentro do `apps/mobile`:
 ```
 rm -rf lib/shared/api
 dart run swagger_parser
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build
 dart format lib/shared/api
 ```
 

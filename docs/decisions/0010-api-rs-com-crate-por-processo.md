@@ -14,12 +14,12 @@ lugares, e uma consulta simples exige handler, service e repository mesmo quando
 a chamada.
 
 O produto ainda vai ter mais de um processo em Rust: o worker da fila (a #71 é o primeiro job) e a
-importação e exportação de arquivos da portabilidade, que o `docs/requirements.md` deixa fora do
+importação e exportação de arquivos da portabilidade, que o `docs/requirements/` deixa fora do
 go-live. É isso que merece fronteira de crate. Camada não merece.
 
 ## Decision
 
-**Um crate por processo ou capacidade, cada um numa pasta de `apps/api-rs/crates/`:**
+**Um crate por processo ou capacidade, cada um numa pasta de `apps/api/crates/`:**
 
 | Pasta | Pacote | Tipo | Contém |
 | --- | --- | --- | --- |
