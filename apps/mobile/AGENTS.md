@@ -1,6 +1,6 @@
 # Clinicore `apps/mobile` — app nativo e pegadinhas
 
-Aditivo ao `CLAUDE.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este
+Aditivo ao `AGENTS.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este
 arquivo apenas onde ela falar do mesmo assunto. A raiz tem a stack, os comandos, a visão geral da
 arquitetura, as branches e o idioma.
 

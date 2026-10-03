@@ -1,10 +1,13 @@
 # Clinicore `apps/web` — por feature e pegadinhas
 
-Aditivo ao `CLAUDE.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este
+Aditivo ao `AGENTS.md` da raiz e ao contrato global; em conflito, a raiz vence sobre este
 arquivo apenas onde ela falar do mesmo assunto. A raiz tem a stack, os comandos, a visão geral da
 arquitetura, as branches e o idioma.
 
 ## Por feature
+
+**O `src/` hoje tem só `routes/`, `shared/env/` e `styles/`.** `features/` e `shared/http/` nascem com a
+primeira feature, e as regras abaixo valem a partir dela.
 
 **A dependência aponta para cima: `shared → features → routes`.**
 
@@ -20,7 +23,7 @@ arquitetura, as branches e o idioma.
 - **Toda resposta da API passa por `.parse()` de um schema Zod** em `features/<feature>/api/`, e o
   tipo sai de `z.infer`. O schema replica o DTO da API à mão.
 - **`shared/http/` é a única instância do axios**, com `baseURL`, `withCredentials: true` e o
-  interceptor que renova a sessão: um `401` dispara uma única chamada a `POST /auth/refresh`, as
+  interceptor que renova a sessão: um `401` dispara uma única chamada a `POST /sessions/current/tokens`, as
   requisições concorrentes esperam essa chamada em vez de dispararem a sua, e o fracasso leva para
   `/login`. Nenhuma feature cria instância própria nem chama `axios` direto.
 - **Formulário é TanStack Form** com o schema Zod nos validadores de blur e submit.
