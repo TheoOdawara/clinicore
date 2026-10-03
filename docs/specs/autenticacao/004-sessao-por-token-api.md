@@ -514,7 +514,7 @@ E a 11ª chamada a `POST /passkey-assertions` e a `POST /oauth/google/sessions` 
 - **As telas** — spec irmã `004-autenticacao-mobile.md`.
 - **Passkey no app do iOS** — exige Associated Domains, que só existe na conta paga do Apple Developer
   Program, e o identificador definitivo do app. Entra junto da publicação, depois do nome comercial
-  (pergunta 1 em aberto de `docs/requirements.md`). Até lá, `PASSKEY_ANDROID_ORIGINS` é a única origem
+  (`OQ-01` de `docs/requirements/open-questions.md`). Até lá, `PASSKEY_ANDROID_ORIGINS` é a única origem
   nativa aceita.
 - **Links do e-mail abrindo o app** — continuam abrindo o web; o botão "Abrir o app" entra com a
   publicação.

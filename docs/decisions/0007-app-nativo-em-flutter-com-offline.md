@@ -3,11 +3,12 @@
 - Status: accepted, emendada em 2026-09-21 pela spec `004-sessao-por-token-api.md` nos itens 7 e 8
 - Date: 2026-09-21
 - Emenda a: 0002 (o web deixa de ser o único front do sistema e não guarda dado clínico offline),
-  `docs/requirements.md` §5 (Plataforma) e `CLAUDE.md` da raiz (Stack)
+  `docs/requirements/` (a plataforma, hoje `NFR-FLEX-01`, e o offline, hoje `NFR-REL-02`, `NFR-REL-03` e
+  `NFR-SEC-04`) e `CLAUDE.md` da raiz (Stack)
 
 ## Context
 
-O `docs/requirements.md` dizia "web responsiva, sem app nativo no MVP", e a ADR 0002 entregava o sistema
+O documento de requisitos dizia "web responsiva, sem app nativo no MVP", e a ADR 0002 entregava o sistema
 como PWA instalável. O dono do produto reviu isso: o dentista precisa ver a agenda e o paciente, e
 continuar registrando o atendimento, sem internet — no consultório com sinal ruim, em atendimento fora da
 clínica, numa queda do provedor.

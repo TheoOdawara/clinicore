@@ -18,7 +18,7 @@ servidor próprio fazendo BFF e renderização.
 
 Três informações mudaram a resposta durante a decisão:
 
-1. **O sistema não tem superfície pública.** `docs/requirements.md` diz que o paciente não opera o
+1. **O sistema não tem superfície pública.** `docs/requirements/` diz que o paciente não opera o
    sistema e interage só por WhatsApp e documentos recebidos; a assinatura do paciente é feita em
    plataforma de terceiros; a cobrança do SaaS está fora do escopo. Todo usuário do `apps/web` é
    autenticado.

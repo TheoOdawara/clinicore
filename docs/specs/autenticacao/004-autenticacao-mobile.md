@@ -431,7 +431,7 @@ As ações das telas que existem na 003-web são as de lá. Somam-se:
 ## Fora de Escopo
 
 - **Publicação na App Store e no Play, identificador definitivo e ícones do app** — dependem do nome
-  comercial (pergunta 1 em aberto de `docs/requirements.md`). É a gêmea da #81 e nasce quando o nome
+  comercial (`OQ-01` de `docs/requirements/open-questions.md`). É a gêmea da #81 e nasce quando o nome
   for decidido.
 - **Passkey no iOS** — exige a conta paga da Apple para o Associated Domains; entra com a publicação.
 - **Botão "Abrir o app / instalar" no web** — sem loja não há o que instalar; entra com a publicação,

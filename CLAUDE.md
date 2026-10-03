@@ -4,7 +4,7 @@ Aditivo ao contrato global (`~/.claude/CLAUDE.md`); em conflito, **este arquivo 
 repete o que já é global.
 
 O produto — problema, escopo, go-live da clínica piloto e critérios de aceite — está em
-`docs/requirements.md`. Este arquivo diz **como** o sistema é construído, nunca **o que** ele faz.
+`docs/requirements/`. Este arquivo diz **como** o sistema é construído, nunca **o que** ele faz.
 
 ## Stack
 
