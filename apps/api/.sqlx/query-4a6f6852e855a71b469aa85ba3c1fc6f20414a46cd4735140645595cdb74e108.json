@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO email_dispatches (email, kind) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        {
+          "Custom": {
+            "name": "email_dispatch_kind",
+            "kind": {
+              "Enum": [
+                "email_verification",
+                "password_reset"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4a6f6852e855a71b469aa85ba3c1fc6f20414a46cd4735140645595cdb74e108"
+}

@@ -1,6 +1,7 @@
 use sqlx::PgPool;
 
-use crate::email_verifications::queries::{claim_dispatch, create_verification};
+use crate::email_dispatches::{EmailDispatchKind, claim_dispatch};
+use crate::email_verifications::queries::create_verification;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SignUpOutcome {
@@ -36,7 +37,13 @@ pub async fn create_user(
         return Ok(SignUpOutcome::Duplicate);
     }
 
-    if !claim_dispatch(&mut transaction, email).await? {
+    if !claim_dispatch(
+        &mut transaction,
+        email,
+        EmailDispatchKind::EmailVerification,
+    )
+    .await?
+    {
         transaction.commit().await?;
         return Ok(SignUpOutcome::Created);
     }

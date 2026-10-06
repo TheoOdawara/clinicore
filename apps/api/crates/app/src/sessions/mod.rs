@@ -1,5 +1,5 @@
 pub(crate) mod error;
-mod extractors;
+pub(crate) mod extractors;
 pub(crate) mod handlers;
 mod queries;
 mod requests;

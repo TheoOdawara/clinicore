@@ -3,6 +3,7 @@ pub mod purge;
 pub mod telemetry;
 
 mod credentials;
+mod email_dispatches;
 mod email_verifications;
 mod health;
 mod sessions;

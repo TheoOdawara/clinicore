@@ -3,7 +3,7 @@ use std::time::Duration;
 use sqlx::PgPool;
 
 use crate::AppState;
-use crate::email_verifications::queries::DISPATCH_WINDOW;
+use crate::email_dispatches::DISPATCH_WINDOW;
 use crate::sessions::tokens::refresh;
 
 const EVERY: Duration = Duration::from_secs(60 * 60);
