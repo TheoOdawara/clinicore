@@ -6,9 +6,9 @@ use crate::http::error::AppError;
 use crate::http::rate_limit::RateLimitError;
 
 #[derive(Debug, thiserror::Error)]
-pub enum UserError {
-    #[error("invalid password")]
-    InvalidPassword,
+pub enum PasswordResetError {
+    #[error("invalid token")]
+    InvalidToken,
     #[error(transparent)]
     RateLimit(#[from] RateLimitError),
     #[error(transparent)]
@@ -21,13 +21,13 @@ pub enum UserError {
     Credential(#[from] CredentialError),
 }
 
-impl From<UserError> for AppError {
-    fn from(error: UserError) -> Self {
+impl From<PasswordResetError> for AppError {
+    fn from(error: PasswordResetError) -> Self {
         match error {
-            UserError::InvalidPassword => Self::InvalidPassword,
-            UserError::RateLimit(error) => error.into(),
-            UserError::Database(error) => Self::Database(error),
-            UserError::Redis(error) => Self::Unavailable(error),
+            PasswordResetError::InvalidToken => Self::InvalidToken,
+            PasswordResetError::RateLimit(error) => error.into(),
+            PasswordResetError::Database(error) => Self::Database(error),
+            PasswordResetError::Redis(error) => Self::Unavailable(error),
             other => Self::Internal(Box::new(other)),
         }
     }

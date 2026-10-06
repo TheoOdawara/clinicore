@@ -490,9 +490,11 @@ Uma senha é aceita quando cumpre **todas** as condições:
   | rotas com sessão | a sessão do access token, por rota | 10 s | 100 |
   | `/sessions/current/tokens` | a sessão do refresh token | 60 s | 30 |
   | `/email-verifications/confirmation` | a faixa de rede do IP: /48 no IPv6, /24 no IPv4 | 60 s | 300 |
+  | `/password-resets/confirmation` | a faixa de rede do IP: /48 no IPv6, /24 no IPv4 | 60 s | 300 |
+  | `/users/me/password` | falhas da senha atual por usuário, além da sessão | 15 min | 10 |
   | `/users`, `/email-verifications`, `/password-resets` | o endereço, pela regra 15 | — | — |
 
-- **A confirmação é a única segunda chave que sai do IP.** O corpo dela só traz o token, e o e-mail só
+- **As duas confirmações são as únicas com a segunda chave saindo do IP.** O corpo delas só traz o token, e o e-mail só
   aparece quando o token é válido, então nenhuma identidade conta um palpite. A faixa de rede pega quem
   troca de endereço dentro da mesma rede, e um teto total da rota deixaria um cliente só travar a
   confirmação de todo mundo.

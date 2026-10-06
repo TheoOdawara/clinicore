@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT password_hash AS \"password_hash!\" FROM accounts\n        WHERE user_id = $1 AND provider = 'credential'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "password_hash!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "password_hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "4cd2a6c4946fb4d809cb9f09edf76b08dc8bb3232d3b657431e9c932a16fe43a"
+}

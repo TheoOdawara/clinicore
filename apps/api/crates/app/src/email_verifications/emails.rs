@@ -16,7 +16,7 @@ pub fn verification(name: &str, link: &str) -> Result<MailMessage, MailError> {
     )
 }
 
-fn first_name(name: &str) -> String {
+pub fn first_name(name: &str) -> String {
     name.split_whitespace()
         .next()
         .unwrap_or_default()

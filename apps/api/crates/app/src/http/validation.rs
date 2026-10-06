@@ -54,12 +54,23 @@ impl From<ValidationErrors> for AppError {
             .filter_map(|(field, found)| {
                 found
                     .first()
-                    .map(|violation| field_error(&field, &violation.code))
+                    .map(|violation| field_error(&wire_name(&field), &violation.code))
             })
             .collect();
         errors.sort_by(|first, second| first.pointer.cmp(&second.pointer));
         AppError::Validation(errors)
     }
+}
+
+fn wire_name(rust_field: &str) -> String {
+    let mut words = rust_field.split('_');
+    let mut name = words.next().unwrap_or_default().to_string();
+    for word in words {
+        let mut letters = word.chars();
+        name.extend(letters.next().map(|first| first.to_ascii_uppercase()));
+        name.push_str(letters.as_str());
+    }
+    name
 }
 
 fn field_error(field: &str, code: &str) -> FieldError {

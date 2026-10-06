@@ -19,6 +19,8 @@ pub enum AppError {
     InvalidToken,
     #[error("Token expired")]
     TokenExpired,
+    #[error("Invalid password")]
+    InvalidPassword,
     #[error("Invalid email or password")]
     InvalidCredentials,
     #[error("Invalid session")]
@@ -65,6 +67,7 @@ impl IntoResponse for AppError {
             Self::InvalidClient => (StatusCode::BAD_REQUEST, "invalid-client", Vec::new()),
             Self::InvalidToken => (StatusCode::BAD_REQUEST, "invalid-token", Vec::new()),
             Self::TokenExpired => (StatusCode::BAD_REQUEST, "token-expired", Vec::new()),
+            Self::InvalidPassword => (StatusCode::BAD_REQUEST, "invalid-password", Vec::new()),
             Self::InvalidCredentials => {
                 (StatusCode::UNAUTHORIZED, "invalid-credentials", Vec::new())
             }

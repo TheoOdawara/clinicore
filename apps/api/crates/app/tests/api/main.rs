@@ -4,6 +4,7 @@ mod email_verifications;
 mod errors;
 mod health;
 mod openapi;
+mod password_resets;
 mod purge;
 mod request_log;
 mod sessions;

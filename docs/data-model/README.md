@@ -18,7 +18,7 @@ as duas existem para um endereço, e sobrevivem ao usuário até vencerem.
 | User | uma pessoa que entra no sistema | existe | [user.md](user.md) |
 | Account | um jeito de essa pessoa provar quem é: senha ou Google | existe; Google no M1 · #120 | [account.md](account.md) |
 | Session | um login ativo num navegador ou num aparelho | existe | [session.md](session.md) |
-| Verification | um token de uso único mandado a um e-mail | existe; redefinição de senha no M1 · #119 | [verification.md](verification.md) |
+| Verification | um token de uso único mandado a um e-mail | existe | [verification.md](verification.md) |
 | EmailDispatch | o registro de um e-mail enviado, para limitar o envio | existe | [email-dispatch.md](email-dispatch.md) |
 
 ## Conteúdo

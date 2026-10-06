@@ -6,6 +6,7 @@ mod credentials;
 mod email_dispatches;
 mod email_verifications;
 mod health;
+mod password_resets;
 mod sessions;
 mod users;
 
@@ -66,6 +67,7 @@ fn guarded_routes(state: &AppState) -> OpenApiRouter {
     let mut router = OpenApiRouter::new().merge(users::routes(state)).merge(
         OpenApiRouter::new()
             .merge(email_verifications::routes(state))
+            .merge(password_resets::routes(state))
             .merge(sessions::routes(state))
             .layer(SetResponseHeaderLayer::overriding(
                 CACHE_CONTROL,

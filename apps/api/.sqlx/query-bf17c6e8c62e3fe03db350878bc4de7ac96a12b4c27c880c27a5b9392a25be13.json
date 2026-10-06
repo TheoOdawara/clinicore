@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO verifications (email, purpose, token_hash, expires_at)\n        VALUES ($1, 'password_reset', $2, now() + interval '1 hour')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bf17c6e8c62e3fe03db350878bc4de7ac96a12b4c27c880c27a5b9392a25be13"
+}

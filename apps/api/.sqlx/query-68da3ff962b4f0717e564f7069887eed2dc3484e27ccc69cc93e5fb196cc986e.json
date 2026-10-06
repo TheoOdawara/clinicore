@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE verifications SET consumed_at = now()\n        WHERE purpose = 'password_reset' AND consumed_at IS NULL\n            AND email = (SELECT email FROM users WHERE id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "68da3ff962b4f0717e564f7069887eed2dc3484e27ccc69cc93e5fb196cc986e"
+}

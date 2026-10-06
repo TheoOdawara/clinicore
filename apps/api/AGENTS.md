@@ -68,11 +68,14 @@ crates/
     │   │   ├── error.rs  validation.rs  request_log.rs  openapi.rs
     │   │   └── client.rs  origin.rs  rate_limit.rs
     │   ├── health.rs                                feature de uma rota só
+    │   ├── email_dispatches.rs                      a reserva de envio por endereço, de várias features
     │   ├── credentials/                             senha e segredo aleatório, de várias features
     │   │   └── mod.rs  password.rs  secret.rs  error.rs
-    │   ├── users/                                   o cadastro
+    │   ├── users/                                   o cadastro e a troca de senha
     │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  error.rs
     │   ├── email_verifications/                     o link de confirmação do e-mail
+    │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  emails.rs  error.rs
+    │   ├── password_resets/                         o link de redefinição de senha
     │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  emails.rs  error.rs
     │   └── sessions/                                login, refresh e logout
     │       ├── mod.rs                               routes(): o Router, que liga URL e handler
@@ -87,8 +90,9 @@ crates/
     └── tests/api/
         ├── main.rs  support.rs
         ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  purge.rs  request_log.rs
-        ├── users/  mod.rs  sign_up.rs
+        ├── users/  mod.rs  sign_up.rs  change_password.rs
         ├── email_verifications/  mod.rs  confirmation.rs
+        ├── password_resets/  mod.rs  request.rs  confirmation.rs
         └── sessions/  mod.rs  sign_in.rs  current_session.rs  refresh.rs
 migrations/  .sqlx/
 ```
@@ -122,9 +126,9 @@ migrations/  .sqlx/
 - **Toda rota limitada conta em duas chaves, nunca numa só.** O IP é a do `route_layer`; a segunda é
   a identidade, contada por `rate_limit::enforce` com uma `Quota` do `mod.rs` da feature: a sessão
   por rota no `CurrentSession` (sessão, método e `MatchedPath`), a sessão do refresh e as falhas de
-  senha por e-mail no service, e a faixa de rede na confirmação (`network_key`: /48 no IPv6, /24 no
-  IPv4), porque o corpo dela só traz o token. As rotas que mandam e-mail têm a segunda no
-  `email_dispatches`. Rota nova limitada nasce com as duas.
+  senha por e-mail no service, as falhas da senha atual por usuário na troca de senha, e a faixa de
+  rede nas duas confirmações (`network_key`: /48 no IPv6, /24 no IPv4), porque o corpo delas só traz
+  o token. As rotas que mandam e-mail têm a segunda no `email_dispatches`. Rota nova limitada nasce com as duas.
 - **Rota nasce com `routes!` do `utoipa-axum` num `OpenApiRouter`** (ADR 0011), nunca com o `route`
   do axum, então a rota não existe sem o `#[utoipa::path]`. O header `Clinicore-Client` e as respostas
   dos guards (400, 403, 429, 503) entram sozinhos pelo `document_guards`; o handler declara só as
@@ -148,6 +152,8 @@ migrations/  .sqlx/
   access token de uma sessão vencida já venceu. Cada réplica roda a sua, e o `DELETE` repetido apaga
   zero linhas; uma rodada que falha, como a do boot com o Postgres subindo, tenta de novo na hora
   seguinte. Sobe para o `crates/worker/` quando a #71 o criar.
+- **O `pointer` do erro de campo é o nome do JSON, em camelCase**, e o `ValidJson` o deriva do nome do
+  campo Rust. Request com mais de uma palavra num campo leva `#[serde(rename_all = "camelCase")]`.
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
   campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
   O request tem `#[serde(deny_unknown_fields)]`, e campo desconhecido ou de tipo errado sai como
@@ -156,7 +162,8 @@ migrations/  .sqlx/
   faz o utoipa marcar o campo como opcional, então todo campo obrigatório leva também
   `#[schema(required = true)]`; sem ele o cliente Dart o gera como `String?`.
 - **Um formato de token tem uma `Regex` só**, que valida o corpo, entra no schema e confere o token
-  lido do cookie. O segredo é o `credentials::secret::PATTERN`; o `pattern` do schema sai da mesma
+  lido do cookie. O segredo é o `credentials::secret::PATTERN`, e o `secret::FORMAT` é a `Regex` dele
+  nos corpos das duas confirmações; o `pattern` do schema sai da mesma
   `Regex` por `schema_with` e `openapi::matching`, porque o `pattern` do utoipa só aceita literal.
 - **Concorrência se resolve no Postgres, sem retry na aplicação.** Unicidade por
   `ON CONFLICT … DO NOTHING`, e a serialização por chave (o registro de envio por endereço) por
@@ -221,6 +228,10 @@ migrations/  .sqlx/
 
 - **O `cargo test` precisa do Postgres e do Redis de pé e roda dentro do `infisical run`.** O
   `#[sqlx::test(migrations = "../../migrations")]` cria um banco por teste a partir da `DATABASE_URL`.
+- **A suíte só lê `DATABASE_URL` e `REDIS_URL` do ambiente**; o resto vem do mapa do `support.rs`. Com
+  as portas de dev ocupadas por outro projeto, o gate roda contra um `postgres:18` e um `redis:8`
+  descartáveis em portas livres, com as duas variáveis na linha de comando e sem o `infisical run`. O
+  binário rodado assim precisa das 17, e o `SMTP_HOST` só aceita hostname com domínio.
 - **O Redis dos testes é o de dev, sem flush.** Cada requisição de teste sai de um `fresh_client()`, um
   /64 de documentação novo por chamada, então nenhum contador de limite atravessa testes nem execuções.
   **Pelo mesmo motivo, teste que faz login usa um `fresh_email()`**: o contador de falhas por e-mail
@@ -258,6 +269,13 @@ migrations/  .sqlx/
   `ConnectInfo`, o socket, que não se forja. Atrás de proxy é o header que só ele escreve
   (`RightmostXForwardedFor`, `CfConnectingIp`, …), e a API só pode ser alcançável por ele: exposta
   direto, o header vem do cliente.
+- **Em produção a requisição passa pela Cloudflare e depois pelo Traefik do Coolify.** A fonte é
+  `CfConnectingIp`, e a origem só aceita tráfego da Cloudflare, por firewall com as faixas dela ou por
+  Cloudflare Tunnel: quem alcança o Traefik direto forja o `CF-Connecting-IP`. A porta da API nunca é
+  publicada fora do Traefik.
+- **O binário em dev envia e-mail de verdade.** O `cargo run` sob o `infisical run` liga o SMTP real, sem
+  stub, e toda rota que manda e-mail entrega. Teste à mão usa só endereço `@example.com`, que é
+  reservado; `exemplo.com` não é.
 - **O bind em `::` entrega o IPv4 como `::ffff:a.b.c.d`.** O `ClientAddress` de `http/client.rs`
   passa o endereço por `to_canonical()`, e o limite agrupa o IPv6 em /64 antes de montar a chave.
 - **O `MockConnectInfo` do axum não põe `ConnectInfo` nas extensions**, só o extractor o enxerga. O
