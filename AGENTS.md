@@ -166,6 +166,10 @@ a origem dele entra em `ALLOWED_ORIGINS`. Redirecionamento de autenticação nun
   release chega nela. O pull request para a `develop` não liga a issue nem move o item.
 - **`In Review` e `Staging` são marcados à mão**, com `gh project item-edit`: `In Review` ao abrir o
   pull request, `Staging` no merge na `develop`. O `Done` vem sozinho quando a issue fecha.
+- **A ordem de entrega é API e banco, depois web e PWA, depois mobile.** A próxima issue é a primeira
+  aberta nessa ordem, respeitando o `Depende de` de cada uma.
+- **Toda issue de tela ou de comportamento do `apps/web` tem uma gêmea no `apps/mobile`**, criada junto
+  com ela: é o que sustenta a paridade da ADR 0007.
 - **Toda issue leva a label do tipo do commit** (`feat`, `fix`, `refactor`, `docs`, `chore`, `ci`, `test`,
   `build`) **e a `area:<app>`** do que ela toca: `area:api`, `area:web`, `area:site`, `area:mobile` ou
   `area:ci`.

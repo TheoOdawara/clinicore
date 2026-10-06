@@ -5,11 +5,10 @@
 | [`requirements/`](requirements/README.md) | o SRS: problema, escopo e cada requisito com ID e critérios de aceite |
 | [`architecture/`](architecture/README.md) | o mapa do sistema: blocos, cenários de runtime, implantação, conceitos e riscos |
 | [`data-model/`](data-model/README.md) | as entidades, as relações e o armazenamento |
+| [`roadmap/`](roadmap/README.md) | os marcos divididos em épicos, a cobertura dos requisitos e o plano de cada sprint |
 | [`decisions/`](decisions/README.md) | as ADRs: por que cada decisão transversal foi tomada |
 | [`specs/`](specs/README.md) | uma entrega em profundidade |
 | [`diagrams/`](diagrams/README.md) | os diagramas, em `.drawio.svg` |
-
-O roadmap ainda não existe: ele nasce com o planejamento da primeira sprint.
 
 As regras de como o código é construído não ficam aqui: estão no [`AGENTS.md`](../AGENTS.md) da raiz e
 no de cada app.
