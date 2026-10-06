@@ -1,0 +1,9 @@
+[project]
+site_name = "Clinicore — documentação interna"
+docs_dir = "docs"
+
+[project.markdown_extensions]
+toc.permalink = true
+toc.slugify = { object = "pymdownx.slugs.slugify", kwds = { case = "lower" } }
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.superfences = {}

@@ -3,5 +3,28 @@
     "*.plist": "xml",
     "*.xcscheme": "xml",
     "*.xcworkspacedata": "xml"
+  },
+  "rust-analyzer.linkedProjects": ["apps/api/Cargo.toml"],
+  "rust-analyzer.check.command": "clippy",
+  "eslint.workingDirectories": ["apps/web", "apps/site"],
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[dart]": {
+    "editor.defaultFormatter": "Dart-Code.dart-code",
+    "editor.formatOnSave": true
   }
 }
