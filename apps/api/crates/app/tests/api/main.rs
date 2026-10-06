@@ -3,6 +3,7 @@ mod cors;
 mod email_verifications;
 mod errors;
 mod health;
+mod oauth;
 mod openapi;
 mod password_resets;
 mod purge;

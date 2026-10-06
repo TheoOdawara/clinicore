@@ -2,7 +2,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::process::ExitCode;
 
-use clinicore_app::AppState;
+use clinicore_app::{AppState, GoogleClient, GoogleEndpoints};
 use clinicore_core::config::Config;
 use clinicore_core::db;
 use clinicore_core::mail::Mailer;
@@ -63,6 +63,7 @@ fn connect(config: &Config) -> Result<AppState, Box<dyn std::error::Error + Send
         db::connect_lazy(config)?,
         Redis::connect_lazy(config)?,
         Mailer::smtp(config)?,
+        GoogleClient::new(config, GoogleEndpoints::production())?,
     ))
 }
 

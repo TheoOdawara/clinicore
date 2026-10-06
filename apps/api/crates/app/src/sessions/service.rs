@@ -79,7 +79,7 @@ pub async fn refresh(
     sign_tokens(state, user_id, session_id, client, &issued.secret)
 }
 
-async fn open_session(
+pub(crate) async fn open_session(
     state: &AppState,
     user_id: Uuid,
     client: SessionClient,

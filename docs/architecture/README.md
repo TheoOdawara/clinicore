@@ -37,7 +37,7 @@ Estão em [`requirements/overview.md`](../requirements/overview.md#restrições)
 | Visitante | lê a landing pública | existe como scaffold; conteúdo no M3 |
 | Paciente | recebe e-mail e WhatsApp; nunca opera o sistema | — |
 | Servidor SMTP | a API entrega o e-mail de confirmação por SMTP com STARTTLS | existe |
-| Google | login com conta Google, por OAuth 2.0 | M1 · #120 |
+| Google | login com conta Google, por OAuth 2.0 com PKCE; a API troca o código e lê o perfil | a API existe para o web; o app no M1 · #94 |
 | Twilio WhatsApp | confirmação e lembrete de consulta; o agente de atendimento no M3 | M1 |
 | PSC ICP-Brasil | assinatura qualificada com o certificado em nuvem do dentista | M1 · [ADR 0013](../decisions/0013-assinatura-digital-em-duas-camadas.md) |
 | Autentique | assinatura eletrônica avançada do paciente | M1 · [ADR 0013](../decisions/0013-assinatura-digital-em-duas-camadas.md) |

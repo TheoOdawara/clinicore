@@ -335,13 +335,17 @@ Uma senha é aceita quando cumpre **todas** as condições:
 ### 6. Google e senha são a mesma conta
 
 - `GET /oauth/google` monta a URL de autorização do Google e responde `302` para ela, com
-  `prompt=select_account` e `scope=openid email profile`. **Não grava nada no banco** — o `state` viaja
-  em cookie.
+  `prompt=select_account`, `scope=openid email profile` e o `code_challenge` do PKCE em `S256`.
+  **Não grava nada no banco** — o `state` e o verificador do PKCE viajam em cookie.
 - **O `state` é um cookie, não uma linha.** `clinicore_oauth_state` guarda 32 bytes aleatórios em
   base64url, `HttpOnly`, `Path=/oauth/google`, `Max-Age=600`, `SameSite=Lax`, e `Secure` em produção.
   `Lax` basta porque a volta do Google é uma navegação `GET` de topo, que carrega cookie `Lax`. O
   `state` da query é comparado com o do cookie em `crypto.timingSafeEqual`; diferente ou ausente,
   `302` para `${APP_ORIGIN}/login?error=INVALID_STATE`.
+- **O verificador do PKCE é um segundo cookie**, `clinicore_oauth_verifier`, com os mesmos atributos
+  do `clinicore_oauth_state`. A troca do `code` o envia como `code_verifier`, então um `code`
+  interceptado não vira sessão sem o cookie de quem começou o fluxo. Sem ele, a resposta é a mesma
+  `INVALID_STATE`. O callback apaga os dois cookies em toda resposta.
 - A implementação é `@nestjs/passport` com `passport-google-oauth20`, e o `state` é guardado por um
   `store` próprio sobre o cookie — `passport-oauth2` aceita um `store` e é isso que dispensa
   `express-session`. A URL de callback registrada no Google Cloud Console é
@@ -352,6 +356,13 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - Entrar com Google num e-mail que já tem cadastro por senha **vincula** o provedor à conta existente:
   nasce uma linha em `account` com `provider = "google"` apontando para o mesmo `userId`, e nenhum
   `user` novo é criado. Entrar com a senha original continua funcionando.
+- **A conta é procurada pelo `sub` do Google antes do e-mail**, então quem já vinculou continua
+  entrando na mesma conta depois de trocar o endereço no Google. Um usuário que já tem outro `sub`
+  vinculado recebe `PROVIDER_ERROR`.
+- **Vincular a uma conta cujo e-mail nunca foi confirmado apaga a senha dela**: a linha `credential`
+  some, os tokens de verificação pendentes são consumidos, o nome e a foto passam a ser os do Google
+  e o e-mail passa a verificado, na mesma transação do vínculo. Quem cadastrou o endereço de outra pessoa com a própria senha não entra na
+  conta que o dono abriu pelo Google; o dono ganha senha pelo reset (regra 7).
 - E-mail sem cadastro nenhum: `user` e `account` são criados na mesma transação, com
   `emailVerified = true`.
 - **Nenhum token do Google é guardado.** O `access_token` e o `refresh_token` da troca são descartados
@@ -492,10 +503,12 @@ Uma senha é aceita quando cumpre **todas** as condições:
   | `/email-verifications/confirmation` | a faixa de rede do IP: /48 no IPv6, /24 no IPv4 | 60 s | 300 |
   | `/password-resets/confirmation` | a faixa de rede do IP: /48 no IPv6, /24 no IPv4 | 60 s | 300 |
   | `/users/me/password` | falhas da senha atual por usuário, além da sessão | 15 min | 10 |
+  | `/oauth/google` e `/oauth/google/callback` | a faixa de rede do IP: /48 no IPv6, /24 no IPv4 | 60 s | 300 |
   | `/users`, `/email-verifications`, `/password-resets` | o endereço, pela regra 15 | — | — |
 
-- **As duas confirmações são as únicas com a segunda chave saindo do IP.** O corpo delas só traz o token, e o e-mail só
-  aparece quando o token é válido, então nenhuma identidade conta um palpite. A faixa de rede pega quem
+- **As duas confirmações e as duas rotas do Google são as únicas com a segunda chave saindo do IP.** O corpo das
+  confirmações só traz o token, e o e-mail só aparece quando o token é válido; as rotas do Google são
+  navegação pública, sem identidade nenhuma. Nenhuma delas tem o que contar por palpite. A faixa de rede pega quem
   troca de endereço dentro da mesma rede, e um teto total da rota deixaria um cliente só travar a
   confirmação de todo mundo.
 
@@ -941,8 +954,8 @@ E entrar com a senha original continua funcionando
 ```gherkin
 Dado a contagem de linhas de todas as tabelas do schema público
 Quando é feita a requisição `GET /oauth/google` 3 vezes
-Então cada resposta é `302` para `accounts.google.com`, com `prompt=select_account`
-E cada resposta traz o cookie `clinicore_oauth_state` com `HttpOnly`, `Path=/oauth/google` e `Max-Age=600`
+Então cada resposta é `302` para `accounts.google.com`, com `prompt=select_account` e `code_challenge_method=S256`
+E cada resposta traz os cookies `clinicore_oauth_state` e `clinicore_oauth_verifier` com `HttpOnly`, `Path=/oauth/google` e `Max-Age=600`
 E nenhuma tabela ganhou linha
 ```
 
@@ -1190,6 +1203,29 @@ Dado o banco com todas as migrations aplicadas
 Quando `typeorm migration:generate` é executado apontando para um caminho temporário
 Então esse caminho continua não existindo
 E o step do CI falha se ele passar a existir
+```
+
+### Cenário 36 — Google numa conta nunca confirmada apaga a senha de quem a cadastrou (exceção, regra 6)
+
+```gherkin
+Dado um usuário não verificado com `email = "ana@exemplo.com"` e uma linha em `account` com `provider = "credential"`
+E os endpoints do Google substituídos, devolvendo esse e-mail com `email_verified = true`
+Quando o fluxo do Google é concluído com o `state` e os cookies corretos
+Então o sistema responde `302` para `http://localhost:3000/app`, com os dois cookies de sessão
+E o usuário passa a `emailVerified = true`, com o nome e a foto do Google, e nenhum `user` novo é criado
+E a linha em `account` com `provider = "credential"` deixa de existir
+E entrar com a senha do cadastro responde `401 INVALID_CREDENTIALS`
+```
+
+### Cenário 37 — Google cria a conta de um e-mail sem cadastro (caminho feliz, regra 6)
+
+```gherkin
+Dado nenhum usuário com `email = "ana@exemplo.com"`
+E os endpoints do Google substituídos, devolvendo `email = "ANA@EXEMPLO.COM"` com `email_verified = true`
+Quando o fluxo do Google é concluído com o `state` e os cookies corretos
+Então o sistema responde `302` para `http://localhost:3000/app`
+E existe um `user` com o e-mail em minúsculas, `emailVerified = true`, e o nome e a foto do Google
+E existe uma linha em `account` com `provider = "google"` e nenhuma com `provider = "credential"`
 ```
 
 ---

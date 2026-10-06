@@ -18,6 +18,7 @@ PostgreSQL e com o Redis, e é onde mora toda a regra de negócio.
 | `users` | `crates/app/src/users/` | o cadastro, em `POST /users` |
 | `email_verifications` | `crates/app/src/email_verifications/` | o envio e a confirmação do link de e-mail |
 | `sessions` | `crates/app/src/sessions/` | login, leitura da sessão, refresh e logout, com os tokens em `tokens/` |
+| `oauth` | `crates/app/src/oauth/` | o login com Google por OAuth 2.0 com PKCE e o vínculo com a conta do mesmo e-mail |
 | `credentials` | `crates/app/src/credentials/` | hash de senha em Argon2 e segredo aleatório, usados por várias features |
 | Purga | `crates/app/src/purge.rs` | apaga, de hora em hora, sessão, verificação e registro de envio vencidos |
 | Telemetria | `crates/app/src/telemetry.rs` | o subscriber do `tracing` |
@@ -38,6 +39,8 @@ pastas novas em `crates/app/src/`, no M1.
 | `GET /sessions/current` | lê o usuário da sessão |
 | `DELETE /sessions/current` | sai e revoga a sessão |
 | `POST /sessions/current/tokens` | rotaciona o refresh token |
+| `GET /oauth/google` | redireciona o navegador para o login do Google |
+| `GET /oauth/google/callback` | recebe a volta do Google, vincula ou cria a conta e abre a sessão web |
 
 Fora de produção, o documento OpenAPI fica em `/api-json` e a interface dele em `/api`.
 

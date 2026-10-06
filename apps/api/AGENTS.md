@@ -77,6 +77,8 @@ crates/
     │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  emails.rs  error.rs
     │   ├── password_resets/                         o link de redefinição de senha
     │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  emails.rs  error.rs
+    │   ├── oauth/                                   o login com Google e o vínculo com a conta
+    │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  google.rs  cookies.rs  error.rs
     │   └── sessions/                                login, refresh e logout
     │       ├── mod.rs                               routes(): o Router, que liga URL e handler
     │       ├── handlers.rs                          recebe o request, chama o service, devolve o status
@@ -92,6 +94,7 @@ crates/
         ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  purge.rs  request_log.rs
         ├── users/  mod.rs  sign_up.rs  change_password.rs
         ├── email_verifications/  mod.rs  confirmation.rs
+        ├── oauth/  mod.rs  google_sign_in.rs
         ├── password_resets/  mod.rs  request.rs  confirmation.rs
         └── sessions/  mod.rs  sign_in.rs  current_session.rs  refresh.rs
 migrations/  .sqlx/
@@ -112,7 +115,7 @@ migrations/  .sqlx/
 - **A camada nasce quando tem conteúdo.** Uma leitura simples vai do handler direto à consulta. O
   `service.rs` existe quando há decisão: regra de negócio, mais de uma escrita ou efeito colateral.
   Nenhum service só repassa a chamada.
-- **O estado da API é o `AppState`**, com o pool, o Redis, o `Mailer` e o que a configuração entrega
+- **O estado da API é o `AppState`**, com o pool, o Redis, o `Mailer`, o `GoogleClient` e o que a configuração entrega
   às features. O handler recebe `State<AppState>`, e o service e a consulta recebem o que usam.
 - **O `core` monta o e-mail e a feature escreve o texto.** O layout é o `askama`, em
   `crates/core/templates/`, e o `mail::compose` o renderiza; o conteúdo de cada e-mail mora em
@@ -128,7 +131,7 @@ migrations/  .sqlx/
   por rota no `CurrentSession` (sessão, método e `MatchedPath`), a sessão do refresh e as falhas de
   senha por e-mail no service, as falhas da senha atual por usuário na troca de senha, e a faixa de
   rede nas duas confirmações (`network_key`: /48 no IPv6, /24 no IPv4), porque o corpo delas só traz
-  o token. As rotas que mandam e-mail têm a segunda no `email_dispatches`. Rota nova limitada nasce com as duas.
+  o token, e nas duas rotas do Google, que são navegação pública sem identidade. As rotas que mandam e-mail têm a segunda no `email_dispatches`. Rota nova limitada nasce com as duas.
 - **Rota nasce com `routes!` do `utoipa-axum` num `OpenApiRouter`** (ADR 0011), nunca com o `route`
   do axum, então a rota não existe sem o `#[utoipa::path]`. O header `Clinicore-Client` e as respostas
   dos guards (400, 403, 429, 503) entram sozinhos pelo `document_guards`; o handler declara só as
@@ -276,6 +279,12 @@ migrations/  .sqlx/
 - **O binário em dev envia e-mail de verdade.** O `cargo run` sob o `infisical run` liga o SMTP real, sem
   stub, e toda rota que manda e-mail entrega. Teste à mão usa só endereço `@example.com`, que é
   reservado; `exemplo.com` não é.
+- **O `oauth2` 5.0.0 só aceita o `reqwest` 0.12, e é ele que a API usa**, pelo reexport `oauth2::reqwest`.
+  Um `reqwest` próprio no `Cargo.toml` põe duas versões no binário. O reexport vem sem a feature
+  `json`, então o perfil do Google é lido com `bytes()` e `serde_json`.
+- **Os endpoints do Google são o `GoogleEndpoints`, e não variável de ambiente.** O binário usa o
+  `GoogleEndpoints::production()`, e o teste sobe um axum em `127.0.0.1:0` e o passa ao `GoogleClient`
+  pelo `app_with_google` do `support.rs`.
 - **O bind em `::` entrega o IPv4 como `::ffff:a.b.c.d`.** O `ClientAddress` de `http/client.rs`
   passa o endereço por `to_canonical()`, e o limite agrupa o IPv6 em /64 antes de montar a chave.
 - **O `MockConnectInfo` do axum não põe `ConnectInfo` nas extensions**, só o extractor o enxerga. O

@@ -3,8 +3,8 @@
 SaaS de gestão para clínicas odontológicas: agenda, prontuário clínico e estético, financeiro, estoque e
 laboratório num só lugar, multi-tenant, para redes de clínicas e dentistas autônomos.
 
-> **Em desenvolvimento.** A API é escrita em Rust e já tem cadastro, confirmação de e-mail, sessão e
-> redefinição de senha. O login com Google vem a seguir (#120), e depois os módulos de produto.
+> **Em desenvolvimento.** A API é escrita em Rust e já tem cadastro, confirmação de e-mail, sessão,
+> redefinição de senha e login com Google. Os módulos de produto vêm a seguir.
 
 ## Motivação
 

@@ -6,6 +6,7 @@ mod credentials;
 mod email_dispatches;
 mod email_verifications;
 mod health;
+mod oauth;
 mod password_resets;
 mod sessions;
 mod users;
@@ -25,22 +26,32 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
+pub use oauth::google::{GoogleClient, GoogleEndpoints};
+
 #[derive(Clone)]
 pub struct AppState {
     pool: PgPool,
     redis: Redis,
     mailer: Mailer,
+    google: GoogleClient,
     app_origin: String,
     access_keys: sessions::AccessKeys,
     secure_cookies: bool,
 }
 
 impl AppState {
-    pub fn new(config: &Config, pool: PgPool, redis: Redis, mailer: Mailer) -> Self {
+    pub fn new(
+        config: &Config,
+        pool: PgPool,
+        redis: Redis,
+        mailer: Mailer,
+        google: GoogleClient,
+    ) -> Self {
         Self {
             pool,
             redis,
             mailer,
+            google,
             app_origin: config.app_origin.clone(),
             access_keys: sessions::AccessKeys::new(&config.jwt_secret),
             secure_cookies: config.api_url.starts_with("https://"),
@@ -67,6 +78,7 @@ fn guarded_routes(state: &AppState) -> OpenApiRouter {
     let mut router = OpenApiRouter::new().merge(users::routes(state)).merge(
         OpenApiRouter::new()
             .merge(email_verifications::routes(state))
+            .merge(oauth::routes(state))
             .merge(password_resets::routes(state))
             .merge(sessions::routes(state))
             .layer(SetResponseHeaderLayer::overriding(

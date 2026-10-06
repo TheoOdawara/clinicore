@@ -1,7 +1,6 @@
 # Account
 
-Um jeito de um usuário provar quem é: a senha, ou a conta Google dele. Marco: a credencial existe; o
-Google entra no M1, com a #120.
+Um jeito de um usuário provar quem é: a senha, ou a conta Google dele. Marco: existe.
 
 | Atributo | Tipo | Obrigatório | Domínio · regra |
 | --- | --- | --- | --- |
