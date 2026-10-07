@@ -1,28 +1,33 @@
 use std::time::Duration;
 
 use clinicore_core::config::Config;
-use oauth2::basic::{BasicClient, BasicRequestTokenError};
-use oauth2::url::ParseError;
-use oauth2::{
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, EndpointNotSet, EndpointSet,
-    HttpClientError, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenResponse,
-    TokenUrl, reqwest,
+use openidconnect::core::{
+    CoreAuthenticationFlow, CoreClient, CoreIdTokenVerifier, CoreJsonWebKeySet,
+    CoreRequestTokenError,
 };
-use serde::Deserialize;
+use openidconnect::url::ParseError;
+use openidconnect::{
+    AuthUrl, AuthorizationCode, ClaimsVerificationError, ClientId, ClientSecret, CsrfToken,
+    DiscoveryError, EndpointNotSet, EndpointSet, HttpClientError, IssuerUrl, JsonWebKeySetUrl,
+    Nonce, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, Scope, TokenResponse, TokenUrl,
+    reqwest,
+};
 
 #[derive(Clone)]
 pub struct GoogleEndpoints {
+    pub issuer: String,
     pub authorization: String,
     pub token: String,
-    pub userinfo: String,
+    pub keys: String,
 }
 
 impl GoogleEndpoints {
     pub fn production() -> Self {
         Self {
+            issuer: "https://accounts.google.com".to_string(),
             authorization: "https://accounts.google.com/o/oauth2/v2/auth".to_string(),
             token: "https://oauth2.googleapis.com/token".to_string(),
-            userinfo: "https://www.googleapis.com/oauth2/v3/userinfo".to_string(),
+            keys: "https://www.googleapis.com/oauth2/v3/certs".to_string(),
         }
     }
 }
@@ -38,25 +43,27 @@ pub enum GoogleClientError {
 #[derive(Debug, thiserror::Error)]
 pub enum GoogleError {
     #[error(transparent)]
-    CodeExchange(#[from] BasicRequestTokenError<HttpClientError<reqwest::Error>>),
+    CodeExchange(#[from] CoreRequestTokenError<HttpClientError<reqwest::Error>>),
+    #[error("the token response carries no ID token")]
+    MissingIdToken,
     #[error(transparent)]
-    Userinfo(#[from] reqwest::Error),
+    Keys(#[from] DiscoveryError<HttpClientError<reqwest::Error>>),
     #[error(transparent)]
-    Profile(#[from] serde_json::Error),
+    Claims(#[from] ClaimsVerificationError),
+    #[error("the ID token carries no email")]
+    MissingEmail,
 }
 
 pub struct Authorization {
     pub url: String,
     pub state: String,
     pub verifier: String,
+    pub nonce: String,
 }
 
-#[derive(Deserialize)]
 pub struct GoogleProfile {
-    #[serde(rename = "sub")]
     pub subject: String,
     pub email: String,
-    #[serde(default)]
     pub email_verified: bool,
     pub name: Option<String>,
     pub picture: Option<String>,
@@ -64,19 +71,32 @@ pub struct GoogleProfile {
 
 #[derive(Clone)]
 pub struct GoogleClient {
-    flow: BasicClient<EndpointSet, EndpointNotSet, EndpointNotSet, EndpointNotSet, EndpointSet>,
+    flow: CoreClient<
+        EndpointSet,
+        EndpointNotSet,
+        EndpointNotSet,
+        EndpointNotSet,
+        EndpointSet,
+        EndpointNotSet,
+    >,
     http: reqwest::Client,
-    userinfo: String,
+    issuer: IssuerUrl,
+    keys: JsonWebKeySetUrl,
 }
 
 impl GoogleClient {
     pub fn new(config: &Config, endpoints: GoogleEndpoints) -> Result<Self, GoogleClientError> {
+        let issuer = IssuerUrl::new(endpoints.issuer)?;
         let callback = format!("{}/oauth/google/callback", config.api_url);
-        let flow = BasicClient::new(ClientId::new(config.google_client_id.clone()))
-            .set_client_secret(ClientSecret::new(config.google_client_secret.clone()))
-            .set_auth_uri(AuthUrl::new(endpoints.authorization)?)
-            .set_token_uri(TokenUrl::new(endpoints.token)?)
-            .set_redirect_uri(RedirectUrl::new(callback)?);
+        let flow = CoreClient::new(
+            ClientId::new(config.google_client_id.clone()),
+            issuer.clone(),
+            CoreJsonWebKeySet::new(Vec::new()),
+        )
+        .set_client_secret(ClientSecret::new(config.google_client_secret.clone()))
+        .set_auth_uri(AuthUrl::new(endpoints.authorization)?)
+        .set_token_uri(TokenUrl::new(endpoints.token)?)
+        .set_redirect_uri(RedirectUrl::new(callback)?);
         let http = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(10))
@@ -84,16 +104,20 @@ impl GoogleClient {
         Ok(Self {
             flow,
             http,
-            userinfo: endpoints.userinfo,
+            issuer,
+            keys: JsonWebKeySetUrl::new(endpoints.keys)?,
         })
     }
 
     pub fn authorization(&self) -> Authorization {
         let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
-        let (url, state) = self
+        let (url, state, nonce) = self
             .flow
-            .authorize_url(|| CsrfToken::new_random_len(32))
-            .add_scope(Scope::new("openid".to_string()))
+            .authorize_url(
+                CoreAuthenticationFlow::AuthorizationCode,
+                || CsrfToken::new_random_len(32),
+                || Nonce::new_random_len(32),
+            )
             .add_scope(Scope::new("email".to_string()))
             .add_scope(Scope::new("profile".to_string()))
             .add_extra_param("prompt", "select_account")
@@ -103,6 +127,7 @@ impl GoogleClient {
             url: url.into(),
             state: state.into_secret(),
             verifier: verifier.into_secret(),
+            nonce: nonce.secret().clone(),
         }
     }
 
@@ -110,22 +135,36 @@ impl GoogleClient {
         &self,
         code: String,
         verifier: String,
+        nonce: String,
     ) -> Result<GoogleProfile, GoogleError> {
+        // ponytail: fetches Google's signing keys on every sign-in, so a sign-in costs one more request and fails while that endpoint is down; cache them by the response's Cache-Control max-age, refetching on an unknown key id, when either matters
+        let keys = CoreJsonWebKeySet::fetch_async(&self.keys, &self.http).await?;
         let token = self
             .flow
             .exchange_code(AuthorizationCode::new(code))
             .set_pkce_verifier(PkceCodeVerifier::new(verifier))
             .request_async(&self.http)
             .await?;
-        let profile = self
-            .http
-            .get(&self.userinfo)
-            .bearer_auth(token.access_token().secret())
-            .send()
-            .await?
-            .error_for_status()?
-            .bytes()
-            .await?;
-        Ok(serde_json::from_slice(&profile)?)
+        let id_token = token.id_token().ok_or(GoogleError::MissingIdToken)?;
+        let id_token_verifier = CoreIdTokenVerifier::new_public_client(
+            self.flow.client_id().clone(),
+            self.issuer.clone(),
+            keys,
+        );
+        let claims = id_token.claims(&id_token_verifier, &Nonce::new(nonce))?;
+        let email = claims.email().ok_or(GoogleError::MissingEmail)?;
+        Ok(GoogleProfile {
+            subject: claims.subject().to_string(),
+            email: email.to_string(),
+            email_verified: claims.email_verified().unwrap_or(false),
+            name: claims
+                .name()
+                .and_then(|name| name.get(None))
+                .map(|name| name.to_string()),
+            picture: claims
+                .picture()
+                .and_then(|picture| picture.get(None))
+                .map(|picture| picture.to_string()),
+        })
     }
 }

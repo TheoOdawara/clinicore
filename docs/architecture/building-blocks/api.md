@@ -18,7 +18,7 @@ PostgreSQL e com o Redis, e é onde mora toda a regra de negócio.
 | `users` | `crates/app/src/users/` | o cadastro, em `POST /users` |
 | `email_verifications` | `crates/app/src/email_verifications/` | o envio e a confirmação do link de e-mail |
 | `sessions` | `crates/app/src/sessions/` | login, leitura da sessão, refresh e logout, com os tokens em `tokens/` |
-| `oauth` | `crates/app/src/oauth/` | o login com Google por OAuth 2.0 com PKCE e o vínculo com a conta do mesmo e-mail |
+| `oauth` | `crates/app/src/oauth/` | o login com Google por OpenID Connect com PKCE, com o `id_token` conferido, e o vínculo com a conta do mesmo e-mail |
 | `credentials` | `crates/app/src/credentials/` | hash de senha em Argon2 e segredo aleatório, usados por várias features |
 | Purga | `crates/app/src/purge.rs` | apaga, de hora em hora, sessão, verificação e registro de envio vencidos |
 | Telemetria | `crates/app/src/telemetry.rs` | o subscriber do `tracing` |

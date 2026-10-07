@@ -335,8 +335,8 @@ Uma senha é aceita quando cumpre **todas** as condições:
 ### 6. Google e senha são a mesma conta
 
 - `GET /oauth/google` monta a URL de autorização do Google e responde `302` para ela, com
-  `prompt=select_account`, `scope=openid email profile` e o `code_challenge` do PKCE em `S256`.
-  **Não grava nada no banco** — o `state` e o verificador do PKCE viajam em cookie.
+  `prompt=select_account`, `scope=openid email profile`, o `code_challenge` do PKCE em `S256` e um
+  `nonce`. **Não grava nada no banco** — o `state`, o verificador do PKCE e o `nonce` viajam em cookie.
 - **O `state` é um cookie, não uma linha.** `clinicore_oauth_state` guarda 32 bytes aleatórios em
   base64url, `HttpOnly`, `Path=/oauth/google`, `Max-Age=600`, `SameSite=Lax`, e `Secure` em produção.
   `Lax` basta porque a volta do Google é uma navegação `GET` de topo, que carrega cookie `Lax`. O
@@ -345,7 +345,13 @@ Uma senha é aceita quando cumpre **todas** as condições:
 - **O verificador do PKCE é um segundo cookie**, `clinicore_oauth_verifier`, com os mesmos atributos
   do `clinicore_oauth_state`. A troca do `code` o envia como `code_verifier`, então um `code`
   interceptado não vira sessão sem o cookie de quem começou o fluxo. Sem ele, a resposta é a mesma
-  `INVALID_STATE`. O callback apaga os dois cookies em toda resposta.
+  `INVALID_STATE`.
+- **O `nonce` é um terceiro cookie**, `clinicore_oauth_nonce`, com os mesmos atributos. Sem ele, a
+  resposta é `INVALID_STATE`. O callback apaga os três cookies em toda resposta.
+- **O perfil vem do `id_token` da troca do `code`, e não do `userinfo`.** A API confere a assinatura
+  RS256 com as chaves públicas do Google, baixadas a cada login, e confere o emissor, a audiência
+  (`GOOGLE_CLIENT_ID`), a expiração e o `nonce` contra o cookie. Qualquer falha é
+  `302` para `${APP_ORIGIN}/login?error=PROVIDER_ERROR`.
 - A implementação é `@nestjs/passport` com `passport-google-oauth20`, e o `state` é guardado por um
   `store` próprio sobre o cookie — `passport-oauth2` aceita um `store` e é isso que dispensa
   `express-session`. A URL de callback registrada no Google Cloud Console é
@@ -365,7 +371,7 @@ Uma senha é aceita quando cumpre **todas** as condições:
   conta que o dono abriu pelo Google; o dono ganha senha pelo reset (regra 7).
 - E-mail sem cadastro nenhum: `user` e `account` são criados na mesma transação, com
   `emailVerified = true`.
-- **Nenhum token do Google é guardado.** O `access_token` e o `refresh_token` da troca são descartados
+- **Nenhum token do Google é guardado.** O `access_token`, o `refresh_token` e o `id_token` da troca são descartados
   depois de lido o perfil; a API não chama API nenhuma do Google depois do login. Por isso a tabela
   `account` não tem coluna de token.
 - O callback cria a sessão, aplica a regra 16 e responde `302` para `${APP_ORIGIN}/app` com os dois
@@ -788,8 +794,8 @@ Duas fronteiras externas são substituídas, e nenhuma outra:
 - **o transport do Nodemailer**, por um duplo que enfileira as mensagens em memória, para que o teste
   conte os envios e leia o token do link;
 - **os endpoints do Google** — `https://oauth2.googleapis.com/token` e
-  `https://www.googleapis.com/oauth2/v3/userinfo` —, por `nock`, porque o `passport-oauth2` faz essa
-  troca pelo módulo `https` do Node e não pelo `fetch` global.
+  `https://www.googleapis.com/oauth2/v3/certs` —, por um servidor local que assina o `id_token` com
+  uma chave de teste e publica a chave pública dela.
 
 ### Cenário 1 — Cadastro cria o usuário e envia o link (caminho feliz, regras 5 e 12)
 
@@ -939,8 +945,8 @@ E o mesmo vale para `redirectTo` em `POST /password-resets`
 
 ```gherkin
 Dado um usuário verificado com `email = "ana@exemplo.com"` e uma linha em `account` com `provider = "credential"`
-E os endpoints do Google substituídos, devolvendo `sub = "google-ana"`, `email = "ana@exemplo.com"` e `email_verified = true`
-Quando é feita a requisição `GET /oauth/google` e guardado o cookie `clinicore_oauth_state`
+E os endpoints do Google substituídos, devolvendo um `id_token` com `sub = "google-ana"`, `email = "ana@exemplo.com"` e `email_verified = true`
+Quando é feita a requisição `GET /oauth/google` e guardados os três cookies do fluxo
 E é feita a requisição `GET /oauth/google/callback` com o `state` da URL de autorização, um `code` qualquer e esse cookie
 Então o sistema responde `302` para `http://localhost:3000/app`, com os dois cookies de sessão
 E continua existindo exatamente uma linha em `user` com esse e-mail
@@ -954,8 +960,8 @@ E entrar com a senha original continua funcionando
 ```gherkin
 Dado a contagem de linhas de todas as tabelas do schema público
 Quando é feita a requisição `GET /oauth/google` 3 vezes
-Então cada resposta é `302` para `accounts.google.com`, com `prompt=select_account` e `code_challenge_method=S256`
-E cada resposta traz os cookies `clinicore_oauth_state` e `clinicore_oauth_verifier` com `HttpOnly`, `Path=/oauth/google` e `Max-Age=600`
+Então cada resposta é `302` para `accounts.google.com`, com `prompt=select_account`, `code_challenge_method=S256` e `nonce`
+E cada resposta traz os cookies `clinicore_oauth_state`, `clinicore_oauth_verifier` e `clinicore_oauth_nonce` com `HttpOnly`, `Path=/oauth/google` e `Max-Age=600`
 E nenhuma tabela ganhou linha
 ```
 
@@ -967,6 +973,7 @@ Quando `GET /oauth/google/callback` é chamado com um `state` diferente do cooki
 Então o sistema responde `302` para `http://localhost:3000/login?error=INVALID_STATE`
 E chamado sem o cookie `clinicore_oauth_state` responde o mesmo
 E com o `state` correto mas `email_verified` falso responde `302` para `http://localhost:3000/login?error=UNVERIFIED_PROVIDER_EMAIL`
+E com um `id_token` de audiência de outro client ID, de `nonce` diferente do cookie ou de assinatura adulterada responde `302` para `http://localhost:3000/login?error=PROVIDER_ERROR`
 E nenhuma linha é gravada em `user`, `account` ou `session`
 ```
 

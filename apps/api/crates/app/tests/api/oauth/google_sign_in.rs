@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
-use super::{callback, fake_google, sign_in_with_google, start};
+use super::{IdToken, OAUTH_COOKIES, callback, fake_google, sign_in_with_google, start};
 use crate::sessions::sign_in;
 use crate::support::{
     PASSWORD, app_with, app_with_google, count, fresh_email, register, send, set_cookie,
@@ -45,11 +45,12 @@ async fn starting_the_google_sign_in_writes_nothing(pool: PgPool) {
             "scope=openid+email+profile",
             "code_challenge_method=S256",
             "code_challenge=",
+            "nonce=",
             "redirect_uri=http%3A%2F%2Flocalhost%3A3333%2Foauth%2Fgoogle%2Fcallback",
         ] {
             assert!(location.contains(expected), "{location}");
         }
-        for name in ["clinicore_oauth_state", "clinicore_oauth_verifier"] {
+        for name in OAUTH_COOKIES {
             let cookie = set_cookie(&response, name).unwrap_or_else(|| panic!("a {name} cookie"));
             for expected in [
                 "HttpOnly",
@@ -69,16 +70,17 @@ async fn starting_the_google_sign_in_writes_nothing(pool: PgPool) {
 #[sqlx::test(migrations = "../../migrations")]
 async fn google_links_to_the_existing_account(pool: PgPool) {
     let email = fresh_email();
-    let app = app_with_google(&pool, fake_google(profile(&email, true)).await);
+    let google = fake_google(IdToken::Genuine, profile(&email, true)).await;
+    let app = app_with_google(&pool, google.endpoints.clone());
     register(&app, &pool, &email, true).await;
 
-    let response = sign_in_with_google(&app).await;
+    let response = sign_in_with_google(&app, &google).await;
 
     assert_eq!(response.status(), StatusCode::FOUND);
     assert_eq!(response.headers()["location"], "http://localhost:3000/app");
     assert!(set_cookie(&response, "clinicore_access").is_some());
     assert!(set_cookie(&response, "clinicore_refresh").is_some());
-    for name in ["clinicore_oauth_state", "clinicore_oauth_verifier"] {
+    for name in OAUTH_COOKIES {
         let cleared = set_cookie(&response, name).unwrap_or_else(|| panic!("a {name} cookie"));
         assert!(cleared.contains("Max-Age=0"), "{cleared}");
     }
@@ -97,18 +99,19 @@ async fn google_links_to_the_existing_account(pool: PgPool) {
     let with_password = sign_in(&app, &email, PASSWORD, &[]).await;
     assert_eq!(with_password.status(), StatusCode::CREATED);
 
-    let again = sign_in_with_google(&app).await;
+    let again = sign_in_with_google(&app, &google).await;
     assert_eq!(again.headers()["location"], "http://localhost:3000/app");
     assert_eq!(count(&pool, GOOGLE_ACCOUNTS).await, 1);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_tampered_state_and_an_unverified_google_email_are_refused(pool: PgPool) {
+async fn a_tampered_state_an_unverified_email_and_an_invalid_id_token_are_refused(pool: PgPool) {
     let email = fresh_email();
-    let app = app_with_google(&pool, fake_google(profile(&email, false)).await);
+    let google = fake_google(IdToken::Genuine, profile(&email, false)).await;
+    let app = app_with_google(&pool, google.endpoints.clone());
     let invalid_state = "http://localhost:3000/login?error=INVALID_STATE";
 
-    let started = start(&app).await;
+    let started = start(&app, &google).await;
     let tampered = callback(&app, "another-state", Some(&started.cookies)).await;
     assert_eq!(tampered.status(), StatusCode::FOUND);
     assert_eq!(tampered.headers()["location"], invalid_state);
@@ -124,18 +127,31 @@ async fn a_tampered_state_and_an_unverified_google_email_are_refused(pool: PgPoo
     );
     assert!(set_cookie(&unverified, "clinicore_access").is_none());
 
+    for id_token in [
+        IdToken::ForAnotherClient,
+        IdToken::WithAnotherNonce,
+        IdToken::Forged,
+    ] {
+        let google = fake_google(id_token, profile(&email, true)).await;
+        let app = app_with_google(&pool, google.endpoints.clone());
+        let refused = sign_in_with_google(&app, &google).await;
+        assert_eq!(
+            refused.headers()["location"],
+            "http://localhost:3000/login?error=PROVIDER_ERROR",
+            "{id_token:?}"
+        );
+    }
+
     assert_eq!(count(&pool, ROWS).await, 0);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn google_creates_the_account_of_a_new_email(pool: PgPool) {
     let email = fresh_email();
-    let app = app_with_google(
-        &pool,
-        fake_google(profile(&email.to_uppercase(), true)).await,
-    );
+    let google = fake_google(IdToken::Genuine, profile(&email.to_uppercase(), true)).await;
+    let app = app_with_google(&pool, google.endpoints.clone());
 
-    let response = sign_in_with_google(&app).await;
+    let response = sign_in_with_google(&app, &google).await;
 
     assert_eq!(response.headers()["location"], "http://localhost:3000/app");
     let created: (String, bool, Option<String>) =
@@ -165,10 +181,11 @@ async fn linking_google_to_an_unverified_account_drops_its_password(pool: PgPool
     let email = fresh_email();
     let mut owner_profile = profile(&email, true);
     owner_profile["name"] = json!("Maria Lima");
-    let app = app_with_google(&pool, fake_google(owner_profile).await);
+    let google = fake_google(IdToken::Genuine, owner_profile).await;
+    let app = app_with_google(&pool, google.endpoints.clone());
     register(&app, &pool, &email, false).await;
 
-    let response = sign_in_with_google(&app).await;
+    let response = sign_in_with_google(&app, &google).await;
 
     assert_eq!(response.headers()["location"], "http://localhost:3000/app");
     assert_eq!(count(&pool, USERS).await, 1);

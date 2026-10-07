@@ -31,8 +31,9 @@ O `sqlx-cli` é instalado com
 `cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls`,
 a mesma versão do job `api` do CI, e o `cargo-audit` com
 `cargo install cargo-audit --version 0.22.2 --locked`. **A RUSTSEC-2023-0071 é ignorada** porque o
-`rsa` vem do backend `rust_crypto` do `jsonwebtoken`, e a API só assina e confere HS256, sem chave RSA
-para o ataque de tempo alcançar. O `compose.yaml` sobe o Postgres 18 e o Redis 8 de
+ataque de tempo dela alcança operação com chave privada RSA, e a API não tem nenhuma: o `rsa` vem do
+`jsonwebtoken`, que só assina e confere HS256, e do `openidconnect`, que só confere a assinatura RS256
+do `id_token` com a chave pública do Google. O `compose.yaml` sobe o Postgres 18 e o Redis 8 de
 desenvolvimento com `infisical run --path=/api -- docker compose up -d --wait`, e as portas e as credenciais vêm do
 Infisical.
 
@@ -279,12 +280,17 @@ migrations/  .sqlx/
 - **O binário em dev envia e-mail de verdade.** O `cargo run` sob o `infisical run` liga o SMTP real, sem
   stub, e toda rota que manda e-mail entrega. Teste à mão usa só endereço `@example.com`, que é
   reservado; `exemplo.com` não é.
-- **O `oauth2` 5.0.0 só aceita o `reqwest` 0.12, e é ele que a API usa**, pelo reexport `oauth2::reqwest`.
-  Um `reqwest` próprio no `Cargo.toml` põe duas versões no binário. O reexport vem sem a feature
-  `json`, então o perfil do Google é lido com `bytes()` e `serde_json`.
-- **Os endpoints do Google são o `GoogleEndpoints`, e não variável de ambiente.** O binário usa o
-  `GoogleEndpoints::production()`, e o teste sobe um axum em `127.0.0.1:0` e o passa ao `GoogleClient`
-  pelo `app_with_google` do `support.rs`.
+- **O `openidconnect` 4.0.1 vem sobre o `oauth2` 5.0.0, que só aceita o `reqwest` 0.12, e é ele que a
+  API usa**, pelo reexport `openidconnect::reqwest`. Um `reqwest` próprio no `Cargo.toml` põe duas
+  versões no binário.
+- **As chaves públicas do Google são baixadas a cada login**, e não ficam em env nem em cache: o Google
+  as troca sozinho. O `CoreClient` nasce com um conjunto de chaves vazio, então o `id_token_verifier()`
+  dele recusa todo token: o verificador é montado por login, com as chaves baixadas, e as chaves são
+  baixadas antes de o `code` ser trocado, para uma falha nelas não gastar o `code`. Sem discovery, para o boot não depender do Google.
+- **Os endpoints do Google são o `GoogleEndpoints`, e não variável de ambiente**: emissor, autorização,
+  token e chaves são iguais em todo ambiente. O binário usa o `GoogleEndpoints::production()`, e o
+  teste sobe um axum em `127.0.0.1:0`, que assina o `id_token` com a chave de teste de
+  `tests/api/oauth/google_test_key.der`, e o passa ao `GoogleClient` pelo `app_with_google` do `support.rs`.
 - **O bind em `::` entrega o IPv4 como `::ffff:a.b.c.d`.** O `ClientAddress` de `http/client.rs`
   passa o endereço por `to_canonical()`, e o limite agrupa o IPv6 em /64 antes de montar a chave.
 - **O `MockConnectInfo` do axum não põe `ConnectInfo` nas extensions**, só o extractor o enxerga. O

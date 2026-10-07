@@ -26,12 +26,13 @@ pub async fn complete(
     query: CallbackQuery,
     issued_state: Option<&str>,
     verifier: Option<&str>,
+    nonce: Option<&str>,
 ) -> Result<SessionTokens, OAuthError> {
     let network = rate_limit::network_key(ClientAddress(device.ip_address));
     rate_limit::enforce(&state.redis, NETWORK_REQUESTS, &network).await?;
 
-    let (Some(returned_state), Some(issued_state), Some(verifier)) =
-        (query.state, issued_state, verifier)
+    let (Some(returned_state), Some(issued_state), Some(verifier), Some(nonce)) =
+        (query.state, issued_state, verifier, nonce)
     else {
         return Err(OAuthError::InvalidState);
     };
@@ -44,7 +45,7 @@ pub async fn complete(
 
     let profile = state
         .google
-        .read_profile(code, verifier.to_string())
+        .read_profile(code, verifier.to_string(), nonce.to_string())
         .await?;
     if !profile.email_verified {
         return Err(OAuthError::UnverifiedProviderEmail);

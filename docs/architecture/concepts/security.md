@@ -6,8 +6,9 @@
   redefinição e na troca.
 - **Redefinir a senha derruba todas as sessões do usuário, e trocá-la derruba todas menos a que fez o
   pedido.** A redefinição também dá login por senha a quem só entrou com Google.
-- **O login com Google vincula pelo e-mail que o Google verificou**, com `state` e PKCE em cookies
-  `HttpOnly` de 10 minutos. Vincular a uma conta cujo e-mail nunca foi confirmado apaga a senha dela, e
+- **O login com Google vincula pelo e-mail que o Google verificou**, com `state`, PKCE e `nonce` em cookies
+  `HttpOnly` de 10 minutos, e o perfil lido do `id_token` depois de conferidos a assinatura, o emissor,
+  a audiência e a expiração. Vincular a uma conta cujo e-mail nunca foi confirmado apaga a senha dela, e
   nenhum token do Google é guardado.
 - **A sessão é uma linha no PostgreSQL**, com o hash do refresh token. O access token é um JWT HS256 de
   15 minutos; o refresh token vive 24 horas no web e 7 dias no app, é rotacionado a cada uso, e o reuso

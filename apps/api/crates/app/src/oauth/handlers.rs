@@ -18,11 +18,11 @@ use crate::sessions::tokens::cookies as session_cookies;
     path = "/oauth/google",
     tag = "Auth",
     summary = "Start the Google sign-in",
-    description = "A top-level navigation, never an XHR. Writes nothing to the database: the state and the PKCE verifier travel in two cookies.",
+    description = "A top-level navigation, never an XHR. Writes nothing to the database: the state, the PKCE verifier and the nonce travel in three cookies.",
     responses(
         (status = 302, description = "To the Google authorization URL", headers(
             ("Location" = String, description = "The Google authorization URL"),
-            ("Set-Cookie" = String, description = "clinicore_oauth_state and clinicore_oauth_verifier")
+            ("Set-Cookie" = String, description = "clinicore_oauth_state, clinicore_oauth_verifier and clinicore_oauth_nonce")
         ))
     )
 )]
@@ -46,7 +46,7 @@ pub async fn start_google_sign_in(
     responses(
         (status = 302, description = "To /app with the session, or to /login?error= with the refusal", headers(
             ("Location" = String, description = "APP_ORIGIN/app or APP_ORIGIN/login?error=<code>"),
-            ("Set-Cookie" = String, description = "clinicore_access and clinicore_refresh when signed in; the two OAuth cookies cleared")
+            ("Set-Cookie" = String, description = "clinicore_access and clinicore_refresh when signed in; the three OAuth cookies cleared")
         ))
     )
 )]
@@ -59,7 +59,8 @@ pub async fn complete_google_sign_in(
     let Query(query) = query.unwrap_or_default();
     let issued_state = jar.get(cookies::STATE).map(|cookie| cookie.value());
     let verifier = jar.get(cookies::VERIFIER).map(|cookie| cookie.value());
-    let outcome = service::complete(&state, device, query, issued_state, verifier).await;
+    let nonce = jar.get(cookies::NONCE).map(|cookie| cookie.value());
+    let outcome = service::complete(&state, device, query, issued_state, verifier, nonce).await;
 
     let jar = cookies::clear(jar, state.secure_cookies);
     let (jar, location) = match outcome {

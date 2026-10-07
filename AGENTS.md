@@ -37,10 +37,10 @@ cookie de sessão em `SameSite=Lax`.
 | Dados | PostgreSQL 18 · sqlx 0.9, com as consultas conferidas contra o schema na compilação | TanStack Query 5.102 · axios 1 · Zod 4.6 | — | cliente Retrofit sobre `dio` 5.11, gerado por `swagger_parser` 1.44 com `json_serializable` |
 | Formulário | — | TanStack Form 1.33 com schema Zod | — | — |
 | Estilo | — | Tailwind 4.3 · shadcn/ui sobre Radix e CVA · `tw-animate-css` | Tailwind 4.3 · shadcn/ui, com cópia própria | — |
-| Auth | `jsonwebtoken` e `argon2`; access token curto e refresh na tabela `sessions`; login com Google por `oauth2`, com PKCE | axios contra `/users` e `/sessions` da API, com o refresh no interceptor | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
+| Auth | `jsonwebtoken` e `argon2`; access token curto e refresh na tabela `sessions`; login com Google por `openidconnect`, com PKCE e `id_token` verificado | axios contra `/users` e `/sessions` da API, com o refresh no interceptor | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
 | Fila e agendamento | limpeza periódica dentro do processo da API; o worker nasce com o primeiro job da fila | — | — | — |
 | Redis 8 | contagem do limite por IP e denylist de revogação de sessão | — | — | — |
-| HTTP de saída | `oauth2` 5.0 sobre `reqwest` 0.12, só para o Google | — | — | — |
+| HTTP de saída | `openidconnect` 4.0 sobre `reqwest` 0.12, só para o Google | — | — | — |
 | Configuração | variáveis de ambiente tipadas e validadas no boot, em `crates/core` | — | — | `--dart-define-from-file`, lida e validada em `lib/shared/env/env.dart` |
 | E-mail | `lettre` por SMTP, com o layout em `askama` | — | — | — |
 | Log | `tracing` com `tracing-subscriber`, JSON em stdout | — | — | — |
