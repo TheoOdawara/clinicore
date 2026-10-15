@@ -58,8 +58,9 @@ As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0009-api-em-rust-com-axum-e-sqlx.md`, que substitui a 0001,
 `docs/decisions/0010-api-rs-com-crate-por-processo.md`,
 `docs/decisions/0011-openapi-da-api-rs-nasce-com-a-rota.md`,
-`docs/decisions/0012-revogacao-de-sessao-antes-de-apagar.md` e
-`docs/decisions/0013-assinatura-digital-em-duas-camadas.md`.
+`docs/decisions/0012-revogacao-de-sessao-antes-de-apagar.md`,
+`docs/decisions/0013-assinatura-digital-em-duas-camadas.md` e
+`docs/decisions/0014-deploy-por-dockerfile-no-coolify.md`.
 
 ## Linguagem e scripts
 
@@ -130,8 +131,9 @@ apps/
 docs/
 ```
 
-**O `compose.yaml` da raiz, com a stack inteira, ainda não existe.** Não há hospedagem hoje: o
-deploy planejado é uma VPS com Coolify, e o compose da raiz nasce com ele. O único compose é o
+**Não há `compose.yaml` na raiz, e não haverá.** Não há hospedagem hoje: o deploy planejado é uma VPS
+com Coolify, com cada app publicado pelo próprio `apps/<app>/Dockerfile` e o Postgres e o Redis como
+recursos Database do Coolify, para que toda publicação seja um rolling update. O único compose é o
 `apps/api/compose.yaml`, com o Postgres e o Redis de desenvolvimento.
 
 **O browser fala direto com a API, em origem cruzada.** Em dev são as portas :3000 e :3333; em homolog e
