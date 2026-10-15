@@ -34,17 +34,17 @@ cookie de sessão em `SameSite=Lax`.
 | Tipos | Rust, com `unsafe_code = "forbid"` | TypeScript 6.0 | TypeScript 6.0 | Dart 3.13, com `strict-casts`, `strict-inference` e `strict-raw-types` |
 | Lint e formato | `cargo clippy` com `-D warnings` · `cargo fmt` | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · `eslint-config-next` 16.3 · Prettier 3 | `flutter_lints` 6 · `dart format` |
 | Framework | axum 0.8 sobre tokio e tower, validação por `validator`, OpenAPI por `utoipa` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Next.js 16.3 com App Router e `output: "standalone"` · `next/image` e `next/font` | Flutter 3.47 · `go_router` 18.0 |
-| Dados | PostgreSQL 18 · sqlx 0.9, com as consultas conferidas contra o schema na compilação | TanStack Query 5.102 · axios 1 · Zod 4.6 | — | cliente Retrofit sobre `dio` 5.11, gerado por `swagger_parser` 1.44 com `json_serializable` |
-| Formulário | — | TanStack Form 1.33 com schema Zod | — | — |
-| Estilo | — | Tailwind 4.3 · shadcn/ui sobre Radix e CVA · `tw-animate-css` | Tailwind 4.3 · shadcn/ui, com cópia própria | — |
-| Auth | `jsonwebtoken` e `argon2`; access token curto e refresh na tabela `sessions` | axios contra `/users` e `/sessions` da API, com o refresh no interceptor | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
+| Dados | PostgreSQL 18 · sqlx 0.9, com as consultas conferidas contra o schema na compilação | Zod 4.6; TanStack Query 5 e axios 1 entram com a primeira feature (#78) | — | cliente Retrofit sobre `dio` 5.11, gerado por `swagger_parser` 1.44 com `json_serializable` |
+| Formulário | — | TanStack Form com schema Zod, que entra com o primeiro formulário (#78) | — | — |
+| Estilo | — | Tailwind 4.3; shadcn/ui sobre Radix e CVA entra na #77 | Tailwind 4.3; shadcn/ui, com cópia própria, entra com a primeira seção | — |
+| Auth | `jsonwebtoken` e `argon2`; access token curto e refresh na tabela `sessions` | axios contra `/users` e `/sessions` da API, com o refresh no interceptor, a partir da #78 | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
 | Fila e agendamento | limpeza periódica dentro do processo da API; o worker nasce com o primeiro job da fila | — | — | — |
 | Redis 8 | contagem do limite por IP e denylist de revogação de sessão | — | — | — |
 | HTTP de saída | — | — | — | — |
-| Configuração | variáveis de ambiente tipadas e validadas no boot, em `crates/core` | — | — | `--dart-define-from-file`, lida e validada em `lib/shared/env/env.dart` |
+| Configuração | variáveis de ambiente tipadas e validadas no boot, em `crates/core` | `VITE_API_URL`, validada por Zod em `src/shared/env/` | — | `--dart-define-from-file`, lida e validada em `lib/shared/env/env.dart` |
 | E-mail | `lettre` por SMTP, com o layout em `askama` | — | — | — |
 | Log | `tracing` com `tracing-subscriber`, JSON em stdout | — | — | — |
-| Testes | `cargo test`, com os testes de integração em `crates/app/tests/` | Jest 30 · `@swc/jest` · jsdom · Testing Library | — | `flutter_test` |
+| Testes | `cargo test`, com os testes de integração em `crates/app/tests/` | Jest 30 · `@swc/jest` · jsdom; Testing Library entra com o primeiro componente testado | — | `flutter_test` |
 
 As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0001-api-em-nestjs-typeorm-e-redis.md`,
@@ -131,6 +131,10 @@ apps/
 docs/
 ```
 
+**A árvore diz onde cada tipo de arquivo entra, inclusive o que ainda não nasceu.** Hoje não existem
+`features/` nem `shared/http/` no web, `sections/`, `components/` nem `assets/` no site, nem `features/` no
+mobile: cada pasta nasce com o primeiro arquivo dela, no lugar que a árvore mostra.
+
 **Não há `compose.yaml` na raiz, e não haverá.** Não há hospedagem hoje: o deploy planejado é uma VPS
 com Coolify, com cada app publicado pelo próprio `apps/<app>/Dockerfile` e o Postgres e o Redis como
 recursos Database do Coolify, para que toda publicação seja um rolling update. O único compose é o
@@ -148,6 +152,12 @@ e só entram em contexto quando o trabalho toca a pasta.
 otimiza a imagem dela; ele não participa de sessão, não lê cookie e não recebe segredo. Se um dia
 chamar a API — formulário de contato, pedido de demonstração, código de convite —, é por rota pública e
 a origem dele entra em `ALLOWED_ORIGINS`. Redirecionamento de autenticação nunca aponta para ele.
+
+## Design
+
+**A marca e as telas são desenhadas no Claude Design**, com o plugin `ui-ux-pro-max` do Claude Code na
+direção visual, e documentadas em `docs/design/`. A imagem de cada tela sai do HTML estático do artboard,
+renderizado no Chromium headless, porque o canvas não exporta por ferramenta.
 
 ## Branches
 

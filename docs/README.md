@@ -5,6 +5,7 @@
 | [`requirements/`](requirements/README.md) | o SRS: problema, escopo e cada requisito com ID e critérios de aceite |
 | [`architecture/`](architecture/README.md) | o mapa do sistema: blocos, cenários de runtime, implantação, conceitos e riscos |
 | [`data-model/`](data-model/README.md) | as entidades, as relações e o armazenamento |
+| [`design/`](design/README.md) | a ferramenta de design, a marca, os tokens e cada tela por feature |
 | [`roadmap/`](roadmap/README.md) | os marcos divididos em épicos, a cobertura dos requisitos e o plano de cada sprint |
 | [`decisions/`](decisions/README.md) | as ADRs: por que cada decisão transversal foi tomada |
 | [`specs/`](specs/README.md) | uma entrega em profundidade |
@@ -18,7 +19,7 @@ no de cada app.
 A mesma pasta vira um site local, com menu e busca:
 
 ```sh
-uvx zensical@0.0.67 serve --open
+uvx zensical@0.0.70 serve --open
 ```
 
 Ele abre em `http://localhost:8000`. No VS Code, é a task `docs: serve`. O site não é publicado em lugar

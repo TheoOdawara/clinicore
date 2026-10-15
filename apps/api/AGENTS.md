@@ -186,7 +186,9 @@ migrations/  .sqlx/
 ## Segredos
 
 - **Os valores de desenvolvimento moram no Infisical, no plano grátis, no ambiente `dev` do projeto `Clinicore`, na pasta `/api`.**
-  Nenhum `.env` com valor real fica no disco, e ninguém manda variável para ninguém.
+  Ninguém manda variável para ninguém.
+- **O `apps/api/.env` é a cópia local desses valores, fora do git.** O binário não o lê; o
+  `docker compose` e o `sqlx-cli` o leem sozinhos quando o comando roda sem o `infisical run`.
 - **O `.infisical.json` é commitado.** Ele liga esta pasta ao projeto e não tem segredo.
 - **Todo comando que precisa de variável roda dentro do `infisical run --path=/api --`**: `cargo run`,
   `docker compose up`, `sqlx migrate run` e `cargo sqlx prepare`. O `--env` padrão já é `dev`.
@@ -237,8 +239,11 @@ migrations/  .sqlx/
 ## Pegadinhas da stack
 
 - **O `sqlx-cli` procura um `.env` subindo pelos diretórios pais, e o erro de parse dele imprime a
-  linha que falhou.** Um valor sem aspas e com espaço basta para pôr o segredo no terminal. É mais um
-  motivo para nenhum `.env` com valor real ficar no disco.
+  linha que falhou.** Um valor sem aspas e com espaço no `apps/api/.env` basta para pôr o segredo no
+  terminal.
+- **Com o `apps/api/.env` no disco, as macros do sqlx compilam contra o banco, e não contra o `.sqlx/`.**
+  Elas leem o `DATABASE_URL` dele, e com o Postgres fora ou sem as migrations aplicadas o `cargo build`
+  e o `cargo clippy` caem em erros de tipo nas consultas. O `SQLX_OFFLINE=true` volta a usar o `.sqlx/`.
 - **O `fmt()` do `tracing-subscriber` nasce limitado a `INFO`.** Sem o `.with_max_level(level)`, o
   `Targets` só consegue estreitar, e `debug` e `trace` somem.
 - **O guard de origem entra por `route_layer`**, para rota inexistente e método não aceito
