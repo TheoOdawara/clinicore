@@ -2,7 +2,7 @@
 
 **Marco: M1. Nada disto existe ainda.** A decisão é a
 [ADR 0007](../../decisions/0007-app-nativo-em-flutter-com-offline.md), e os requisitos são `NFR-REL-02`,
-`NFR-REL-03` e `NFR-SEC-04`.
+`NFR-REL-03`, `NFR-SEC-04` e `NFR-SEC-06`.
 
 O offline é exclusivo do `apps/mobile`. O `apps/web` exige conexão e não guarda dado clínico.
 

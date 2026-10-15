@@ -26,11 +26,11 @@ O passo a passo está em [`../runtime/session-lifecycle.md`](../runtime/session-
 | Login com Google | `FR-ACC-09` | M1 · #120 |
 | Recuperar e trocar a senha | `FR-ACC-10`, `FR-ACC-11` | M1 · #119 |
 | Isolamento entre clientes: todo dado de clínica pertence a um cliente | `NFR-SEC-01` | M1 |
-| Papéis com menor privilégio e alcance por clínica dentro da rede | `FR-ACC-03`, `FR-ACC-04`, `NFR-SEC-03` | M1 |
+| Papéis com menor privilégio e alcance por clínica dentro da rede | `FR-ACC-03`, `FR-ACC-04` | M1 |
 | Trilha de auditoria de acesso ao prontuário | `FR-ACC-06` | M1 |
-| Volumes e backups cifrados | `NFR-SEC-02` | M1, com a hospedagem |
-| Dado de saúde no aparelho: banco cifrado, expiração em 72 horas sem sincronizar e limpeza no logout | `NFR-SEC-04` | M1 |
-| Login com passkey | `FR-ACC-13`, `FR-ACC-14` | M2 · #100 |
+| Volumes e backups cifrados | `NFR-SEC-05` | M1, com a hospedagem |
+| Dado de saúde no aparelho: banco cifrado, expiração em 72 horas sem sincronizar e limpeza no logout | `NFR-SEC-04`, `NFR-SEC-06` | M1 |
+| Login com passkey | `FR-ACC-13`, `FR-ACC-14` | M3 · #100 |
 
 ## Segredos
 

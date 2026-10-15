@@ -18,6 +18,7 @@ O sistema deve conduzir pelo WhatsApp, por um agente de IA, a confirmação, a r
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-AIA-01.1** — Dado um paciente que pede remarcação no WhatsApp, quando há horário livre, então o agente remarca e a agenda é atualizada.
 
 ## FR-AIA-02 — Reativação de pacientes e de orçamentos
@@ -36,6 +37,7 @@ O sistema deve enviar pelo WhatsApp, por um agente de IA, mensagem de reativaç�
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-AIA-02.1** — Dado um paciente inativo, quando a reativação é disparada, então ele recebe a mensagem e a resposta fica no histórico de comunicação.
 
 ## FR-AIA-03 — Passagem para humano
@@ -54,4 +56,5 @@ O sistema deve transferir a conversa para a recepção quando o agente não conc
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-AIA-03.1** — Dado um pedido que o agente não conclui, quando isso acontece, então a conversa aparece para a recepção com o histórico.

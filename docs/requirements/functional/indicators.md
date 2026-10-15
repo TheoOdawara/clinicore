@@ -18,6 +18,7 @@ O sistema deve apresentar, por período, a quantidade e o valor de orçamentos a
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-KPI-01.1** — Dado um mês com orçamentos apresentados e aceitos, quando o gestor abre o painel, então vê as duas quantidades e a taxa de aceite.
 
 ## FR-KPI-02 — Ocupação de cadeira e de dentista
@@ -36,6 +37,7 @@ O sistema deve apresentar, por período, a taxa de ocupação de cada cadeira e 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-KPI-02.1** — Dado um mês de agenda, quando o gestor abre o painel, então vê a taxa de ocupação por cadeira e por dentista.
 
 ## FR-KPI-03 — Taxa de faltas
@@ -54,6 +56,7 @@ O sistema deve apresentar, por período, a taxa de faltas sobre as consultas mar
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-KPI-03.1** — Dado um mês com 100 consultas marcadas e 8 faltas, quando o gestor abre o painel, então a taxa de faltas é 8%.
 
 ## FR-KPI-04 — Faturamento e inadimplência
@@ -72,6 +75,7 @@ O sistema deve apresentar, por período, o valor faturado e o valor inadimplente
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-KPI-04.1** — Dada uma parcela vencida sem pagamento, quando o gestor abre o painel, então o valor dela compõe a inadimplência do período.
 
 ## FR-KPI-05 — Pacientes inativos e reativados
@@ -90,6 +94,7 @@ O sistema deve apresentar, por período, a quantidade de pacientes inativos e a 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-KPI-05.1** — Dado um mês de operação, quando o gestor abre o painel, então vê a quantidade de inativos e a de reativados.
 
 ## FR-KPI-06 — Visão por clínica e consolidada por rede
@@ -108,5 +113,6 @@ O sistema deve apresentar cada indicador por clínica e, ao dono de rede, també
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-KPI-06.1** — Dado um dono de rede com 3 clínicas, quando abre os indicadores, então vê o consolidado e cada clínica.
 - **FR-KPI-06.2** — Dado o gestor de uma delas, quando abre os indicadores, então vê só os da clínica dele.

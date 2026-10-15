@@ -18,6 +18,7 @@ O sistema deve manter o cadastro do paciente com dados de identificação e de c
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-PAT-01.1** — Dado um paciente cadastrado, quando a recepção o busca pelo nome, então o encontra com os dados informados.
 
 ## FR-PAT-02 — Responsável legal para menor
@@ -36,6 +37,7 @@ O sistema deve exigir um responsável legal no cadastro do paciente menor de 18 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-PAT-02.1** — Dado um paciente com menos de 18 anos, quando o cadastro é salvo sem responsável legal, então o sistema recusa.
 
 ## FR-PAT-03 — Histórico único do paciente
@@ -54,4 +56,5 @@ O sistema deve apresentar, a partir do paciente, o histórico clínico, o estét
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-PAT-03.1** — Dado um paciente com evolução, procedimento estético, parcela e mensagem de confirmação registrados, quando o dentista abre o histórico, então vê os quatro.

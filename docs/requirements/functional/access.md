@@ -18,6 +18,7 @@ O sistema deve permitir que um cliente seja uma clínica única, uma rede de cl�
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-01.1** — Dado um dentista sem clínica, quando ele se cadastra como dentista autônomo, então opera agenda, prontuário e financeiro como cliente próprio.
 - **FR-ACC-01.2** — Dada uma rede com 3 clínicas, quando o dono de rede a cadastra, então cada clínica existe como unidade separada dentro do mesmo cliente.
 
@@ -37,6 +38,7 @@ O sistema deve aceitar como cliente tanto uma pessoa física quanto uma pessoa j
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-02.1** — Dado um cadastro de cliente, quando é informado um CPF válido no lugar do CNPJ, então o cliente é criado como pessoa física.
 
 ## FR-ACC-03 — Papéis com permissões distintas
@@ -55,7 +57,9 @@ O sistema deve restringir cada ação ao conjunto de papéis autorizados a ela, 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-03.1** — Dado um usuário com o papel recepção, quando ele tenta uma ação reservada ao gestor, então o sistema recusa a ação.
+- **FR-ACC-03.2** — Para cada papel, 100% das ações não listadas como permitidas a ele são recusadas.
 
 ## FR-ACC-04 — Alcance por clínica dentro da rede
 
@@ -73,6 +77,7 @@ O sistema deve limitar o gestor aos dados da própria clínica e dar ao dono de 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-04.1** — Dado o gestor de uma das 3 clínicas de uma rede, quando ele lista pacientes, então vê só os da clínica dele.
 - **FR-ACC-04.2** — Dado o dono dessa rede, quando ele lista pacientes, então vê os das 3 clínicas.
 
@@ -92,6 +97,7 @@ O sistema deve permitir que o gestor convide um usuário, altere o papel dele e 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-05.1** — Dado um usuário desativado pelo gestor, quando ele tenta entrar, então o sistema recusa o acesso.
 
 ## FR-ACC-06 — Trilha de auditoria de acesso ao prontuário
@@ -110,26 +116,27 @@ O sistema deve registrar cada acesso ao prontuário com o usuário, o paciente e
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-06.1** — Dado um dentista que abriu o prontuário de um paciente, quando o gestor consulta a trilha desse paciente, então vê o dentista e o instante do acesso.
 
 ## FR-ACC-07 — Criar conta com e-mail e senha
 
 > Como visitante, quero criar minha conta com nome, e-mail e senha, para que eu comece a usar o sistema sem depender de ninguém.
 
-O sistema deve criar uma conta a partir de nome, e-mail e senha, e exigir a confirmação do e-mail antes do primeiro acesso.
+O sistema deve criar uma conta a partir de nome, e-mail e senha.
 
 | Atributo | Valor |
 | --- | --- |
 | Justificativa | O cadastro é a porta de entrada do dentista autônomo e do gestor. |
-| Origem | [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md) |
+| Origem | Theo, ao especificar a autenticação: [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md) |
 | Prioridade | Must |
 | Status | approved |
 | Marco | M1 |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
-- **FR-ACC-07.1** — Dado um visitante que criou a conta, quando ele abre o link de confirmação recebido por e-mail, então a conta passa a poder entrar.
-- **FR-ACC-07.2** — Dada uma conta sem e-mail confirmado, quando ela tenta entrar, então o sistema recusa o acesso.
+
+- **FR-ACC-07.1** — Dado um visitante que informa nome, e-mail e senha válidos, quando ele cria a conta, então a conta passa a existir com o nome e o e-mail informados.
 
 ## FR-ACC-08 — Entrar com e-mail e senha
 
@@ -140,13 +147,14 @@ O sistema deve abrir uma sessão para a conta que informa e-mail confirmado e se
 | Atributo | Valor |
 | --- | --- |
 | Justificativa | Senha é a forma de entrada que não depende de terceiro. |
-| Origem | [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md) · [spec 004 — app e passkey](../../specs/autenticacao/004-autenticacao-mobile.md) |
+| Origem | Theo, ao especificar a autenticação: [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md) · [spec 004 — app e passkey](../../specs/autenticacao/004-autenticacao-mobile.md) |
 | Prioridade | Must |
 | Status | approved |
 | Marco | M1 |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-08.1** — Dada uma conta confirmada, quando informa e-mail e senha corretos, então entra na área logada.
 - **FR-ACC-08.2** — Dada uma senha incorreta, quando a pessoa tenta entrar, então o sistema recusa sem revelar se o e-mail existe.
 
@@ -159,13 +167,14 @@ O sistema deve abrir uma sessão para a pessoa que se autentica pelo Google, no 
 | Atributo | Valor |
 | --- | --- |
 | Justificativa | A pessoa entra sem criar mais uma senha. |
-| Origem | [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 004 — sessão por token](../../specs/autenticacao/004-sessao-por-token-api.md) |
+| Origem | Theo, ao especificar a autenticação: [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 004 — sessão por token](../../specs/autenticacao/004-sessao-por-token-api.md) |
 | Prioridade | Must |
 | Status | approved |
 | Marco | M1 |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-09.1** — Dada uma pessoa autenticada pelo Google, quando ela conclui o fluxo no web ou no app, então entra na área logada.
 
 ## FR-ACC-10 — Recuperar a senha
@@ -177,13 +186,14 @@ O sistema deve enviar ao e-mail da conta um link de uso único que permite defin
 | Atributo | Valor |
 | --- | --- |
 | Justificativa | Uma senha esquecida não pode bloquear o acesso. |
-| Origem | [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md) |
+| Origem | Theo, ao especificar a autenticação: [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md) |
 | Prioridade | Must |
 | Status | approved |
 | Marco | M1 |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-10.1** — Dada uma conta existente, quando a pessoa pede a recuperação e abre o link recebido, então define uma nova senha e entra com ela.
 - **FR-ACC-10.2** — Dado um e-mail sem conta, quando a recuperação é pedida para ele, então a resposta é a mesma dada a um e-mail com conta.
 
@@ -196,13 +206,14 @@ O sistema deve permitir que a pessoa logada troque a senha informando a senha at
 | Atributo | Valor |
 | --- | --- |
 | Justificativa | A pessoa substitui a própria senha sem ajuda. |
-| Origem | [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md) |
+| Origem | Theo, ao especificar a autenticação: [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md) |
 | Prioridade | Must |
 | Status | approved |
 | Marco | M1 |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-11.1** — Dada uma pessoa logada, quando informa a senha atual correta e uma nova senha, então a nova senha passa a valer.
 
 ## FR-ACC-12 — Sair e encerrar a sessão
@@ -214,13 +225,14 @@ O sistema deve encerrar a sessão a pedido da pessoa e recusar, a partir desse i
 | Atributo | Valor |
 | --- | --- |
 | Justificativa | Tablet e computador da clínica são compartilhados entre turnos. |
-| Origem | [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [ADR 0012](../../decisions/0012-revogacao-de-sessao-antes-de-apagar.md) |
+| Origem | Theo, ao especificar a autenticação: [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) · [ADR 0012](../../decisions/0012-revogacao-de-sessao-antes-de-apagar.md) |
 | Prioridade | Must |
 | Status | approved |
 | Marco | M1 |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-12.1** — Dada uma pessoa que saiu, quando uma requisição usa a sessão encerrada, então a API a recusa.
 
 ## FR-ACC-13 — Entrar com passkey
@@ -232,13 +244,14 @@ O sistema deve abrir uma sessão para a pessoa que se autentica com uma passkey 
 | Atributo | Valor |
 | --- | --- |
 | Justificativa | A biometria permite entrar sem digitar senha. |
-| Origem | [spec 004 — sessão por token](../../specs/autenticacao/004-sessao-por-token-api.md) · [spec 004 — app e passkey](../../specs/autenticacao/004-autenticacao-mobile.md) |
+| Origem | Theo, ao especificar a autenticação: [spec 004 — sessão por token](../../specs/autenticacao/004-sessao-por-token-api.md) · [spec 004 — app e passkey](../../specs/autenticacao/004-autenticacao-mobile.md) |
 | Prioridade | Should |
 | Status | approved |
-| Marco | M2 |
+| Marco | M3 |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-13.1** — Dada uma conta com passkey registrada, quando a pessoa confirma a biometria do aparelho, então entra na área logada.
 
 ## FR-ACC-14 — Gerenciar passkeys
@@ -250,11 +263,32 @@ O sistema deve permitir que a pessoa logada registre uma passkey, liste as exist
 | Atributo | Valor |
 | --- | --- |
 | Justificativa | Aparelho perdido ou trocado precisa deixar de dar acesso. |
-| Origem | [spec 004 — sessão por token](../../specs/autenticacao/004-sessao-por-token-api.md) · [spec 004 — app e passkey](../../specs/autenticacao/004-autenticacao-mobile.md) |
+| Origem | Theo, ao especificar a autenticação: [spec 004 — sessão por token](../../specs/autenticacao/004-sessao-por-token-api.md) · [spec 004 — app e passkey](../../specs/autenticacao/004-autenticacao-mobile.md) |
 | Prioridade | Should |
 | Status | approved |
-| Marco | M2 |
+| Marco | M3 |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-ACC-14.1** — Dada uma passkey removida, quando alguém tenta entrar com ela, então o sistema recusa.
+
+## FR-ACC-15 — Confirmar o e-mail antes do primeiro acesso
+
+> Como gestor, quero que só entre quem confirmou o e-mail, para que ninguém crie conta com o endereço de outra pessoa.
+
+O sistema deve recusar o acesso da conta cujo e-mail não foi confirmado pelo link enviado a ele.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | O e-mail é o canal de recuperação da senha e de convite; uma conta com endereço alheio sequestra esse canal. |
+| Origem | Theo, ao especificar a autenticação: [spec 003 — API](../../specs/autenticacao/003-autenticacao-api.md) |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-ACC-15.1** — Dado um visitante que criou a conta, quando ele abre o link de confirmação recebido por e-mail, então a conta passa a poder entrar.
+- **FR-ACC-15.2** — Dada uma conta sem e-mail confirmado, quando ela tenta entrar, então o sistema recusa o acesso.

@@ -18,6 +18,7 @@ O sistema deve importar pacientes, agenda, prontuário e financeiro a partir de 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-PRT-01.1** — Dada uma exportação do Simples Dental, quando é importada, então os pacientes, a agenda, o prontuário e o financeiro dela ficam disponíveis no sistema.
 
 ## FR-PRT-02 — Relatório de importação
@@ -36,6 +37,7 @@ O sistema deve produzir, a cada importação, um relatório com cada registro im
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-PRT-02.1** — Dada uma importação, quando ela termina, então todo registro da origem aparece como importado ou como recusado com o motivo.
 
 ## FR-PRT-03 — Exportação completa self-service
@@ -54,4 +56,5 @@ O sistema deve entregar ao gestor, a pedido dele e sem intervenção de suporte,
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-PRT-03.1** — Dado um gestor, quando pede a exportação, então recebe todos os dados da clínica em formato aberto e documentado, sem depender de suporte.

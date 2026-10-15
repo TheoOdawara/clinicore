@@ -18,6 +18,7 @@ O sistema deve registrar o aceite do paciente num orçamento.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-FIN-01.1** — Dado um orçamento apresentado, quando o aceite é registrado, então o orçamento passa a aceito com a data do aceite.
 
 ## FR-FIN-02 — Cobrança parcelada
@@ -36,6 +37,7 @@ O sistema deve gerar, a partir de um orçamento aceito, a cobrança em uma ou ma
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-FIN-02.1** — Dado um orçamento aceito em 3 parcelas, quando a cobrança é gerada, então existem 3 parcelas com vencimento e valor.
 
 ## FR-FIN-03 — Recebimento com forma de pagamento
@@ -54,6 +56,7 @@ O sistema deve registrar o recebimento de uma parcela com a forma de pagamento.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-FIN-03.1** — Dada uma parcela em aberto, quando o recebimento é registrado, então a parcela passa a paga e mostra a forma de pagamento.
 
 ## FR-FIN-04 — Caixa
@@ -72,6 +75,7 @@ O sistema deve manter o caixa da clínica, com as entradas e saídas do período
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-FIN-04.1** — Dado um recebimento em dinheiro, quando o caixa do dia é aberto, então o recebimento aparece como entrada.
 
 ## FR-FIN-05 — Contas a pagar
@@ -90,6 +94,7 @@ O sistema deve manter as contas a pagar da clínica, com valor, vencimento e sit
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-FIN-05.1** — Dada uma conta a pagar com vencimento, quando o gestor lista as contas do mês, então ela aparece com a situação.
 
 ## FR-FIN-06 — Contas a receber
@@ -108,6 +113,7 @@ O sistema deve apresentar as contas a receber da clínica a partir das parcelas 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-FIN-06.1** — Dadas parcelas em aberto, quando o gestor abre contas a receber, então vê cada parcela com paciente, valor e vencimento.
 
 ## FR-FIN-07 — Repasse e comissão de dentista
@@ -126,6 +132,7 @@ O sistema deve calcular o repasse de cada dentista a partir dos procedimentos re
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-FIN-07.1** — Dado um dentista com regra de comissão e procedimentos recebidos no período, quando o gestor abre o repasse, então vê o valor devido a ele.
 
 ## FR-FIN-08 — Inadimplência
@@ -144,6 +151,7 @@ O sistema deve apresentar as parcelas vencidas sem recebimento, por paciente.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-FIN-08.1** — Dado um orçamento aceito e parcelado, quando uma parcela vence sem pagamento, então ela aparece na inadimplência.
 
 ## FR-FIN-09 — Emissão de NFS-e
@@ -162,4 +170,5 @@ O sistema deve emitir a NFS-e de um recebimento e mantê-la vinculada a ele.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-FIN-09.1** — Dado um recebimento, quando o gestor emite a nota, então a NFS-e é gerada e fica vinculada ao recebimento.

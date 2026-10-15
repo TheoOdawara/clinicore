@@ -16,6 +16,7 @@ O sistema deve manter a API e o web disponíveis em 99,5% do tempo de cada mês.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-REL-01.1** — A indisponibilidade somada da API e do web em produção não passa de 0,5% dos minutos do mês, cerca de 3h39.
 
 ## NFR-REL-02 — Operação offline no app
@@ -32,6 +33,7 @@ O sistema deve permitir, no app sem conexão, consultar os dados já sincronizad
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-REL-02.1** — Dado um dentista com o app sincronizado, quando perde a internet, então vê a agenda e os pacientes dela e registra o atendimento.
 - **NFR-REL-02.2** — Quando a conexão volta, 100% dos registros da fila chegam à API sem ação do usuário.
 
@@ -49,4 +51,22 @@ O sistema deve recusar a escrita feita offline sobre um dado que mudou no servid
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-REL-03.1** — Dada uma consulta cancelada na recepção enquanto o dentista estava offline, quando o registro dele sobe, então a API o recusa e o app o mostra em pendência: 0 sobrescritas silenciosas.
+
+## NFR-REL-04 — Publicação sem indisponibilidade
+
+O sistema deve publicar uma nova versão da API, do web e da landing sem recusar requisição durante a publicação.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | A clínica opera o dia inteiro; uma publicação não pode derrubar a agenda nem o atendimento. |
+| Origem | Theo, revisão de 2026-10-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **NFR-REL-04.1** — Durante a publicação de uma nova versão, 0 requisições à API, ao web e à landing são recusadas por indisponibilidade.

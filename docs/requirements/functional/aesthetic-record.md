@@ -18,6 +18,7 @@ O sistema deve registrar o procedimento de harmonização orofacial realizado, c
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-AES-01.1** — Dado um procedimento de toxina botulínica registrado, quando o prontuário estético é aberto, então o procedimento aparece com o tipo e a data.
 
 ## FR-AES-02 — Mapa facial
@@ -36,6 +37,7 @@ O sistema deve registrar, sobre um mapa facial, os pontos e as áreas de aplica�
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-AES-02.1** — Dado um procedimento com pontos marcados, quando é reaberto, então o mapa facial mostra os mesmos pontos.
 
 ## FR-AES-03 — Rastreabilidade do produto aplicado
@@ -54,6 +56,7 @@ O sistema deve registrar, em cada procedimento, a marca, o lote, a validade e a 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-AES-03.1** — Dado um lote, quando o gestor o busca, então vê os pacientes e procedimentos em que ele foi aplicado.
 
 ## FR-AES-04 — Fotos de antes e depois
@@ -72,6 +75,7 @@ O sistema deve armazenar fotos de antes e de depois de um procedimento e apresen
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-AES-04.1** — Dado um procedimento com foto de antes e foto de depois, quando a comparação é aberta, então as duas aparecem lado a lado.
 
 ## FR-AES-05 — Termo de consentimento de estética
@@ -90,4 +94,5 @@ O sistema deve emitir termo de consentimento próprio de procedimento de harmoni
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-AES-05.1** — Dado um procedimento de harmonização, quando o termo é emitido, então é o termo de estética e fica vinculado ao procedimento.

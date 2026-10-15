@@ -18,6 +18,7 @@ O sistema deve manter o cadastro de operadoras de convênio e a tabela de proced
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-INS-01.1** — Dada uma operadora com tabela, quando um atendimento por ela é registrado, então o valor vem da tabela dela.
 
 ## FR-INS-02 — Guias e lotes em arquivo TISS
@@ -36,6 +37,7 @@ O sistema deve gerar guias e lotes em arquivo no padrão TISS para as operadoras
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-INS-02.1** — Dado um atendimento por convênio, quando é faturado, então o sistema gera o arquivo TISS aceito pela operadora.
 
 ## FR-INS-03 — Glosa e recurso
@@ -54,4 +56,5 @@ O sistema deve permitir registrar manualmente a glosa de uma guia e o recurso, c
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-INS-03.1** — Dada uma guia glosada, quando a glosa é registrada, então a guia mostra o valor glosado e a situação do recurso.

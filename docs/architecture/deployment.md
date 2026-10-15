@@ -37,7 +37,7 @@ disco. No emulador Android, a API local é `http://10.0.2.2:3333`.
 | `apps/web` | `app.clinicore.com.br` | container servindo o build estático do Vite |
 | `apps/api` | `api.clinicore.com.br` | container com o binário `api` |
 | worker | — | container com o binário do worker, quando a #71 o criar |
-| PostgreSQL 18 | rede interna | container com volume cifrado ([NFR-SEC-02](../requirements/non-functional/security.md)) |
+| PostgreSQL 18 | rede interna | container com volume cifrado ([NFR-SEC-05](../requirements/non-functional/security.md#nfr-sec-05--criptografia-em-repouso)) |
 | Redis 8 | rede interna | container com `--appendonly yes` e volume |
 | `apps/mobile` | App Store e Google Play | publicado pelas lojas |
 

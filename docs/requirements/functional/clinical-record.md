@@ -6,7 +6,7 @@ O registro odontológico do paciente e os documentos emitidos e assinados a part
 
 > Como dentista, quero registrar a anamnese do paciente, para que o histórico de saúde esteja disponível a cada atendimento.
 
-O sistema deve manter a anamnese do paciente.
+O sistema deve registrar a anamnese do paciente com a data do preenchimento.
 
 | Atributo | Valor |
 | --- | --- |
@@ -18,6 +18,7 @@ O sistema deve manter a anamnese do paciente.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-01.1** — Dada uma anamnese preenchida, quando o dentista abre o prontuário, então a vê com a data do preenchimento.
 
 ## FR-CLN-02 — Odontograma
@@ -36,6 +37,7 @@ O sistema deve manter o odontograma do paciente, com a situação registrada por
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-02.1** — Dado um dente marcado com uma situação, quando o odontograma é reaberto, então o dente mostra a situação registrada.
 
 ## FR-CLN-03 — Plano de tratamento com orçamento
@@ -54,6 +56,7 @@ O sistema deve manter o plano de tratamento do paciente e gerar o orçamento vin
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-03.1** — Dado um plano com procedimentos, quando o orçamento é gerado, então traz os mesmos procedimentos e fica vinculado ao plano.
 
 ## FR-CLN-04 — Evolução clínica por atendimento
@@ -72,6 +75,7 @@ O sistema deve registrar a evolução clínica de cada atendimento, vinculada ao
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-04.1** — Dado um atendimento concluído, quando o dentista registra a evolução, então ela aparece no prontuário com a data e o autor.
 
 ## FR-CLN-05 — Emissão de documentos
@@ -90,6 +94,7 @@ O sistema deve emitir termo de consentimento, atestado e receita a partir dos da
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-05.1** — Dado um paciente, quando o dentista emite um atestado, então o documento fica vinculado ao paciente.
 
 ## FR-CLN-06 — Impressão de documentos
@@ -108,6 +113,7 @@ O sistema deve gerar a versão imprimível de qualquer documento do paciente.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-06.1** — Dado qualquer documento do paciente, quando alguém pede a impressão, então o sistema gera a versão imprimível.
 
 ## FR-CLN-07 — Assinatura qualificada do dentista
@@ -126,6 +132,7 @@ O sistema deve assinar documentos com o certificado ICP-Brasil em nuvem do denti
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-07.1** — Dado um dentista que autorizou a sessão de assinatura, quando assina documentos dentro do período autorizado, então não aprova cada um no celular.
 - **FR-CLN-07.2** — Dada uma primeira consulta com dentista que tem certificado em nuvem, quando ela termina, então anamnese, odontograma, plano, evolução e termos assinados existem só no sistema.
 
@@ -145,6 +152,7 @@ O sistema deve oferecer ao dentista sem certificado a assinatura eletrônica ava
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-08.1** — Dado um dentista sem certificado, quando registra uma evolução, então a assina com a assinatura avançada.
 - **FR-CLN-08.2** — Dado um dentista sem certificado, quando emite um atestado, então o sistema não oferece assinatura eletrônica e oferece a impressão.
 
@@ -164,6 +172,7 @@ O sistema deve colher a assinatura eletrônica do paciente ou do responsável le
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-09.1** — Dado um termo pendente, quando a recepção escolhe o dispositivo da clínica ou o e-mail, então o paciente assina pelo canal escolhido.
 - **FR-CLN-09.2** — Dado um termo assinado, quando a assinatura é concluída, então o documento assinado fica vinculado ao paciente.
 
@@ -183,4 +192,5 @@ O sistema deve armazenar imagens e arquivos de exame vinculados ao paciente.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-CLN-10.1** — Dado um exame anexado, quando o dentista abre o prontuário, então o arquivo está disponível para visualização.

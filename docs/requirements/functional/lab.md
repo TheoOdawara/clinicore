@@ -18,6 +18,7 @@ O sistema deve manter o cadastro de laboratórios protéticos.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-LAB-01.1** — Dado um laboratório cadastrado, quando um pedido é criado, então o laboratório pode ser escolhido.
 
 ## FR-LAB-02 — Pedido ao laboratório
@@ -36,6 +37,7 @@ O sistema deve registrar o pedido ao laboratório vinculado ao paciente e ao tra
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-LAB-02.1** — Dado um pedido enviado, quando o prazo passa sem retorno registrado, então o pedido aparece como atrasado.
 
 ## FR-LAB-03 — Custo do pedido no financeiro
@@ -54,4 +56,5 @@ O sistema deve lançar o custo de cada pedido ao laboratório como conta a pagar
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-LAB-03.1** — Dado um pedido com custo informado, quando é registrado, então existe uma conta a pagar com o mesmo valor vinculada ao pedido.

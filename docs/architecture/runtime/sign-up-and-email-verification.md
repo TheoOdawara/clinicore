@@ -1,6 +1,6 @@
 # Cadastro e confirmação de e-mail
 
-Uma pessoa cria a conta e confirma o endereço. Cobre `FR-ACC-07`. A resposta nunca revela se o e-mail
+Uma pessoa cria a conta e confirma o endereço. Cobre `FR-ACC-07` e `FR-ACC-15`. A resposta nunca revela se o e-mail
 já tinha conta.
 
 ## Cadastro

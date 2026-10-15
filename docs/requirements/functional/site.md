@@ -18,6 +18,7 @@ O sistema deve publicar páginas indexáveis por buscadores que apresentam o pro
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SITE-01.1** — Dada a landing publicada, quando a página inicial é requisitada sem executar JavaScript, então o HTML da resposta contém o texto de apresentação.
 
 ## FR-SITE-02 — Entrada no sistema pela landing
@@ -36,6 +37,7 @@ O sistema deve oferecer na landing os caminhos para entrar e para criar conta, q
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SITE-02.1** — Dado um visitante na landing, quando escolhe criar conta, então chega à tela de cadastro do sistema.
 
 ## FR-SITE-03 — Captação de interessados
@@ -54,6 +56,7 @@ O sistema deve receber, por um formulário na landing, o contato de um interessa
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SITE-03.1** — Dado um visitante que envia o formulário preenchido, quando o envio é aceito, então o contato chega ao decisor do produto.
 
 ## FR-SITE-04 — Preços e planos
@@ -72,4 +75,5 @@ O sistema deve publicar na landing os planos e os preços do produto.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SITE-04.1** — Dado o modelo comercial decidido, quando a página de preços é aberta, então mostra cada plano com o preço.

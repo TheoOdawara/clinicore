@@ -18,6 +18,7 @@ O sistema deve manter o cadastro de materiais e de produtos da clínica.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-STK-01.1** — Dado um produto cadastrado, quando uma entrada é lançada, então o produto pode ser escolhido.
 
 ## FR-STK-02 — Entradas, saídas e saldo
@@ -36,6 +37,7 @@ O sistema deve registrar entradas e saídas de cada produto, com lote e validade
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-STK-02.1** — Dada uma entrada de 10 unidades de um lote e uma saída de 3, quando o saldo é consultado, então o lote mostra 7.
 
 ## FR-STK-03 — Baixa do produto no procedimento
@@ -54,6 +56,7 @@ O sistema deve baixar do estoque, no registro do procedimento estético, a quant
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-STK-03.1** — Dado um procedimento de toxina botulínica registrado com lote e quantidade, quando é salvo, então o saldo do lote diminui na mesma quantidade.
 
 ## FR-STK-04 — Alerta de estoque baixo
@@ -72,6 +75,7 @@ O sistema deve sinalizar o produto cujo saldo está abaixo do mínimo configurad
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-STK-04.1** — Dado um produto com saldo abaixo do mínimo, quando o responsável abre o estoque, então vê o alerta desse produto.
 
 ## FR-STK-05 — Alerta de validade próxima
@@ -90,4 +94,5 @@ O sistema deve sinalizar o lote cuja validade está dentro da antecedência conf
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-STK-05.1** — Dado um lote com validade dentro da antecedência configurada, quando o responsável abre o estoque, então vê o alerta desse lote.

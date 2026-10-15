@@ -1,6 +1,6 @@
 # Clinicore — Especificação de Requisitos de Software
 
-**Versão:** 1.0.0 · **Data:** 2026-10-03 · [Changelog](CHANGELOG.md)
+**Versão:** 2.0.0 · **Data:** 2026-10-15 · [Changelog](CHANGELOG.md)
 
 > Clinicore é codinome interno. O nome comercial está em aberto ([OQ-01](open-questions.md#oq-01--nome-comercial)).
 
@@ -40,13 +40,13 @@ TISS, portabilidade, IA no atendimento, IA clínica e a landing pública.
 | Marco | Nome | O que marca | No GitHub |
 | --- | --- | --- | --- |
 | M1 | Go-live piloto | O corte mínimo para a primeira clínica piloto sair do Simples Dental | milestone `Go-live piloto` |
-| M2 | Beta | O que entra quando a piloto usa o sistema no dia a dia | épico #90 |
-| M3 | Pós go-live | Convênios, portabilidade, IA e landing | milestone `Pós go-live` |
+| M3 | Pós go-live | Convênios, portabilidade, IA, landing e passkey | milestone `Pós go-live` |
 
 A importação da clínica piloto é feita à mão no onboarding conduzido pelo Theo; por isso a
-portabilidade fica no M3.
+portabilidade fica no M3. O marco M2, Beta, foi fundido no M3 na v2.0.0, e o identificador M2 não é
+reusado.
 
-**Prioridade:** o que o M1 exige é `Must`; o que entra no M2 e no M3 é `Should`.
+**Prioridade:** o que o M1 exige é `Must`; o que entra no M3 é `Should`.
 
 ## Conteúdo
 
@@ -89,8 +89,9 @@ portabilidade fica no M3.
 | [FR-ACC-10](functional/access.md#fr-acc-10--recuperar-a-senha) | Recuperar a senha | Must | approved | M1 |
 | [FR-ACC-11](functional/access.md#fr-acc-11--trocar-a-senha) | Trocar a senha | Must | approved | M1 |
 | [FR-ACC-12](functional/access.md#fr-acc-12--sair-e-encerrar-a-sessão) | Sair e encerrar a sessão | Must | approved | M1 |
-| [FR-ACC-13](functional/access.md#fr-acc-13--entrar-com-passkey) | Entrar com passkey | Should | approved | M2 |
-| [FR-ACC-14](functional/access.md#fr-acc-14--gerenciar-passkeys) | Gerenciar passkeys | Should | approved | M2 |
+| [FR-ACC-13](functional/access.md#fr-acc-13--entrar-com-passkey) | Entrar com passkey | Should | approved | M3 |
+| [FR-ACC-14](functional/access.md#fr-acc-14--gerenciar-passkeys) | Gerenciar passkeys | Should | approved | M3 |
+| [FR-ACC-15](functional/access.md#fr-acc-15--confirmar-o-e-mail-antes-do-primeiro-acesso) | Confirmar o e-mail antes do primeiro acesso | Must | approved | M1 |
 | [FR-PAT-01](functional/patients.md#fr-pat-01--cadastro-de-paciente) | Cadastro de paciente | Must | approved | M1 |
 | [FR-PAT-02](functional/patients.md#fr-pat-02--responsável-legal-para-menor) | Responsável legal para menor | Must | approved | M1 |
 | [FR-PAT-03](functional/patients.md#fr-pat-03--histórico-único-do-paciente) | Histórico único do paciente | Must | approved | M1 |
@@ -163,12 +164,16 @@ portabilidade fica no M3.
 | [NFR-REL-01](non-functional/reliability.md#nfr-rel-01--disponibilidade) | Disponibilidade | Must | approved | M1 |
 | [NFR-REL-02](non-functional/reliability.md#nfr-rel-02--operação-offline-no-app) | Operação offline no app | Must | approved | M1 |
 | [NFR-REL-03](non-functional/reliability.md#nfr-rel-03--conflito-offline-nunca-sobrescreve) | Conflito offline nunca sobrescreve | Must | approved | M1 |
+| [NFR-REL-04](non-functional/reliability.md#nfr-rel-04--publicação-sem-indisponibilidade) | Publicação sem indisponibilidade | Must | approved | M1 |
 | [NFR-SEC-01](non-functional/security.md#nfr-sec-01--isolamento-entre-clientes) | Isolamento entre clientes | Must | approved | M1 |
-| [NFR-SEC-02](non-functional/security.md#nfr-sec-02--criptografia-em-trânsito-e-em-repouso) | Criptografia em trânsito e em repouso | Must | approved | M1 |
-| [NFR-SEC-03](non-functional/security.md#nfr-sec-03--menor-privilégio-por-papel) | Menor privilégio por papel | Must | approved | M1 |
+| [NFR-SEC-02](non-functional/security.md#nfr-sec-02--criptografia-em-trânsito) | Criptografia em trânsito | Must | approved | M1 |
+| [NFR-SEC-03](non-functional/security.md#nfr-sec-03--menor-privilégio-por-papel) | Menor privilégio por papel | Must | retired | — |
 | [NFR-SEC-04](non-functional/security.md#nfr-sec-04--dado-de-saúde-no-aparelho) | Dado de saúde no aparelho | Must | approved | M1 |
+| [NFR-SEC-05](non-functional/security.md#nfr-sec-05--criptografia-em-repouso) | Criptografia em repouso | Must | approved | M1 |
+| [NFR-SEC-06](non-functional/security.md#nfr-sec-06--dado-de-saúde-apagado-do-aparelho) | Dado de saúde apagado do aparelho | Must | approved | M1 |
+| [NFR-SEC-07](non-functional/security.md#nfr-sec-07--nenhuma-resposta-da-api-no-cache-do-navegador) | Nenhuma resposta da API no cache do navegador | Must | approved | M1 |
 | [NFR-FLEX-01](non-functional/flexibility.md#nfr-flex-01--web-e-app-nativo-com-as-mesmas-telas) | Web e app nativo com as mesmas telas | Must | approved | M1 |
-| [NFR-FLEX-02](non-functional/flexibility.md#nfr-flex-02--web-instalável) | Web instalável | Should | approved | M1 |
+| [NFR-FLEX-02](non-functional/flexibility.md#nfr-flex-02--web-instalável) | Web instalável | Must | approved | M1 |
 | [BR-01](business-rules.md#br-01--assinatura-qualificada-para-atestado-e-receita-de-controle-especial) | Assinatura qualificada para atestado e receita de controle especial | Must | approved | — |
 | [BR-02](business-rules.md#br-02--assinatura-avançada-nos-demais-documentos-do-profissional) | Assinatura avançada nos demais documentos do profissional | Must | approved | — |
 | [BR-03](business-rules.md#br-03--prevalência-da-assinatura-qualificada) | Prevalência da assinatura qualificada | Must | approved | — |

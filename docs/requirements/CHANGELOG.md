@@ -2,6 +2,25 @@
 
 Uma entrada por versão do SRS: a data, os IDs adicionados, alterados ou aposentados, e o porquê.
 
+## 2.0.0 — 2026-10-15
+
+Revisão do SRS contra o workflow de documentação atual e das decisões do produto (#151).
+
+- **Marco movido:** o M2, Beta, foi fundido no M3. `FR-ACC-13` e `FR-ACC-14`, passkey, passam ao M3.
+- **Aposentado:** `NFR-SEC-03`, que duplicava o `FR-ACC-03`. O critério dele virou o `FR-ACC-03.2`.
+- **Divididos**, por terem duas capacidades num requisito: o `FR-ACC-07` deu origem ao `FR-ACC-15`,
+  confirmação do e-mail antes do primeiro acesso; o `NFR-SEC-02`, ao `NFR-SEC-05`, criptografia em
+  repouso; o `NFR-SEC-04`, ao `NFR-SEC-06`, dado de saúde apagado do aparelho; e o `NFR-FLEX-02`, ao
+  `NFR-SEC-07`, nenhuma resposta da API no cache do navegador.
+- **Adicionado:** `NFR-REL-04`, publicação sem indisponibilidade, porque cada app passa a ser
+  publicado a partir do próprio Dockerfile no Coolify.
+- **Alterados:** `NFR-FLEX-02` passa de `Should` a `Must`, já que tudo no M1 é `Must`. `FR-CLN-01`
+  troca "manter" por "registrar". A origem de `FR-ACC-07` a `14` passa a nomear o Theo, com a spec
+  como registro.
+- **Perguntas em aberto:** a `OQ-01` ganha o candidato Core Clinical System.
+- **Forma:** toda lista ganhou uma linha em branco antes, para o site local de documentação
+  renderizá-la como lista.
+
 ## 1.0.0 — 2026-10-03
 
 Primeira versão do SRS em pasta, a partir do `docs/requirements.md` de arquivo único (#139).

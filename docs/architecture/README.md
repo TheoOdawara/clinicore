@@ -5,7 +5,7 @@ seções do arc42 e desenha com o modelo C4. As regras que se conferem no códig
 qual, onde nasce cada arquivo — moram no [`AGENTS.md`](../../AGENTS.md) da raiz e no de cada app.
 
 No texto e nos diagramas, o que já existe aparece em linha contínua, e o que ainda vai ser construído
-aparece tracejado, com o marco (`M1`, `M2`, `M3`) de
+aparece tracejado, com o marco (`M1`, `M3`) de
 [`requirements/`](../requirements/README.md#marcos).
 
 ## Objetivo

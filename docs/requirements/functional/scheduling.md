@@ -18,6 +18,7 @@ O sistema deve manter a agenda de consultas de cada dentista.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SCH-01.1** — Dada uma consulta marcada para um dentista, quando a agenda dele é aberta no dia, então a consulta aparece no horário marcado.
 - **FR-SCH-01.2** — Dado um horário já ocupado de um dentista, quando outra consulta que não é encaixe é marcada nele, então o sistema recusa.
 
@@ -37,6 +38,7 @@ O sistema deve manter a agenda de cada cadeira ou sala da clínica.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SCH-02.1** — Dada uma cadeira ocupada num horário, quando outra consulta que não é encaixe é marcada nela no mesmo horário, então o sistema recusa.
 
 ## FR-SCH-03 — Confirmação por WhatsApp
@@ -55,6 +57,7 @@ O sistema deve enviar ao paciente um pedido de confirmação por WhatsApp e regi
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SCH-03.1** — Dada uma consulta marcada, quando chega a janela de confirmação, então o paciente recebe a mensagem no WhatsApp.
 - **FR-SCH-03.2** — Dada a resposta do paciente, quando ela chega, então a consulta passa a confirmada ou a cancelada na agenda.
 
@@ -74,6 +77,7 @@ O sistema deve enviar ao paciente um lembrete da consulta por WhatsApp antes do 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SCH-04.1** — Dada uma consulta confirmada, quando chega a janela de lembrete, então o paciente recebe o lembrete no WhatsApp.
 
 ## FR-SCH-05 — Registro de falta
@@ -92,6 +96,7 @@ O sistema deve permitir registrar a falta do paciente numa consulta.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SCH-05.1** — Dada uma consulta cujo paciente não veio, quando a recepção registra a falta, então ela aparece no histórico do paciente.
 
 ## FR-SCH-06 — Remarcação
@@ -110,6 +115,7 @@ O sistema deve permitir remarcar uma consulta para outro horário, mantendo o re
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SCH-06.1** — Dada uma consulta remarcada, quando o histórico do paciente é aberto, então mostra o horário original e o novo.
 
 ## FR-SCH-07 — Encaixe
@@ -128,6 +134,7 @@ O sistema deve permitir marcar uma consulta de encaixe num horário já ocupado,
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SCH-07.1** — Dado um horário ocupado, quando a recepção marca um encaixe nele, então a consulta é criada e aparece identificada como encaixe.
 
 ## FR-SCH-08 — Lista de espera
@@ -146,4 +153,5 @@ O sistema deve manter uma lista de espera de pacientes e apresentá-la quando um
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **FR-SCH-08.1** — Dado um paciente na lista de espera, quando uma consulta é cancelada, então a recepção vê a lista ao lado do horário liberado.
