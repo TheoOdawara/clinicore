@@ -22,5 +22,5 @@ ter regra de negócio que a API não tenha.
 ## Para mudar com segurança
 
 A direção das dependências (`shared → features → routes`) e as regras de cada pasta estão no
-[`apps/web/AGENTS.md`](../../../apps/web/AGENTS.md). O schema Zod de cada resposta replica à mão o que
+[`apps/web/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/apps/web/AGENTS.md). O schema Zod de cada resposta replica à mão o que
 a API devolve, então uma mudança de contrato na API pede a mudança correspondente aqui.

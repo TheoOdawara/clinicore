@@ -9,9 +9,8 @@
 | [`roadmap/`](roadmap/README.md) | os marcos divididos em épicos, a cobertura dos requisitos e o plano de cada sprint |
 | [`decisions/`](decisions/README.md) | as ADRs: por que cada decisão transversal foi tomada |
 | [`specs/`](specs/README.md) | uma entrega em profundidade |
-| [`diagrams/`](diagrams/README.md) | os diagramas, em `.drawio.svg` |
 
-As regras de como o código é construído não ficam aqui: estão no [`AGENTS.md`](../AGENTS.md) da raiz e
+As regras de como o código é construído não ficam aqui: estão no [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/AGENTS.md) da raiz e
 no de cada app.
 
 ## Ler como site

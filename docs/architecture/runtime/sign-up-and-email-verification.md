@@ -3,6 +3,8 @@
 Uma pessoa cria a conta e confirma o endereço. Cobre `FR-ACC-07` e `FR-ACC-15`. A resposta nunca revela se o e-mail
 já tinha conta.
 
+![Sequência do cadastro e da confirmação de e-mail](../diagrams/runtime-sign-up-and-email-verification.drawio.svg)
+
 ## Cadastro
 
 1. **O cliente** (web ou app) manda `POST /users` para a **API**, com nome, e-mail e senha.
