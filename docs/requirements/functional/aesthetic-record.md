@@ -2,6 +2,8 @@
 
 O registro dos procedimentos de harmonização orofacial.
 
+![Casos de uso: Prontuário estético](../diagrams/use-cases-aesthetic-record.drawio.svg)
+
 ## FR-AES-01 — Registro de procedimento de harmonização
 
 > Como dentista, quero registrar um procedimento de harmonização orofacial, para que a estética tenha prontuário próprio.

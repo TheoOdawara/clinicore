@@ -2,6 +2,8 @@
 
 Os pedidos enviados ao laboratório protético, controlados manualmente.
 
+![Casos de uso: Laboratório protético](../diagrams/use-cases-lab.drawio.svg)
+
 ## FR-LAB-01 — Cadastro de laboratórios
 
 > Como responsável por laboratório, quero cadastrar os laboratórios com que a clínica trabalha, para que o pedido aponte para um deles.

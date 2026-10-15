@@ -2,6 +2,8 @@
 
 A entrada dos dados que a clínica tinha em outro sistema e a saída de todos os dados dela.
 
+![Casos de uso: Portabilidade](../diagrams/use-cases-portability.drawio.svg)
+
 ## FR-PRT-01 — Importação do Simples Dental
 
 > Como gestor, quero importar pacientes, agenda, prontuário e financeiro do Simples Dental, para que eu troque de sistema sem redigitar.

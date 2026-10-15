@@ -2,6 +2,8 @@
 
 Os números que o gestor e o dono de rede acompanham.
 
+![Casos de uso: Indicadores de gestão](../diagrams/use-cases-indicators.drawio.svg)
+
 ## FR-KPI-01 — Funil de orçamento
 
 > Como gestor, quero ver quantos orçamentos foram apresentados e quantos foram aceitos, para que eu saiba onde a venda se perde.

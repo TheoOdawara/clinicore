@@ -2,6 +2,8 @@
 
 O agente que conversa com o paciente pelo WhatsApp no lugar da recepção.
 
+![Casos de uso: IA no atendimento](../diagrams/use-cases-ai-reception.drawio.svg)
+
 ## FR-AIA-01 — Agente de agendamento no WhatsApp
 
 > Como recepção, quero que um agente confirme, remarque e agende consultas pelo WhatsApp, para que o paciente seja atendido fora do horário da recepção.

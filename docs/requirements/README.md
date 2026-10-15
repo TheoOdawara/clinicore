@@ -51,7 +51,7 @@ reusado.
 ## Conteúdo
 
 [Visão geral](overview.md) · [Glossário](glossary.md) · [Regras de negócio](business-rules.md) ·
-[Perguntas em aberto](open-questions.md)
+[Perguntas em aberto](open-questions.md) · [Diagramas de casos de uso](diagrams/README.md)
 
 - [Organização e acesso](functional/access.md) — `FR-ACC`
 - [Pacientes](functional/patients.md) — `FR-PAT`

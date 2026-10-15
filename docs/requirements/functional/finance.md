@@ -2,6 +2,8 @@
 
 Do orçamento ao recebimento, o caixa, as contas da clínica e a nota fiscal.
 
+![Casos de uso: Financeiro](../diagrams/use-cases-finance.drawio.svg)
+
 ## FR-FIN-01 — Orçamento com aceite
 
 > Como recepção, quero registrar que o paciente aceitou o orçamento, para que a cobrança nasça do que foi aceito.

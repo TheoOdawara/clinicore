@@ -2,6 +2,8 @@
 
 Quem é o cliente, quem entra no sistema, o que cada papel alcança e o que fica registrado do acesso.
 
+![Casos de uso: Organização e acesso](../diagrams/use-cases-access.drawio.svg)
+
 ## FR-ACC-01 — Cliente como clínica, rede ou dentista autônomo
 
 > Como gestor, quero cadastrar meu negócio como clínica única, rede de clínicas ou dentista autônomo, para que o sistema reflita como eu opero.

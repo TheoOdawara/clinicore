@@ -2,6 +2,8 @@
 
 A transcrição da consulta que vira rascunho de evolução.
 
+![Casos de uso: IA clínica](../diagrams/use-cases-ai-clinical.drawio.svg)
+
 ## FR-AIC-01 — Rascunho de evolução por transcrição
 
 > Como dentista, quero receber um rascunho da evolução a partir da gravação da consulta, para que eu não digite o que acabei de falar.

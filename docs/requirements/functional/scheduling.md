@@ -2,6 +2,8 @@
 
 A marcação de consultas, a comunicação com o paciente e o que acontece quando o horário não é cumprido.
 
+![Casos de uso: Agenda](../diagrams/use-cases-scheduling.drawio.svg)
+
 ## FR-SCH-01 — Agenda por dentista
 
 > Como recepção, quero marcar e consultar os horários de cada dentista, para que eu saiba quem atende quem e quando.

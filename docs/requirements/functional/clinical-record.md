@@ -2,6 +2,8 @@
 
 O registro odontológico do paciente e os documentos emitidos e assinados a partir dele.
 
+![Casos de uso: Prontuário clínico](../diagrams/use-cases-clinical-record.drawio.svg)
+
 ## FR-CLN-01 — Anamnese
 
 > Como dentista, quero registrar a anamnese do paciente, para que o histórico de saúde esteja disponível a cada atendimento.

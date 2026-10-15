@@ -2,6 +2,8 @@
 
 O cadastro do paciente e a visão única de tudo que a clínica sabe dele.
 
+![Casos de uso: Pacientes](../diagrams/use-cases-patients.drawio.svg)
+
 ## FR-PAT-01 — Cadastro de paciente
 
 > Como recepção, quero cadastrar e atualizar os dados de um paciente, para que a clínica tenha um registro só por paciente.

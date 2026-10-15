@@ -2,6 +2,8 @@
 
 Os materiais e produtos da clínica, seu saldo e seus alertas.
 
+![Casos de uso: Estoque](../diagrams/use-cases-inventory.drawio.svg)
+
 ## FR-STK-01 — Cadastro de materiais e produtos
 
 > Como responsável por estoque, quero cadastrar os materiais e os produtos, inclusive os estéticos, para que o estoque tenha o que controlar.

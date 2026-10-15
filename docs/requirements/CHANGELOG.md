@@ -20,6 +20,8 @@ Revisão do SRS contra o workflow de documentação atual e das decisões do pro
 - **Perguntas em aberto:** a `OQ-01` ganha o candidato Core Clinical System.
 - **Forma:** toda lista ganhou uma linha em branco antes, para o site local de documentação
   renderizá-la como lista.
+- **Diagramas:** cada área funcional ganhou o diagrama UML de casos de uso, em
+  [`diagrams/`](diagrams/README.md).
 
 ## 1.0.0 — 2026-10-03
 

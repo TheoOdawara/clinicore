@@ -2,6 +2,8 @@
 
 As páginas públicas em `clinicore.com.br`, por onde quem não é cliente conhece o produto.
 
+![Casos de uso: Landing pública](../diagrams/use-cases-site.drawio.svg)
+
 ## FR-SITE-01 — Apresentação do produto
 
 > Como visitante, quero entender o que o sistema faz e para quem, para que eu decida se ele serve à minha clínica.

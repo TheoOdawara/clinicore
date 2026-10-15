@@ -2,6 +2,8 @@
 
 O atendimento por convênio odontológico, faturado por arquivo no padrão TISS.
 
+![Casos de uso: Convênios e TISS](../diagrams/use-cases-insurance.drawio.svg)
+
 ## FR-INS-01 — Operadoras e tabelas
 
 > Como gestor, quero cadastrar as operadoras e suas tabelas de procedimentos, para que o atendimento por convênio use o valor contratado.
