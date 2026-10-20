@@ -24,15 +24,22 @@ edition 2024).
 | Análise estática | `cargo clippy --all-targets -- -D warnings`                                                                             |
 | Build            | `cargo build`                                                                                                           |
 | Schema           | `infisical run --path=/api -- sqlx migrate run` · `infisical run --path=/api -- cargo sqlx prepare --workspace --check` |
-| Dependências     | `cargo audit --ignore RUSTSEC-2023-0071`                                                                                |
+| Dependências     | `cargo audit`                                                                                                           |
 | Testes           | `infisical run --path=/api -- cargo test`                                                                               |
 
 O `sqlx-cli` é instalado com
 `cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls`,
 a mesma versão do job `api` do CI, e o `cargo-audit` com
-`cargo install cargo-audit --version 0.22.2 --locked`. **A RUSTSEC-2023-0071 é ignorada** porque o
-`rsa` vem do backend `rust_crypto` do `jsonwebtoken`, e a API só assina e confere HS256, sem chave RSA
-para o ataque de tempo alcançar. O `compose.yaml` sobe o Postgres 18 e o Redis 8 de
+`cargo install cargo-audit --version 0.22.2 --locked`. **As advisories ignoradas ficam no
+`.cargo/audit.toml`**, e cada uma tem o motivo aqui:
+
+- **RUSTSEC-2023-0071**: o `rsa` vem do backend `rust_crypto` do `jsonwebtoken`, e a API só assina e
+  confere HS256, sem chave RSA para o ataque de tempo alcançar.
+- **RUSTSEC-2026-0367 a 0369**: o `zip` 8.6 é build-dependency do `utoipa-swagger-ui` 10.0.1 e só
+  extrai, no `build.rs`, o zip do Swagger UI que vem dentro do próprio crate, nunca um arquivo de fora;
+  ele não entra no binário. O ignore sai quando o `utoipa-swagger-ui` aceitar o `zip` 9.
+
+O `compose.yaml` sobe o Postgres 18 e o Redis 8 de
 desenvolvimento com `infisical run --path=/api -- docker compose up -d --wait`, e as portas e as credenciais vêm do
 Infisical.
 

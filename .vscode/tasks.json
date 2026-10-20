@@ -4,14 +4,14 @@
     {
       "label": "docs: serve",
       "type": "shell",
-      "command": "uvx zensical@0.0.70 serve --open",
+      "command": "uvx zensical@0.0.71 serve --open",
       "isBackground": true,
       "problemMatcher": []
     },
     {
       "label": "gates: api",
       "type": "shell",
-      "command": "cargo fmt --check && infisical run --path=/api -- cargo clippy --all-targets -- -D warnings && infisical run --path=/api -- cargo test",
+      "command": "cargo fmt --check && infisical run --path=/api -- cargo clippy --all-targets -- -D warnings && infisical run --path=/api -- cargo build && infisical run --path=/api -- cargo sqlx prepare --workspace --check && cargo audit && infisical run --path=/api -- cargo test",
       "options": { "cwd": "${workspaceFolder}/apps/api" },
       "problemMatcher": ["$rustc"]
     },

@@ -52,7 +52,7 @@ jobs:
       - run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
       - run: cargo install cargo-audit --version 0.22.2 --locked
       - run: cargo fmt --check
-      - run: cargo audit --ignore RUSTSEC-2023-0071
+      - run: cargo audit
       - run: sqlx migrate run
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo sqlx prepare --workspace --check
