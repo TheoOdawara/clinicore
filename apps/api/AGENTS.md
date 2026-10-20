@@ -185,11 +185,12 @@ migrations/  .sqlx/
 
 ## Segredos
 
-- **Os valores de desenvolvimento moram no Infisical, no plano grátis, no ambiente `dev` do projeto `Clinicore`, na pasta `/api`.**
+- **Os valores de desenvolvimento moram no Infisical, no plano grátis, no ambiente `dev` do projeto `Clinicore` da org `ATNexusLab`, na pasta `/api`.**
   Ninguém manda variável para ninguém.
 - **O `apps/api/.env` é a cópia local desses valores, fora do git.** O binário não o lê; o
   `docker compose` e o `sqlx-cli` o leem sozinhos quando o comando roda sem o `infisical run`.
-- **O `.infisical.json` é commitado.** Ele liga esta pasta ao projeto e não tem segredo.
+- **O `.infisical.yaml` é commitado.** Ele liga esta pasta ao projeto e não tem segredo. O
+  `.infisical.json` é o formato legado, e o `infisical migrate-config` converte um para o outro.
 - **Todo comando que precisa de variável roda dentro do `infisical run --path=/api --`**: `cargo run`,
   `docker compose up`, `sqlx migrate run` e `cargo sqlx prepare`. O `--env` padrão já é `dev`.
 - **Um valor só da sua máquina é override pessoal**, com

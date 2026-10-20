@@ -12,8 +12,8 @@ de o app fazer qualquer coisa. Nenhuma tem valor padrão.
 
 ## Segredos
 
-- **Os valores de desenvolvimento moram no Infisical**, no projeto `Clinicore`, ambiente `dev`, pasta
-  `/api`. O `.infisical.json` commitado liga a pasta ao projeto e não tem segredo.
+- **Os valores de desenvolvimento moram no Infisical**, no projeto `Clinicore` da org `ATNexusLab`,
+  ambiente `dev`, pasta `/api`. O `.infisical.yaml` commitado liga a pasta ao projeto e não tem segredo.
 - **O repo só lista nome e formato**: `apps/api/.env.example`, `apps/web/.env.example` e
   `apps/mobile/config/example.json`.
 - **O site não recebe segredo**, e o web e o app só recebem valor que pode ser público, porque o que
