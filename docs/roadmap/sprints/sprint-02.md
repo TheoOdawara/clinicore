@@ -35,7 +35,9 @@ pull request. A #154 vem antes da #77 e da #78 para que os primeiros testes de c
 
 ## Specs
 
-- **#154:** nenhuma. É a primeira coisa a fazer, com `/tightship:spec`, que escreve a ADR 0015.
+- **#154:** a [ADR 0015](../../decisions/0015-front-em-bun.md) decide o que ela faz. Não há spec de
+  feature, porque nada muda para quem usa.
+- **#77:** a [ADR 0016](../../decisions/0016-front-em-css-modules.md).
 - **As demais:** fechadas em [003 · API](../../specs/autenticacao/003-autenticacao-api.md),
   [003 · web](../../specs/autenticacao/003-autenticacao-web.md) e
   [005](../../specs/005-migrar-api-para-rust.md).

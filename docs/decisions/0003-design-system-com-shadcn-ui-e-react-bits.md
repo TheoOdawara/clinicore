@@ -1,6 +1,6 @@
 # 0003. Design system com shadcn/ui, e React Bits com escopo por categoria
 
-- Status: accepted
+- Status: superseded by 0016 na parte de estilo e de componentes base; a parte do React Bits continua valendo
 - Date: 2026-09-20
 
 ## Context

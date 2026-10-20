@@ -5,19 +5,21 @@
 > **Módulo:** `apps/web`
 > **Epic:** #1 — Plataforma
 > **Issue:** #3
+> **Requisitos:** FR-ACC-07 a 12, FR-ACC-15, NFR-FLEX-02, NFR-SEC-07
+> **Sprint:** 2
 > **Spec irmã:** `docs/specs/autenticacao/003-autenticacao-api.md` (perfil API)
 > **Decisões:** `docs/decisions/0002-web-e-site-em-vite.md` ·
-> `docs/decisions/0003-design-system-com-shadcn-ui-e-react-bits.md` ·
-> `docs/decisions/0006-api-rest-e-problem-details.md`
+> `docs/decisions/0006-api-rest-e-problem-details.md` · `docs/decisions/0015-front-em-bun.md` ·
+> `docs/decisions/0016-front-em-css-modules.md`
 
 ## Acceptance Criteria
 
 ### Referência visual
 
 `N/A` — sem protótipo. O layout é definido pelas regras abaixo, e o tema visual da aplicação não é
-esta issue. As telas usam os componentes do shadcn/ui em `shared/`, decididos na ADR 0003, com
-utilitárias do Tailwind no que o shadcn não cobrir. **Tema, tipografia e cores continuam fora**: aqui o
-shadcn entra pelo que ele já resolve de rótulo, descrição de erro, anúncio e foco — a regra 8.
+esta issue. As telas são HTML nativo estilizado por CSS Modules, um `.module.css` por componente, sobre
+as camadas do `globals.css` que a #77 cria (ADR 0016). **Tema, tipografia e cores continuam fora**: as
+telas usam os tokens da camada `tokens` sem decidir o valor de nenhum.
 
 ### Especificação das telas
 
@@ -107,8 +109,7 @@ da guarda ao tentar abrir uma tela da aplicação sem sessão.
 
 - **`shared/http/` cria a única instância de axios do app**, com `baseURL: env.VITE_API_URL` e
   `withCredentials: true`. Nenhuma feature cria instância própria nem importa `axios` direto.
-- **Não existe mais cliente do Better Auth.** Ele saiu da API na ADR 0001, e cada ação desta spec passa
-  a ser uma chamada às rotas da spec irmã:
+- **Cada ação desta spec é uma chamada às rotas da spec irmã:**
 
   | Ação da tela | Rota |
   | --- | --- |
@@ -240,7 +241,11 @@ falsa nesse caso.
 - Todo campo tem `label` associado, nunca só `placeholder`.
 - A mensagem de erro de um campo é referenciada por `aria-describedby` e anunciada com `role="alert"`.
 - A mensagem de erro ou de sucesso do formulário fica numa região com `aria-live="polite"`.
-- O foco é visível em todo elemento interativo, e a ordem de tabulação segue a ordem visual.
+- O foco é visível em todo elemento interativo, por `:focus-visible`, e a ordem de tabulação segue a
+  ordem visual.
+- **Um componente de campo em `shared/` faz as três primeiras de uma vez**: recebe o rótulo e a
+  mensagem de erro, gera o `id` com `useId` e liga o `label`, o `aria-describedby` e o `role="alert"`.
+  Toda tela desta spec monta os campos com ele, sem biblioteca de componentes (ADR 0016).
 
 ### 9. O web é um PWA instalável
 
@@ -284,9 +289,8 @@ falsa nesse caso.
 
 ### 11. A sessão se renova sozinha, uma vez por vez
 
-O access token vive 15 minutos e o refresh vive 24 horas (regra 2 da spec irmã). O Better Auth escondia
-essa renovação; agora ela é código nosso, e mora inteira no interceptor de resposta da instância de
-`shared/http/`.
+O access token vive 15 minutos e o refresh vive 24 horas (regra 2 da spec irmã). A renovação mora
+inteira no interceptor de resposta da instância de `shared/http/`.
 
 - **Um `401` dispara uma única chamada a `POST /sessions/current/tokens`.** Enquanto ela está em curso, toda
   requisição que também tomar `401` **espera essa mesma chamada** em vez de disparar a sua. Sem isso,
@@ -310,8 +314,11 @@ essa renovação; agora ela é código nosso, e mora inteira no interceptor de r
 
 ## Cenários de Aceite (Gherkin)
 
-Os testes cobrem lógica pura e componente que decide algo, com `features/auth/api` substituído por
-`jest.fn`, no padrão do `CLAUDE.md`. Os cenários 6 e 12 são verificados no navegador, não em suíte.
+Os testes rodam no `bun test`, com o happy-dom pré-carregado pelo `bunfig.toml` (ADR 0015), e cobrem
+lógica pura e componente que decide algo, com `features/auth/api` substituído pelo `mock.module` do
+`bun:test`, no padrão do `apps/web/AGENTS.md`. Nenhum teste afirma sobre classe CSS: no `bun test`, o
+import de um `.module.css` chega como objeto vazio. Os cenários 6 e 12 são verificados no navegador,
+não em suíte.
 
 ### Cenário 1 — Entrar leva para a área logada (caminho feliz, regra 1)
 
@@ -592,6 +599,30 @@ Quando ele recarrega `/reset-password` depois disso
 Então a tela mostra o estado de erro e o link `Pedir um novo link`
 ```
 
+### Cenário 26 — Recuperar a senha e entrar com a nova (caminho feliz, regras 4 e 5)
+
+```gherkin
+Dado um visitante em `/forgot-password`
+Quando ele aciona `Enviar link` com um e-mail que tem cadastro
+Então `POST /password-resets` é chamado só com `email`
+E a tela exibe "Se este e-mail tiver cadastro, você receberá um link para redefinir a senha."
+E com um e-mail sem cadastro a tela exibe exatamente a mesma mensagem
+Quando ele abre `/reset-password?token=<token válido>` e aciona `Redefinir senha` com duas senhas fortes e iguais
+Então `POST /password-resets/confirmation` é chamado com o `token` e a nova senha
+E ele é levado para `/login`, que exibe "Senha redefinida. Entre com a nova senha."
+E entrar com a nova senha leva para `/app`
+```
+
+### Cenário 27 — Voltar do Google com sucesso abre a área logada (caminho feliz, regra 1)
+
+```gherkin
+Dado um visitante que acionou `Entrar com Google` e concluiu o fluxo no Google
+Quando a API o devolve para `/app` com os cookies de sessão
+Então `GET /sessions/current` responde com a sessão
+E `/app` exibe o nome e o e-mail da conta
+E nenhuma mensagem de erro é exibida
+```
+
 ---
 
 ## Dicionário de Dados de Tela (Campos)
@@ -663,11 +694,33 @@ Sem campo. Exibe `user.name` e `user.email` da sessão.
 
 ---
 
+## Impacto na arquitetura
+
+Tudo no bloco [`web`](../../architecture/building-blocks/web.md), no M1:
+
+- **Cliente HTTP** (`src/shared/http/`): nasce na task 8 com a instância única de axios, e a task 9
+  acrescenta o interceptor de renovação.
+- **UI base** (`src/shared/`): nasce na task 8 com o componente de campo da regra 8.
+- **Features** (`src/features/auth/`): nasce na task 8 e cresce nas tasks 9 e 10.
+- **PWA instalável**: a task 11.
+- **Cenário de execução:** o lado do web no
+  [ciclo de vida da sessão](../../architecture/runtime/session-lifecycle.md), a regra 11.
+
+Nenhum bloco novo, e nenhuma mudança no deploy.
+
+## Impacto no modelo de dados
+
+`N/A` — o web não persiste nada (regra 10). Todo dado é da spec irmã.
+
+---
+
 ## Fora de Escopo
 
-- **Tema visual, tipografia, ícones e cores do PWA** — pertencem à fase de design system, que a ADR 0003
-  abre sem cobrir. As telas desta spec usam os componentes do shadcn/ui já adotados, com utilitárias do
-  Tailwind no resto, e nenhuma decisão de cor ou de tipografia é tomada aqui.
+- **Tema visual, tipografia, ícones e cores do PWA** — pertencem à fase de design system. As telas desta
+  spec usam os tokens da camada `tokens` da ADR 0016, e nenhuma decisão de cor ou de tipografia é tomada
+  aqui.
+- **Base UI e React Aria Components** — nenhuma tela desta spec precisa deles: tudo é campo, botão e
+  link nativos (ADR 0016).
 - **Animação e componente do React Bits** — a ADR 0003 define em quais categorias ele pode entrar no
   `apps/web`; nenhuma tela desta spec usa nenhuma delas.
 - **Página offline e aviso de nova versão** — não pedidos; a regra 9 define o comportamento sem conexão
@@ -688,9 +741,9 @@ A numeração continua a da spec irmã, `docs/specs/autenticacao/003-autenticaca
 
 | # | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- |
-| 8 | Create the sign-in and sign-up screens on apps/web | `@tanstack/react-query`, `@tanstack/react-form`, `axios` e `@testing-library/*` instalados, `setupFilesAfterEnv` no `jest.config.json`, `QueryClientProvider` e o contexto do router em `main.tsx`, `shared/http/` com a instância de axios, `features/auth/api/` com schemas Zod e `messages.ts`, `features/auth/password-policy.ts`, rotas `/login`, `/signup` e `/verify-email`, `<meta name="referrer" content="no-referrer">` no `index.html` | Cenários 1, 2, 3, 4, 5, 11, 13, 16, 17, 18, 19 e 25 (em `/verify-email`) verdes; os quatro gates do web saem com código 0 | task de fundação do shadcn/ui (ADR 0003), #65, #66, #67 |
-| 9 | Protect the application area, refresh the session and sign out | `routes/(app)/route.tsx` com a guarda, `pendingComponent` e `errorComponent`, rota `/app`, ação `Sair`, o interceptor de renovação da regra 11 em `shared/http/`, `VITE_API_URL` no job `web` do CI | Cenários 7, 8, 9, 12, 22, 23 e 24 verdes | 8 |
-| 10 | Recover, reset and change the password on apps/web | Rotas `/forgot-password`, `/reset-password` e `/app/account/password` | Cenários 10, 14, 15 e 25 (em `/reset-password`) verdes | 9, #67, #70 |
+| 8 | Create the sign-in and sign-up screens on apps/web | `@tanstack/react-query`, `@tanstack/react-form`, `axios`, `@testing-library/react` e `@testing-library/dom` instalados, o componente de campo da regra 8 em `shared/`, `QueryClientProvider` e o contexto do router em `main.tsx`, `shared/http/` com a instância de axios, `features/auth/api/` com schemas Zod e `messages.ts`, `features/auth/password-policy.ts`, rotas `/login`, `/signup` e `/verify-email`, `<meta name="referrer" content="no-referrer">` no `index.html` | Cenários 1, 2, 3, 4, 5, 11, 13, 16, 17, 18, 19 e 25 (em `/verify-email`) verdes; os quatro gates do web saem com código 0 | #77, #154 |
+| 9 | Protect the application area, refresh the session and sign out | `routes/(app)/route.tsx` com a guarda, `pendingComponent` e `errorComponent`, rota `/app`, ação `Sair`, o interceptor de renovação da regra 11 em `shared/http/`, `VITE_API_URL` no job `web` do CI | Cenários 7, 8, 9, 12, 22, 23, 24 e 27 verdes | 8 |
+| 10 | Recover, reset and change the password on apps/web | Rotas `/forgot-password`, `/reset-password` e `/app/account/password` | Cenários 10, 14, 15, 25 (em `/reset-password`) e 26 verdes | 9, #119 |
 | 11 | Make apps/web an installable PWA | `vite-plugin-pwa` em `vite.config.ts`, manifesto da regra 9, ícones em `apps/web/public/` | Cenários 20 e 21 verdes | — |
 
 A task 11 não depende de outra task desta spec, mas só fecha quando a fase de design system entregar
