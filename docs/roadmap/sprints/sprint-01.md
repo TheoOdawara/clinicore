@@ -31,3 +31,16 @@ Todos são do épico #3, e as specs já estão fechadas:
 
 O web instalável (#81), as telas do app (#96 a #99), a passkey e o restante da auditoria do cadastro
 (#124).
+
+## Resultado — 2026-10-19
+
+**Feito:** #143.
+
+**Levados para a [Sprint 2](sprint-02.md):**
+
+- #119, #120 e #150 estão prontas na `feature/119-password-reset`, mas sem pull request.
+- #151, #152 e #153 estão em revisão no #155, e a #156 no #157. As quatro entraram durante a sprint: a
+  revisão do SRS, a ADR do deploy, o realinhamento do repo e a correção do rustls.
+- #130, #77, #78, #79 e #80 não começaram. O tempo da sprint foi para as quatro entradas acima.
+
+**De volta ao backlog:** nenhum.

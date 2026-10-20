@@ -143,3 +143,4 @@ Todo requisito aprovado de um marco planejado está em exatamente um épico. Hoj
 ## Sprints
 
 - [Sprint 1](sprints/sprint-01.md) — criar a conta, entrar, recuperar a senha e sair pelo navegador
+- [Sprint 2](sprints/sprint-02.md) — a mesma meta, levada da Sprint 1
