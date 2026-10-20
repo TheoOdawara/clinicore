@@ -68,7 +68,8 @@ resto, `title` fixo por `type`, e `Content-Type: application/problem+json`.
 ### 1. Contrato observável
 
 - Toda rota das specs de origem responde na API Rust com a mesma URL, o mesmo status, os mesmos
-  cookies com os mesmos atributos e os mesmos headers de contrato. O corpo segue o Problem Details
+  cookies com os mesmos atributos. Nenhum header de limite (`X-RateLimit-*`, `Retry-After`) é
+  contrato. O corpo segue o Problem Details
   da ADR 0006; os códigos de campo em `errors[].code` são os do Rust (seção Request).
 - Os limites continuam iguais: os por IP da regra 11 da 003 e da regra 8 da 004, o limite por
   endereço da regra 15 da 003, e o teto de 5 sessões da regra 16 da 003.
