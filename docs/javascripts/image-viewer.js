@@ -71,7 +71,7 @@ stage.addEventListener(
   { passive: false },
 );
 
-// ponytail: mouse and trackpad only; track two pointers for pinch if the docs get read on a phone
+// shortcut: mouse and trackpad only; track two pointers for pinch if the docs get read on a phone
 stage.addEventListener("pointerdown", (event) => {
   stage.setPointerCapture(event.pointerId);
   stage.dataset.dragging = "";
