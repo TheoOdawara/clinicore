@@ -96,7 +96,7 @@ A exportação dos dados da clínica nunca é bloqueada por plano, inadimplênci
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | A portabilidade é garantia do produto, não recurso de plano. |
+| Justificativa | A portabilidade vale para todo cliente, em qualquer plano. |
 | Origem | Theo, kickoff de 2026-09-15 |
 | Status | approved |
 | Desde | v1.0.0 |

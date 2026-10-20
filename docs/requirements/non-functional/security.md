@@ -16,11 +16,12 @@ O sistema deve impedir que um usuário de um cliente leia ou altere dado de outr
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-SEC-01.1** — Dado um usuário da clínica A, quando busca pacientes, então a resposta traz 0 registros da clínica B.
 
-## NFR-SEC-02 — Criptografia em trânsito e em repouso
+## NFR-SEC-02 — Criptografia em trânsito
 
-O sistema deve trafegar todo dado por conexão cifrada e armazenar cifrado todo dado de saúde.
+O sistema deve trafegar todo dado por conexão cifrada.
 
 | Atributo | Valor |
 | --- | --- |
@@ -32,8 +33,8 @@ O sistema deve trafegar todo dado por conexão cifrada e armazenar cifrado todo 
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-SEC-02.1** — 100% das conexões entre cliente e servidor usam TLS.
-- **NFR-SEC-02.2** — 100% dos volumes e backups que guardam dado de saúde estão cifrados.
 
 ## NFR-SEC-03 — Menor privilégio por papel
 
@@ -44,20 +45,22 @@ O sistema deve negar toda ação que o papel do usuário não autoriza explicita
 | Justificativa | O acesso padrão a dado de saúde é nenhum. |
 | Origem | Theo, kickoff de 2026-09-15 |
 | Prioridade | Must |
-| Status | approved |
-| Marco | M1 |
+| Status | retired |
+| Aposentado | v2.0.0: duplicava o [FR-ACC-03](../functional/access.md#fr-acc-03--papéis-com-permissões-distintas), que recebeu o critério dele como FR-ACC-03.2 |
+| Marco | — |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-SEC-03.1** — Para cada papel, 100% das ações não listadas como permitidas a ele são recusadas.
 
 ## NFR-SEC-04 — Dado de saúde no aparelho
 
-O sistema deve manter cifrado o dado de saúde guardado no app e apagá-lo após 72 horas sem sincronizar, no logout e na revogação da sessão, preservando a fila de escrita pendente.
+O sistema deve manter cifrado o dado de saúde guardado no app.
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | Aparelho perdido não pode expor prontuário; o que ainda não subiu não pode se perder. |
+| Justificativa | Aparelho perdido não pode expor prontuário. |
 | Origem | [ADR 0007](../../decisions/0007-app-nativo-em-flutter-com-offline.md) |
 | Prioridade | Must |
 | Status | approved |
@@ -65,5 +68,59 @@ O sistema deve manter cifrado o dado de saúde guardado no app e apagá-lo após
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
-- **NFR-SEC-04.1** — Dado um app sem sincronizar há 72 horas, quando é aberto, então mostra 0 dados de saúde e mantém a fila pendente.
-- **NFR-SEC-04.2** — Dado um logout, quando ele conclui, então o aparelho guarda 0 dados de saúde.
+
+- **NFR-SEC-04.1** — 100% do dado de saúde guardado pelo app no aparelho está cifrado.
+
+## NFR-SEC-05 — Criptografia em repouso
+
+O sistema deve armazenar cifrado no servidor todo dado de saúde.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | Dado de saúde é dado sensível na LGPD. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **NFR-SEC-05.1** — 100% do dado de saúde guardado no servidor, inclusive nas cópias de segurança, está cifrado.
+
+## NFR-SEC-06 — Dado de saúde apagado do aparelho
+
+O sistema deve apagar do app o dado de saúde após 72 horas sem sincronizar, no logout e na revogação da sessão, e só apagar a fila de escrita pendente na revogação ou com a confirmação do usuário.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | Aparelho perdido não pode expor prontuário. Fora da revogação, um registro que ainda não chegou ao servidor só se perde se o usuário escolher descartá-lo. A revogação diz que o aparelho deixou de ser confiável, e por isso leva a fila junto. |
+| Origem | [ADR 0007](../../decisions/0007-app-nativo-em-flutter-com-offline.md) |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **NFR-SEC-06.1** — Dado um app sem sincronizar há 72 horas, quando é aberto, então mostra 0 dados de saúde e mantém a fila pendente.
+- **NFR-SEC-06.2** — Dado um logout com fila pendente e conexão, quando o usuário sai, então o app envia a fila antes de concluir, e o aparelho guarda 0 dados de saúde.
+- **NFR-SEC-06.3** — Dado um logout com fila pendente e sem conexão, quando o usuário não confirma o descarte da fila, então o logout não conclui e a fila continua no aparelho.
+- **NFR-SEC-06.4** — Dada uma sessão revogada, quando o app recebe a recusa da API, então o aparelho guarda 0 dados de saúde, inclusive a fila pendente.
+
+## NFR-SEC-07 — Nenhuma resposta da API no cache do navegador
+
+O sistema deve impedir que o navegador guarde em cache qualquer resposta da API.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | Um dispositivo compartilhado da clínica não pode reter dado de saúde. |
+| Origem | Theo, ao especificar a autenticação: [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md), regra 9 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **NFR-SEC-07.1** — Depois de usar o web, o cache do navegador contém 0 URLs da origem da API.

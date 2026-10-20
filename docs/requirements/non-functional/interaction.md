@@ -16,6 +16,7 @@ O sistema deve apresentar toda tela utilizável na largura de 390 px, sem rolage
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-INTR-01.1** — Em cada tela, na largura de 390 px, toda ação da tela é alcançável e a página não rola na horizontal.
 
 ## NFR-INTR-02 — Acessibilidade
@@ -32,6 +33,7 @@ O sistema deve atender aos critérios de sucesso do WCAG 2.2 no nível AA em tod
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-INTR-02.1** — Cada tela passa em todos os critérios de sucesso de nível A e AA do WCAG 2.2.
 
 ## NFR-INTR-03 — Interface em pt-BR
@@ -48,4 +50,5 @@ O sistema deve apresentar todo texto da interface em português do Brasil.
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-INTR-03.1** — Nenhuma tela exibe texto de interface em outro idioma: 0 ocorrências.

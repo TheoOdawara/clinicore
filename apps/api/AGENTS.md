@@ -24,15 +24,22 @@ edition 2024).
 | Análise estática | `cargo clippy --all-targets -- -D warnings`                                                                             |
 | Build            | `cargo build`                                                                                                           |
 | Schema           | `infisical run --path=/api -- sqlx migrate run` · `infisical run --path=/api -- cargo sqlx prepare --workspace --check` |
-| Dependências     | `cargo audit --ignore RUSTSEC-2023-0071`                                                                                |
+| Dependências     | `cargo audit`                                                                                                           |
 | Testes           | `infisical run --path=/api -- cargo test`                                                                               |
 
 O `sqlx-cli` é instalado com
 `cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls`,
 a mesma versão do job `api` do CI, e o `cargo-audit` com
-`cargo install cargo-audit --version 0.22.2 --locked`. **A RUSTSEC-2023-0071 é ignorada** porque o
-`rsa` vem do backend `rust_crypto` do `jsonwebtoken`, e a API só assina e confere HS256, sem chave RSA
-para o ataque de tempo alcançar. O `compose.yaml` sobe o Postgres 18 e o Redis 8 de
+`cargo install cargo-audit --version 0.22.2 --locked`. **As advisories ignoradas ficam no
+`.cargo/audit.toml`**, e cada uma tem o motivo aqui:
+
+- **RUSTSEC-2023-0071**: o `rsa` vem do backend `rust_crypto` do `jsonwebtoken`, e a API só assina e
+  confere HS256, sem chave RSA para o ataque de tempo alcançar.
+- **RUSTSEC-2026-0367 a 0369**: o `zip` 8.6 é build-dependency do `utoipa-swagger-ui` 10.0.1 e só
+  extrai, no `build.rs`, o zip do Swagger UI que vem dentro do próprio crate, nunca um arquivo de fora;
+  ele não entra no binário. O ignore sai quando o `utoipa-swagger-ui` aceitar o `zip` 9.
+
+O `compose.yaml` sobe o Postgres 18 e o Redis 8 de
 desenvolvimento com `infisical run --path=/api -- docker compose up -d --wait`, e as portas e as credenciais vêm do
 Infisical.
 
@@ -185,9 +192,12 @@ migrations/  .sqlx/
 
 ## Segredos
 
-- **Os valores de desenvolvimento moram no Infisical, no plano grátis, no ambiente `dev` do projeto `Clinicore`, na pasta `/api`.**
-  Nenhum `.env` com valor real fica no disco, e ninguém manda variável para ninguém.
-- **O `.infisical.json` é commitado.** Ele liga esta pasta ao projeto e não tem segredo.
+- **Os valores de desenvolvimento moram no Infisical, no plano grátis, no ambiente `dev` do projeto `Clinicore` da org `ATNexusLab`, na pasta `/api`.**
+  Ninguém manda variável para ninguém.
+- **O `apps/api/.env` é a cópia local desses valores, fora do git.** O binário não o lê; o
+  `docker compose` e o `sqlx-cli` o leem sozinhos quando o comando roda sem o `infisical run`.
+- **O `.infisical.yaml` é commitado.** Ele liga esta pasta ao projeto e não tem segredo. O
+  `.infisical.json` é o formato legado, e o `infisical migrate-config` converte um para o outro.
 - **Todo comando que precisa de variável roda dentro do `infisical run --path=/api --`**: `cargo run`,
   `docker compose up`, `sqlx migrate run` e `cargo sqlx prepare`. O `--env` padrão já é `dev`.
 - **Um valor só da sua máquina é override pessoal**, com
@@ -237,8 +247,11 @@ migrations/  .sqlx/
 ## Pegadinhas da stack
 
 - **O `sqlx-cli` procura um `.env` subindo pelos diretórios pais, e o erro de parse dele imprime a
-  linha que falhou.** Um valor sem aspas e com espaço basta para pôr o segredo no terminal. É mais um
-  motivo para nenhum `.env` com valor real ficar no disco.
+  linha que falhou.** Um valor sem aspas e com espaço no `apps/api/.env` basta para pôr o segredo no
+  terminal.
+- **Com o `apps/api/.env` no disco, as macros do sqlx compilam contra o banco, e não contra o `.sqlx/`.**
+  Elas leem o `DATABASE_URL` dele, e com o Postgres fora ou sem as migrations aplicadas o `cargo build`
+  e o `cargo clippy` caem em erros de tipo nas consultas. O `SQLX_OFFLINE=true` volta a usar o `.sqlx/`.
 - **O `fmt()` do `tracing-subscriber` nasce limitado a `INFO`.** Sem o `.with_max_level(level)`, o
   `Targets` só consegue estreitar, e `debug` e `trace` somem.
 - **O guard de origem entra por `route_layer`**, para rota inexistente e método não aceito

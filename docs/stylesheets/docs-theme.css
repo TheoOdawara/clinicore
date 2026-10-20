@@ -1,0 +1,6 @@
+[data-md-color-scheme="slate"] .md-content img[src$=".drawio.svg"] {
+  padding: 12px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  background: #ffffff;
+}

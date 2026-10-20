@@ -4,15 +4,10 @@ O modelo físico: PostgreSQL 18, com o schema aplicado pelas migrations de `apps
 
 ## Tabelas
 
-| Tabela | Entidade | Chave | Restrições |
-| --- | --- | --- | --- |
-| `users` | [User](user.md) | `id` uuid | `email` único, com `CHECK (email = lower(email))` |
-| `accounts` | [Account](account.md) | `id` uuid | `user_id` → `users`, `ON DELETE CASCADE`; único em (`provider`, `provider_account_id`) e em (`user_id`, `provider`); `CHECK` que exige `password_hash` na credencial |
-| `sessions` | [Session](session.md) | `id` uuid | `user_id` → `users`, `ON DELETE CASCADE` |
-| `verifications` | [Verification](verification.md) | `id` uuid | `token_hash` único |
-| `email_dispatches` | [EmailDispatch](email-dispatch.md) | `id` uuid | — |
-
-Toda chave é `uuid` com `gen_random_uuid()` como padrão, e toda data é `timestamptz`.
+As tabelas, as colunas, as chaves e as restrições estão no [modelo físico](README.md#modelo-físico).
+Toda chave é `uuid` com `gen_random_uuid()` como padrão, e toda data é `timestamptz`. Duas restrições
+não aparecem no diagrama: `CHECK (email = lower(email))` em `users`, e o `CHECK` de `accounts` que exige
+`password_hash` na credencial.
 
 ## Tipos
 

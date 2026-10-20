@@ -20,6 +20,8 @@ brasileira (Crux, Kernel, Shift), nome literal de odontologia (Odoncore, Molar) 
 cotidiano ruim (Granada). Referência de bom nome abstrato: Notion. Oryn falha no INPI, com dois
 registros na classe 44.
 
+Candidato em avaliação: Core Clinical System, ainda sem a checagem de pronúncia e de INPI.
+
 ## OQ-02 — Formato de saída do Simples Dental
 
 O que a exportação deles entrega de fato — arquivos, campos, lacunas — e se há outra via de extração.
@@ -48,7 +50,7 @@ Quais operadoras odontológicas entram no primeiro corte de
 
 ## OQ-07 — IA: áudio da consulta
 
-Onde os áudios são processados e por quanto tempo ficam retidos. Decidido na spec da IA clínica.
+Onde os áudios são processados e por quanto tempo ficam retidos. Será decidido na spec da IA clínica.
 
 ## OQ-08 — Modelo comercial do SaaS
 

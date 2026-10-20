@@ -7,6 +7,8 @@ horas no web e 7 dias no app. Nenhuma sessão passa de 30 dias, com ou sem refre
 O transporte depende do header `Clinicore-Client`: ausente é o web, com os tokens em cookie; `mobile` é
 o app, com os tokens no corpo e o access token no `Authorization`.
 
+![Sequência do ciclo de vida da sessão](../diagrams/runtime-session-lifecycle.drawio.svg)
+
 ## Login
 
 1. **O cliente** manda `POST /sessions` para a **API**, com e-mail e senha.

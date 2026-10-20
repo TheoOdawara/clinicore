@@ -3,7 +3,7 @@
 O sistema decomposto em processos e armazenamentos. Cada bloco tem o próprio arquivo, com o que ele
 faz, o que ele nunca faz e o que é preciso saber para mudá-lo.
 
-![Diagrama de containers](../../diagrams/containers.drawio.svg)
+![Diagrama de containers](../diagrams/containers.drawio.svg)
 
 | Bloco | Tecnologia | Responsabilidade | Fala com | Marco | Arquivo |
 | --- | --- | --- | --- | --- | --- |

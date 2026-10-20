@@ -24,6 +24,6 @@ com a API mandando `Clinicore-Client: mobile` e o token no `Authorization`.
 ## Para mudar com segurança
 
 As camadas e a receita de regeração do cliente estão no
-[`apps/mobile/AGENTS.md`](../../../apps/mobile/AGENTS.md). Rota nova na API só chega ao app por essa
+[`apps/mobile/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/apps/mobile/AGENTS.md). Rota nova na API só chega ao app por essa
 regeração, e o diff do cliente gerado vai no mesmo pull request que o usa. O conceito de offline está em
 [`../concepts/offline.md`](../concepts/offline.md).
