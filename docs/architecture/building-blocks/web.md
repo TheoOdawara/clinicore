@@ -13,9 +13,9 @@ ter regra de negócio que a API não tenha.
 | --- | --- | --- | --- |
 | Rotas | `src/routes/` | caminho, `loader` e composição das features | existe, com a rota raiz |
 | Configuração | `src/shared/env/` | lê e valida as variáveis do build | existe |
-| Estilo | `src/styles/` | Tailwind e os tokens | existe |
+| Estilo | `src/styles/` | Tailwind e os tokens | existe; CSS Modules na #77 |
 | Cliente HTTP | `src/shared/http/` | a instância única do axios, com o refresh da sessão no interceptor | M1 · #79 |
-| UI base | `src/shared/` | os componentes do shadcn/ui | M1 · #77 |
+| UI base | `src/shared/` | os componentes base, sem regra de negócio | M1, com o primeiro componente (#78) |
 | Features | `src/features/<feature>/` | chamada à API, schema Zod da resposta, componentes e hooks de uma feature | M1, a começar pela autenticação (#78) |
 | PWA instalável | manifesto e service worker | instalação pelo navegador, sem cachear a origem da API | M1 · #81 |
 

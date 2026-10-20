@@ -22,7 +22,7 @@ Todos são do épico #3, e as specs já estão fechadas:
 | 1 | #119 — recuperar e trocar a senha na API | — |
 | 2 | #120 — entrar com Google na API | — |
 | 3 | #130 — impedir o sequestro de conta no cadastro repetido de e-mail não verificado | — |
-| 4 | #77 — shadcn/ui como design system do web | — |
+| 4 | #77 — CSS Modules no lugar do Tailwind, no web e no site | — |
 | 5 | #78 — telas de entrar e de criar conta | #77 |
 | 6 | #79 — área protegida, renovação da sessão e sair | #78 |
 | 7 | #80 — recuperar, redefinir e trocar a senha no web | #119, #79 |

@@ -18,7 +18,7 @@ no de cada app.
 A mesma pasta vira um site local, com menu e busca:
 
 ```sh
-uvx zensical@0.0.70 serve --open
+uvx zensical@0.0.71 serve --open
 ```
 
 Ele abre em `http://localhost:8000`. No VS Code, é a task `docs: serve`. O site não é publicado em lugar

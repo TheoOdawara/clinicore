@@ -17,5 +17,4 @@ A marca ainda não foi definida, e nenhuma tela foi desenhada. Por isso esta pas
 - `pages/<feature>/<página>.md`, uma por tela, que nascem com a spec de cada feature: a imagem em
   390px e depois no desktop, as áreas, os estados e os tokens que ela usa
 
-A base de componentes do `apps/web` é o shadcn/ui, pela
-[ADR 0003](../decisions/0003-design-system-com-shadcn-ui-e-react-bits.md), adotado na #77.
+O estilo do `apps/web` e do `apps/site` é Tailwind 4.3 hoje, e a #77 troca os dois por CSS Modules.

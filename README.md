@@ -18,7 +18,7 @@ cliente independente, e é contra a rotina real delas que cada módulo é valida
 | App | Papel | Tecnologia |
 |---|---|---|
 | `apps/api` | contrato HTTP | Rust com axum e sqlx · PostgreSQL 18 · Redis 8 |
-| `apps/web` | sistema da clínica (PWA) | React 19 · Vite · TanStack Router/Query/Form · Zod · Tailwind + shadcn/ui |
+| `apps/web` | sistema da clínica (PWA) | React 19 · Vite · TanStack Router · Zod · Tailwind |
 | `apps/site` | landing pública | Next.js 16 standalone · React 19 |
 | `apps/mobile` | app iOS e Android | Flutter · Dio · cliente HTTP gerado do OpenAPI da API |
 

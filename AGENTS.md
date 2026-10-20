@@ -36,7 +36,7 @@ cookie de sessão em `SameSite=Lax`.
 | Framework | axum 0.8 sobre tokio e tower, validação por `validator`, OpenAPI por `utoipa` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Next.js 16.3 com App Router e `output: "standalone"` · `next/image` e `next/font` | Flutter 3.47 · `go_router` 18.0 |
 | Dados | PostgreSQL 18 · sqlx 0.9, com as consultas conferidas contra o schema na compilação | Zod 4.6; TanStack Query 5 e axios 1 entram com a primeira feature (#78) | — | cliente Retrofit sobre `dio` 5.11, gerado por `swagger_parser` 1.44 com `json_serializable` |
 | Formulário | — | TanStack Form com schema Zod, que entra com o primeiro formulário (#78) | — | — |
-| Estilo | — | Tailwind 4.3; shadcn/ui sobre Radix e CVA entra na #77 | Tailwind 4.3; shadcn/ui, com cópia própria, entra com a primeira seção | — |
+| Estilo | — | Tailwind 4.3, que a #77 troca por CSS Modules | Tailwind 4.3, que a #77 troca por CSS Modules | — |
 | Auth | `jsonwebtoken` e `argon2`; access token curto e refresh na tabela `sessions` | axios contra `/users` e `/sessions` da API, com o refresh no interceptor, a partir da #78 | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
 | Fila e agendamento | limpeza periódica dentro do processo da API; o worker nasce com o primeiro job da fila | — | — | — |
 | Redis 8 | contagem do limite por IP e denylist de revogação de sessão | — | — | — |
@@ -111,12 +111,12 @@ apps/
 │       │   ├── hooks/
 │       │   └── __tests__/
 │       ├── styles/          globals.css é manifesto; regra por concern em arquivo próprio
-│       └── shared/          UI base do shadcn, http, env — sem regra de negócio
+│       └── shared/          UI base, http, env — sem regra de negócio
 ├── site/                    Next.js standalone · :4321 · clinicore.com.br
 │   └── src/
 │       ├── app/             App Router: a pasta é a URL, layout.tsx e page.tsx por rota
 │       ├── sections/        blocos da landing: hero, preços, dúvidas
-│       ├── components/      UI base do shadcn e o que for copiado
+│       ├── components/      UI base e o que for copiado
 │       ├── assets/          imagem e vídeo da landing
 │       └── styles/
 └── mobile/                  Flutter · iOS e Android · br.com.clinicore.dev
