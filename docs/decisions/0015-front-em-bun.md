@@ -32,8 +32,15 @@ sai do repo.
 - O `bun.lock` entra no lugar do `package-lock.json`, nos dois apps.
 - Os scripts de dev, build e lint rodam sob `bun --bun`, e o `engines` dos dois `package.json` passa a
   declarar o Bun.
+- **O gate de tipos é o `bun check`**, o type checker nativo do Bun, nos dois apps. O script
+  `typecheck` sai, e o script `check` também, porque um script com esse nome tem precedência sobre o
+  type checker. O pacote `typescript` fica, porque o `typescript-eslint` e o editor dependem dele.
+- O `bunfig.toml` de cada app declara `[install] exact = true`, para que o `bun add` grave a versão
+  exata, sem `^`.
+- O CI instala com `bun install --frozen-lockfile` e audita com `bun audit`.
 - O `apps/web` testa com `bun test`, com o `@happy-dom/global-registrator` pré-carregado pelo
-  `bunfig.toml`. O Jest, o `@swc/jest`, o `jest-environment-jsdom` e o `jest.config.json` saem.
+  `bunfig.toml` e `[test] randomize = true`. O Jest, o `@swc/jest`, o `jest-environment-jsdom` e o
+  `jest.config.json` saem.
 - Os jobs `web` e `site` do `ci.yml` usam o `oven-sh/setup-bun`, sem o `actions/setup-node`.
 - O Dockerfile do `apps/site`, previsto na ADR 0014, parte da imagem `oven/bun`.
 
@@ -47,8 +54,15 @@ sai do repo.
   `undefined` na suíte, então nenhum teste afirma sobre classe CSS.
 - **O happy-dom não é o jsdom.** Uma API do DOM que o happy-dom não implementa quebra o teste, e não o
   navegador. É o preço de um runtime só.
-- **O `bun check` roda o script `check` do `package.json`**, que existe nos dois apps, e não o type
-  checker do Bun. O gate de tipos continua sendo o `tsc` do script `typecheck`.
+- **Um script `check` no `package.json` esconde o type checker:** o `bun check` roda o script quando ele
+  existe. Nenhum dos dois apps pode ter um script com esse nome.
+- **O type checker do Bun respeita o `tsconfig.json`.** Conferido em 2026-10-19 com o Bun 1.4.3 numa cópia
+  do `apps/web`: ele reprovou TS2322, TS7006 e TS6133, então `strict` e `noUnusedLocals` valem, em
+  cerca de 50 ms contra 0,9 s do `tsc`.
+- **Os testes rodam em ordem aleatória**, então um teste que depende de outro falha logo.
+- **O `minimumReleaseAge` fica desligado**, porque atrasaria a última versão estável que o repo usa.
+- **A licença e o diff de uma dependência nova ou atualizada saem do próprio Bun**, pelo
+  `bun pm licenses` e pelo `bun pm diff`.
 - **Os comandos mudam em todo lugar que os cita:** o `AGENTS.md` da raiz e o de cada app, o README, o
   `.vscode/` e o CI, todos na #154.
 
