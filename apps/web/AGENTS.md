@@ -27,8 +27,7 @@ primeira feature, e as regras abaixo valem a partir dela.
   requisições concorrentes esperam essa chamada em vez de dispararem a sua, e o fracasso leva para
   `/login`. Nenhuma feature cria instância própria nem chama `axios` direto.
 - **Formulário é TanStack Form** com o schema Zod nos validadores de blur e submit.
-- **A UI base é shadcn/ui**, copiada para `shared/`, e o que o shadcn cobre não é reescrito à mão. O
-  React Bits entra pela tabela de categorias da ADR 0003 — no `apps/web` não há fundo animado, efeito
+- **O React Bits entra pela tabela de categorias da ADR 0003** — no `apps/web` não há fundo animado, efeito
   de cursor nem texto animado sobre dado clínico. Todo componente copiado respeita
   `prefers-reduced-motion`, nunca atrasa informação na tela, e perde os comentários na mesma edição.
 - **O texto de erro que o usuário lê é pt-BR e mora no web**, traduzido a partir do `code` que a API
@@ -48,7 +47,7 @@ ADR 0004.
   `npm run typecheck` é um gate separado.
 - **`import.meta.env` do Vite não existe no Jest.** No modo CommonJS, o arquivo que o lê derruba a
   suíte com `Must use import to load ES Module`; no modo ESM, carrega e o valor chega `undefined`.
-- **O `shadcn add` e o `jsrepo` geram arquivo comentado**, e o repo só admite o marcador `ponytail:`. A
-  limpeza é parte de adicionar o componente, não uma passada depois.
+- **O `jsrepo` copia o componente do React Bits com comentários.** A limpeza é parte de adicionar o
+  componente, não uma passada depois.
 - **Parte dos componentes do React Bits ignora `prefers-reduced-motion`.** Conferir e corrigir no
   arquivo copiado; não dá para presumir que a fonte respeitou.

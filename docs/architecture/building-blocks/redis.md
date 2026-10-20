@@ -21,4 +21,4 @@ PostgreSQL.
 ## Para mudar com segurança
 
 As regras de limite em duas chaves e a ordem da revogação estão no
-[`apps/api/AGENTS.md`](../../../apps/api/AGENTS.md), em Regras.
+[`apps/api/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/apps/api/AGENTS.md), em Regras.

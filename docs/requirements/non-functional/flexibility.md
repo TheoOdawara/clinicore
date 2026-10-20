@@ -16,21 +16,22 @@ O sistema deve oferecer as mesmas telas no web responsivo e no app nativo de iOS
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
+
 - **NFR-FLEX-01.1** — 100% das telas do web existem no app de iOS e no de Android.
 
 ## NFR-FLEX-02 — Web instalável
 
-O sistema deve permitir instalar o web como aplicativo no dispositivo, sem guardar nenhuma resposta da API no cache do navegador.
+O sistema deve permitir instalar o web como aplicativo no dispositivo.
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | O web é aberto como aplicativo; um dispositivo compartilhado não pode reter dado de saúde. |
-| Origem | [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md), regra 9 · issue #81 |
-| Prioridade | Should |
+| Justificativa | O web é aberto como aplicativo, sem a barra do navegador. |
+| Origem | Theo, ao especificar a autenticação: [spec 003 — web](../../specs/autenticacao/003-autenticacao-web.md), regra 9 |
+| Prioridade | Must |
 | Status | approved |
 | Marco | M1 |
 | Desde | v1.0.0 |
 
 **Critérios de aceite**
-- **NFR-FLEX-02.1** — O navegador oferece a instalação do web e o manifesto não tem erro.
-- **NFR-FLEX-02.2** — O cache do navegador contém 0 URLs da origem da API.
+
+- **NFR-FLEX-02.1** — Dado o web aberto no navegador do celular, quando a pessoa o instala, então ele abre como aplicativo, sem a barra do navegador.

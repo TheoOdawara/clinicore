@@ -1,6 +1,18 @@
 [project]
 site_name = "Clinicore — documentação interna"
 docs_dir = "docs"
+extra_css = ["stylesheets/docs-theme.css", "stylesheets/image-viewer.css"]
+extra_javascript = [{ path = "javascripts/image-viewer.js", type = "module" }]
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Mudar para o tema escuro"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Mudar para o tema claro"
 
 [project.markdown_extensions]
 toc.permalink = true

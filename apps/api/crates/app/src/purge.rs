@@ -15,7 +15,7 @@ pub struct Purged {
     pub email_dispatches: u64,
 }
 
-// ponytail: every API replica runs its own hourly purge, harmless because the deletes are idempotent; moves to crates/worker when #71 creates it
+// shortcut: every API replica runs its own hourly purge, harmless because the deletes are idempotent; moves to crates/worker when #71 creates it
 pub async fn run(state: AppState) {
     let mut interval = tokio::time::interval(EVERY);
     loop {

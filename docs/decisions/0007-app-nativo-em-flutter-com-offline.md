@@ -1,6 +1,7 @@
 # 0007. App nativo em Flutter, com offline completo
 
-- Status: accepted, emendada em 2026-09-21 pela spec `004-sessao-por-token-api.md` nos itens 7 e 8
+- Status: accepted, emendada em 2026-09-21 pela spec `004-sessao-por-token-api.md` nos itens 7 e 8, e
+  em 2026-10-19 pelo SRS v2.0.0 (`NFR-SEC-06`) no item 7
 - Date: 2026-09-21
 - Emenda a: 0002 (o web deixa de ser o único front do sistema e não guarda dado clínico offline),
   `docs/requirements/` (a plataforma, hoje `NFR-FLEX-01`, e o offline, hoje `NFR-REL-02`, `NFR-REL-03` e
@@ -70,7 +71,9 @@ Decisões de detalhe dentro desta:
    tem trava própria**: a biometria é forma de login (passkey), não bloqueio de tela, e o dado offline
    fica protegido pela criptografia do banco e pelo bloqueio do aparelho, quando a pessoa configurou um.
    Quem deixa o aparelho sem bloqueio assume esse risco. É apagado **72 horas após a última sincronização**, no
-   logout e quando a API recusa o refresh da sessão. A fila pendente não é apagada: sobe no próximo login.
+   logout e quando a API recusa o refresh da sessão. A fila pendente só sai do aparelho com a sessão
+   revogada, que diz que o aparelho deixou de ser confiável. No logout, o app envia a fila antes de sair;
+   sem conexão, o logout espera o usuário confirmar o descarte. Nas 72 horas, a fila fica.
 8. **A sessão do app é token no header**, não cookie: o app não é o mesmo site da API, então o
    `SameSite=Lax` da spec `003-autenticacao-api.md` não se aplica a ele. Access token curto, refresh
    opaco guardado no Keychain/Keystore, os dois na mesma tabela `session` que o web usa. A sessão do

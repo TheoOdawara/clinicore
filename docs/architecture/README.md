@@ -2,10 +2,10 @@
 
 O mapa do sistema: o que existe, como as partes conversam e qual marco constrói cada uma. Segue as
 seções do arc42 e desenha com o modelo C4. As regras que se conferem no código — que camada importa
-qual, onde nasce cada arquivo — moram no [`AGENTS.md`](../../AGENTS.md) da raiz e no de cada app.
+qual, onde nasce cada arquivo — moram no [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/AGENTS.md) da raiz e no de cada app.
 
 No texto e nos diagramas, o que já existe aparece em linha contínua, e o que ainda vai ser construído
-aparece tracejado, com o marco (`M1`, `M2`, `M3`) de
+aparece tracejado, com o marco (`M1`, `M3`) de
 [`requirements/`](../requirements/README.md#marcos).
 
 ## Objetivo
@@ -29,7 +29,7 @@ Estão em [`requirements/overview.md`](../requirements/overview.md#restrições)
 
 ## Contexto
 
-![Diagrama de contexto](../diagrams/context.drawio.svg)
+![Diagrama de contexto](diagrams/context.drawio.svg)
 
 | Ator ou sistema | O que flui | Marco |
 | --- | --- | --- |
@@ -48,7 +48,7 @@ Estão em [`requirements/overview.md`](../requirements/overview.md#restrições)
 
 | Decisão | Onde está |
 | --- | --- |
-| Quatro apps independentes, com o contrato HTTP como única fronteira | [`AGENTS.md`](../../AGENTS.md) → Stack |
+| Quatro apps independentes, com o contrato HTTP como única fronteira | [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/AGENTS.md) → Stack |
 | API em Rust, com axum e sqlx, e as consultas conferidas contra o schema na compilação | [ADR 0009](../decisions/0009-api-em-rust-com-axum-e-sqlx.md) |
 | Um crate por processo ou capacidade | [ADR 0010](../decisions/0010-api-rs-com-crate-por-processo.md) |
 | REST por recurso e todo erro em Problem Details | [ADR 0006](../decisions/0006-api-rest-e-problem-details.md) |

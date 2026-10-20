@@ -61,7 +61,7 @@ impl Mailer {
         Ok(Self { transport, from })
     }
 
-    // ponytail: fire-and-forget spawn, a restart or a transient SMTP failure loses the mail; outbox table and the worker retry in #71
+    // shortcut: fire-and-forget spawn, a restart or a transient SMTP failure loses the mail; outbox table and the worker retry in #71
     pub fn send(&self, to: &str, message: MailMessage) {
         let mailer = self.clone();
         let to = to.to_string();
