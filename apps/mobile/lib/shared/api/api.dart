@@ -34,6 +34,51 @@ abstract class AuthClient {
     @Header('Clinicore-Client') ClinicoreClient? clinicoreClient,
   });
 
+  /// Start the Google sign-in.
+  ///
+  /// A top-level navigation, never an XHR. Writes nothing to the database: the state, the PKCE verifier and the nonce travel in three cookies.
+  ///
+  /// [clinicoreClient] - mobile moves the session to the body and the Authorization header; absent keeps the cookies; any other value answers 400 invalid-client.
+  @GET('/oauth/google')
+  Future<void> startGoogleSignIn({
+    @Header('Clinicore-Client') ClinicoreClient? clinicoreClient,
+  });
+
+  /// Finish the Google sign-in.
+  ///
+  /// Links Google to the account that owns the verified email, or creates the account, and opens a web session. A refusal goes to /login?error= with INVALID_STATE, UNVERIFIED_PROVIDER_EMAIL or PROVIDER_ERROR.
+  ///
+  /// [clinicoreClient] - mobile moves the session to the body and the Authorization header; absent keeps the cookies; any other value answers 400 invalid-client.
+  @GET('/oauth/google/callback')
+  Future<void> completeGoogleSignIn({
+    @Query('code') String? code,
+    @Query('state') String? state,
+    @Query('error') String? error,
+    @Header('Clinicore-Client') ClinicoreClient? clinicoreClient,
+  });
+
+  /// Send a password reset link.
+  ///
+  /// Always answers 202 with an empty body, whether the email has an account or not. At most one link per address every 60 seconds and five every 24 hours.
+  ///
+  /// [clinicoreClient] - mobile moves the session to the body and the Authorization header; absent keeps the cookies; any other value answers 400 invalid-client.
+  @POST('/password-resets')
+  Future<void> requestPasswordReset({
+    @Body() required PasswordResetRequest body,
+    @Header('Clinicore-Client') ClinicoreClient? clinicoreClient,
+  });
+
+  /// Set a new password with the reset link.
+  ///
+  /// Revokes every session of the user at once. An account that only signed in with Google gains the password sign-in.
+  ///
+  /// [clinicoreClient] - mobile moves the session to the body and the Authorization header; absent keeps the cookies; any other value answers 400 invalid-client.
+  @POST('/password-resets/confirmation')
+  Future<void> confirmPasswordReset({
+    @Body() required PasswordResetConfirmationRequest body,
+    @Header('Clinicore-Client') ClinicoreClient? clinicoreClient,
+  });
+
   /// Sign in with email and password.
   ///
   /// The web gets the session in two cookies. With Clinicore-Client: mobile the tokens come in the body and no cookie is set.
@@ -80,6 +125,17 @@ abstract class AuthClient {
   @POST('/users')
   Future<void> signUp({
     @Body() required SignUpRequest body,
+    @Header('Clinicore-Client') ClinicoreClient? clinicoreClient,
+  });
+
+  /// Change the password of the signed-in user.
+  ///
+  /// Keeps the session that made the request and revokes every other one at once.
+  ///
+  /// [clinicoreClient] - mobile moves the session to the body and the Authorization header; absent keeps the cookies; any other value answers 400 invalid-client.
+  @PUT('/users/me/password')
+  Future<void> changePassword({
+    @Body() required PasswordChangeRequest body,
     @Header('Clinicore-Client') ClinicoreClient? clinicoreClient,
   });
 }
@@ -138,6 +194,52 @@ class Health {
   final String status;
 
   Map<String, Object?> toJson() => _$HealthToJson(this);
+}
+
+@JsonSerializable()
+class PasswordChangeRequest {
+  const PasswordChangeRequest({
+    required this.currentPassword,
+    required this.newPassword,
+  });
+
+  factory PasswordChangeRequest.fromJson(Map<String, Object?> json) =>
+      _$PasswordChangeRequestFromJson(json);
+
+  final String currentPassword;
+  final String newPassword;
+
+  Map<String, Object?> toJson() => _$PasswordChangeRequestToJson(this);
+}
+
+@JsonSerializable()
+class PasswordResetConfirmationRequest {
+  const PasswordResetConfirmationRequest({
+    required this.newPassword,
+    required this.token,
+  });
+
+  factory PasswordResetConfirmationRequest.fromJson(
+    Map<String, Object?> json,
+  ) => _$PasswordResetConfirmationRequestFromJson(json);
+
+  final String newPassword;
+  final String token;
+
+  Map<String, Object?> toJson() =>
+      _$PasswordResetConfirmationRequestToJson(this);
+}
+
+@JsonSerializable()
+class PasswordResetRequest {
+  const PasswordResetRequest({required this.email});
+
+  factory PasswordResetRequest.fromJson(Map<String, Object?> json) =>
+      _$PasswordResetRequestFromJson(json);
+
+  final String email;
+
+  Map<String, Object?> toJson() => _$PasswordResetRequestToJson(this);
 }
 
 @JsonSerializable()

@@ -37,6 +37,42 @@ Map<String, dynamic> _$HealthToJson(Health instance) => <String, dynamic>{
   'status': instance.status,
 };
 
+PasswordChangeRequest _$PasswordChangeRequestFromJson(
+  Map<String, dynamic> json,
+) => PasswordChangeRequest(
+  currentPassword: json['currentPassword'] as String,
+  newPassword: json['newPassword'] as String,
+);
+
+Map<String, dynamic> _$PasswordChangeRequestToJson(
+  PasswordChangeRequest instance,
+) => <String, dynamic>{
+  'currentPassword': instance.currentPassword,
+  'newPassword': instance.newPassword,
+};
+
+PasswordResetConfirmationRequest _$PasswordResetConfirmationRequestFromJson(
+  Map<String, dynamic> json,
+) => PasswordResetConfirmationRequest(
+  newPassword: json['newPassword'] as String,
+  token: json['token'] as String,
+);
+
+Map<String, dynamic> _$PasswordResetConfirmationRequestToJson(
+  PasswordResetConfirmationRequest instance,
+) => <String, dynamic>{
+  'newPassword': instance.newPassword,
+  'token': instance.token,
+};
+
+PasswordResetRequest _$PasswordResetRequestFromJson(
+  Map<String, dynamic> json,
+) => PasswordResetRequest(email: json['email'] as String);
+
+Map<String, dynamic> _$PasswordResetRequestToJson(
+  PasswordResetRequest instance,
+) => <String, dynamic>{'email': instance.email};
+
 Problem _$ProblemFromJson(Map<String, dynamic> json) => Problem(
   status: (json['status'] as num).toInt(),
   title: json['title'] as String,
@@ -212,6 +248,107 @@ class _AuthClient implements AuthClient {
   }
 
   @override
+  Future<void> startGoogleSignIn({ClinicoreClient? clinicoreClient}) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{r'Clinicore-Client': clinicoreClient};
+    _headers.removeWhere((k, v) => v == null);
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<void>(
+      Options(method: 'GET', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/oauth/google',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    await _dio.fetch<void>(_options);
+  }
+
+  @override
+  Future<void> completeGoogleSignIn({
+    String? code,
+    String? state,
+    String? error,
+    ClinicoreClient? clinicoreClient,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{
+      r'code': code,
+      r'state': state,
+      r'error': error,
+    };
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{r'Clinicore-Client': clinicoreClient};
+    _headers.removeWhere((k, v) => v == null);
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<void>(
+      Options(method: 'GET', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/oauth/google/callback',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    await _dio.fetch<void>(_options);
+  }
+
+  @override
+  Future<void> requestPasswordReset({
+    required PasswordResetRequest body,
+    ClinicoreClient? clinicoreClient,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{r'Clinicore-Client': clinicoreClient};
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body.toJson());
+    final _options = _setStreamType<void>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/password-resets',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    await _dio.fetch<void>(_options);
+  }
+
+  @override
+  Future<void> confirmPasswordReset({
+    required PasswordResetConfirmationRequest body,
+    ClinicoreClient? clinicoreClient,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{r'Clinicore-Client': clinicoreClient};
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body.toJson());
+    final _options = _setStreamType<void>(
+      Options(method: 'POST', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/password-resets/confirmation',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    await _dio.fetch<void>(_options);
+  }
+
+  @override
   Future<SignInResponse> signIn({
     required SignInRequest body,
     ClinicoreClient? clinicoreClient,
@@ -346,6 +483,31 @@ class _AuthClient implements AuthClient {
           .compose(
             _dio.options,
             '/users',
+            queryParameters: queryParameters,
+            data: _data,
+          )
+          .copyWith(baseUrl: _combineBaseUrls(_dio.options.baseUrl, baseUrl)),
+    );
+    await _dio.fetch<void>(_options);
+  }
+
+  @override
+  Future<void> changePassword({
+    required PasswordChangeRequest body,
+    ClinicoreClient? clinicoreClient,
+  }) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
+    final _headers = <String, dynamic>{r'Clinicore-Client': clinicoreClient};
+    _headers.removeWhere((k, v) => v == null);
+    final _data = <String, dynamic>{};
+    _data.addAll(body.toJson());
+    final _options = _setStreamType<void>(
+      Options(method: 'PUT', headers: _headers, extra: _extra)
+          .compose(
+            _dio.options,
+            '/users/me/password',
             queryParameters: queryParameters,
             data: _data,
           )
