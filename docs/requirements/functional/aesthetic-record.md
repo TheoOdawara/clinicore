@@ -59,17 +59,17 @@ O sistema deve registrar, em cada procedimento, a marca, o lote, a validade e a 
 
 **Critérios de aceite**
 
-- **FR-AES-03.1** — Dado um lote, quando o gestor o busca, então vê os pacientes e procedimentos em que ele foi aplicado.
+- **FR-AES-03.1** — Dado um procedimento registrado com marca, lote, validade e quantidade do produto, quando é reaberto, então mostra os quatro.
 
-## FR-AES-04 — Fotos de antes e depois
+## FR-AES-04 — Fotos de antes e de depois
 
-> Como dentista, quero guardar fotos padronizadas de antes e de depois e compará-las, para que o resultado seja demonstrável ao paciente.
+> Como dentista, quero guardar fotos de antes e de depois de um procedimento, para que o resultado fique registrado.
 
-O sistema deve armazenar fotos de antes e de depois de um procedimento e apresentá-las lado a lado.
+O sistema deve armazenar fotos de antes e de depois vinculadas a um procedimento.
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | A comparação mostra o resultado do procedimento. |
+| Justificativa | O resultado do procedimento precisa de registro visual. |
 | Origem | Theo, kickoff de 2026-09-15 |
 | Prioridade | Must |
 | Status | approved |
@@ -78,7 +78,7 @@ O sistema deve armazenar fotos de antes e de depois de um procedimento e apresen
 
 **Critérios de aceite**
 
-- **FR-AES-04.1** — Dado um procedimento com foto de antes e foto de depois, quando a comparação é aberta, então as duas aparecem lado a lado.
+- **FR-AES-04.1** — Dado um procedimento, quando o dentista anexa uma foto de antes e uma de depois, então as duas ficam vinculadas a ele.
 
 ## FR-AES-05 — Termo de consentimento de estética
 
@@ -98,3 +98,41 @@ O sistema deve emitir termo de consentimento próprio de procedimento de harmoni
 **Critérios de aceite**
 
 - **FR-AES-05.1** — Dado um procedimento de harmonização, quando o termo é emitido, então é o termo de estética e fica vinculado ao procedimento.
+
+## FR-AES-06 — Comparação de antes e depois
+
+> Como dentista, quero comparar as fotos de antes e de depois lado a lado, para que o resultado seja demonstrável ao paciente.
+
+O sistema deve apresentar lado a lado as fotos de antes e de depois de um procedimento.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | A comparação mostra o resultado do procedimento. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-AES-06.1** — Dado um procedimento com foto de antes e foto de depois, quando a comparação é aberta, então as duas aparecem lado a lado.
+
+## FR-AES-07 — Busca por lote aplicado
+
+> Como gestor, quero buscar um lote aplicado, para que eu encontre os pacientes num evento adverso.
+
+O sistema deve apresentar, a partir de um lote, os pacientes e os procedimentos em que ele foi aplicado.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | Num evento adverso, a clínica precisa achar quem recebeu o lote. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-AES-07.1** — Dado um lote, quando o gestor o busca, então vê os pacientes e procedimentos em que ele foi aplicado.

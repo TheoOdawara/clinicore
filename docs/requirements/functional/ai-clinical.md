@@ -8,7 +8,7 @@ A transcrição da consulta que vira rascunho de evolução.
 
 > Como dentista, quero receber um rascunho da evolução a partir da gravação da consulta, para que eu não digite o que acabei de falar.
 
-O sistema deve transcrever a consulta gravada e gerar um rascunho de evolução clínica.
+O sistema deve gerar um rascunho de evolução clínica a partir da gravação da consulta.
 
 | Atributo | Valor |
 | --- | --- |

@@ -22,7 +22,7 @@ O passo a passo está em [`../runtime/session-lifecycle.md`](../runtime/session-
 
 | O que | Requisito | Marco |
 | --- | --- | --- |
-| Token do app guardado no Keychain e no Keystore | `NFR-SEC-04` | M1 · #98 |
+| Token do app guardado no Keychain e no Keystore | `FR-ACC-12` | M1 · #98 |
 | Login com Google | `FR-ACC-09` | M1 · #120 |
 | Recuperar e trocar a senha | `FR-ACC-10`, `FR-ACC-11` | M1 · #119 |
 | Isolamento entre clientes: todo dado de clínica pertence a um cliente | `NFR-SEC-01` | M1 |

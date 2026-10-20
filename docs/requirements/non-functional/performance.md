@@ -25,7 +25,7 @@ O sistema deve exibir o conteúdo principal de cada tela do web em até 2,5 s nu
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | O tempo que a pessoa percebe é o da tela, não o da API. |
+| Justificativa | A pessoa percebe o tempo da tela inteira, que soma a resposta da API ao carregamento da página. |
 | Origem | Theo, elicitação de 2026-10-03 |
 | Prioridade | Must |
 | Status | approved |

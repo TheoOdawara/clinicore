@@ -5,6 +5,9 @@ sai, pelo navegador.
 
 **Baseline dos requisitos:** v1.0.0
 
+A v2.0.0 saiu depois do planejamento e não muda o escopo desta sprint: o que ela toca nos itens
+daqui é a divisão do `FR-ACC-07`, cuja confirmação de e-mail já estava na spec 003.
+
 **Itens:** #119, #120, #130, #77, #78, #79, #80
 
 Todos são do épico #3, e as specs já estão fechadas:

@@ -65,11 +65,11 @@ O sistema deve registrar o recebimento de uma parcela com a forma de pagamento.
 
 > Como recepção, quero abrir e fechar o caixa do dia, para que o dinheiro do dia seja conferido.
 
-O sistema deve manter o caixa da clínica, com as entradas e saídas do período e o saldo.
+O sistema deve registrar a abertura e o fechamento do caixa do dia.
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | O caixa mostra o dinheiro que entrou e saiu no período. |
+| Justificativa | Fechar o caixa é o momento em que a recepção confere o dinheiro do dia. |
 | Origem | Theo, kickoff de 2026-09-15 |
 | Prioridade | Must |
 | Status | approved |
@@ -78,13 +78,13 @@ O sistema deve manter o caixa da clínica, com as entradas e saídas do período
 
 **Critérios de aceite**
 
-- **FR-FIN-04.1** — Dado um recebimento em dinheiro, quando o caixa do dia é aberto, então o recebimento aparece como entrada.
+- **FR-FIN-04.1** — Dado o caixa do dia aberto, quando a recepção o fecha, então o caixa aparece fechado, com o saldo do fechamento.
 
 ## FR-FIN-05 — Contas a pagar
 
 > Como gestor, quero registrar as despesas da clínica e seus vencimentos, para que eu saiba o que vence.
 
-O sistema deve manter as contas a pagar da clínica, com valor, vencimento e situação.
+O sistema deve registrar as contas a pagar da clínica, com valor, vencimento e situação.
 
 | Atributo | Valor |
 | --- | --- |
@@ -126,7 +126,7 @@ O sistema deve calcular o repasse de cada dentista a partir dos procedimentos re
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | O repasse do dentista é calculado no sistema, não fora dele. |
+| Justificativa | O repasse calculado em planilha é o que o produto elimina. O dentista recebe pelo que fez: o desconto que a clínica dá ao paciente sai da parte dela. |
 | Origem | Theo, kickoff de 2026-09-15 |
 | Prioridade | Must |
 | Status | approved |
@@ -135,7 +135,8 @@ O sistema deve calcular o repasse de cada dentista a partir dos procedimentos re
 
 **Critérios de aceite**
 
-- **FR-FIN-07.1** — Dado um dentista com regra de comissão e procedimentos recebidos no período, quando o gestor abre o repasse, então vê o valor devido a ele.
+- **FR-FIN-07.1** — Dado um dentista com regra de comissão e procedimentos realizados no período, quando o gestor abre o repasse, então vê o valor devido a ele.
+- **FR-FIN-07.2** — Dado um procedimento realizado com desconto dado pela clínica, quando o gestor abre o repasse, então o valor devido ao dentista é calculado sobre o valor do procedimento sem o desconto.
 
 ## FR-FIN-08 — Inadimplência
 
@@ -174,3 +175,22 @@ O sistema deve emitir a NFS-e de um recebimento e mantê-la vinculada a ele.
 **Critérios de aceite**
 
 - **FR-FIN-09.1** — Dado um recebimento, quando o gestor emite a nota, então a NFS-e é gerada e fica vinculada ao recebimento.
+
+## FR-FIN-10 — Saldo do caixa
+
+> Como recepção, quero ver as entradas, as saídas e o saldo do caixa, para que eu confira o dinheiro antes de fechar.
+
+O sistema deve mostrar as entradas, as saídas e o saldo do caixa no período.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | O caixa mostra o dinheiro que entrou e saiu no período. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-FIN-10.1** — Dado um recebimento em dinheiro, quando o caixa do dia é aberto, então o recebimento aparece como entrada.

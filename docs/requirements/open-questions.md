@@ -50,7 +50,7 @@ Quais operadoras odontológicas entram no primeiro corte de
 
 ## OQ-07 — IA: áudio da consulta
 
-Onde os áudios são processados e por quanto tempo ficam retidos. Decidido na spec da IA clínica.
+Onde os áudios são processados e por quanto tempo ficam retidos. Será decidido na spec da IA clínica.
 
 ## OQ-08 — Modelo comercial do SaaS
 

@@ -27,7 +27,7 @@ O sistema deve publicar páginas indexáveis por buscadores que apresentam o pro
 
 > Como visitante, quero chegar às telas de entrar e de criar conta a partir da landing, para que eu comece a usar sem procurar outro endereço.
 
-O sistema deve oferecer na landing os caminhos para entrar e para criar conta, que levam ao sistema em `app.clinicore.com.br`.
+O sistema deve oferecer na landing os caminhos para entrar e para criar conta no sistema.
 
 | Atributo | Valor |
 | --- | --- |
@@ -72,7 +72,7 @@ O sistema deve publicar na landing os planos e os preços do produto.
 | Justificativa | O visitante vê o preço sem falar com alguém. Depende do modelo comercial, ainda em aberto (OQ-08). |
 | Origem | Theo, elicitação de 2026-10-03 |
 | Prioridade | Should |
-| Status | approved |
+| Status | proposed |
 | Marco | M3 |
 | Desde | v1.0.0 |
 

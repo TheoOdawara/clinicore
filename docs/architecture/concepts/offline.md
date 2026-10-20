@@ -13,7 +13,9 @@ O offline é exclusivo do `apps/mobile`. O `apps/web` exige conexão e não guar
 - **O dado no aparelho vem em duas camadas**: a ocupação da agenda, sem paciente, por um período longo;
   e o dado clínico só dos pacientes de um período curto. Os dois períodos são números da spec da agenda.
 - **O banco local é cifrado**, com a chave no Keychain ou no Keystore.
-- **Sem sincronizar há 72 horas, o app mostra 0 dados de saúde** e mantém a fila; no logout, apaga tudo.
+- **Sem sincronizar há 72 horas, o app mostra 0 dados de saúde** e mantém a fila.
+- **No logout, o app envia a fila antes de sair**; sem conexão, só sai quando o usuário confirma o
+  descarte do que não subiu. **Na sessão revogada, apaga tudo**, inclusive a fila.
 
 ## Na API
 

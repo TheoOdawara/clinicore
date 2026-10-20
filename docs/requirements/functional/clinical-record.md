@@ -27,7 +27,7 @@ O sistema deve registrar a anamnese do paciente com a data do preenchimento.
 
 > Como dentista, quero registrar a situação de cada dente, para que eu veja a boca do paciente de uma vez.
 
-O sistema deve manter o odontograma do paciente, com a situação registrada por dente.
+O sistema deve registrar, no odontograma do paciente, a situação de cada dente.
 
 | Atributo | Valor |
 | --- | --- |
@@ -42,15 +42,15 @@ O sistema deve manter o odontograma do paciente, com a situação registrada por
 
 - **FR-CLN-02.1** — Dado um dente marcado com uma situação, quando o odontograma é reaberto, então o dente mostra a situação registrada.
 
-## FR-CLN-03 — Plano de tratamento com orçamento
+## FR-CLN-03 — Plano de tratamento
 
-> Como dentista, quero montar o plano de tratamento e gerar o orçamento a partir dele, para que o que é proposto ao paciente seja o que é cobrado.
+> Como dentista, quero montar o plano de tratamento do paciente, para que o tratamento proposto fique registrado.
 
-O sistema deve manter o plano de tratamento do paciente e gerar o orçamento vinculado a ele.
+O sistema deve registrar o plano de tratamento do paciente com os procedimentos propostos.
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | O orçamento nasce do plano, para que os dois não divirjam. |
+| Justificativa | O plano é a base do orçamento e do tratamento. |
 | Origem | Theo, kickoff de 2026-09-15 |
 | Prioridade | Must |
 | Status | approved |
@@ -59,7 +59,7 @@ O sistema deve manter o plano de tratamento do paciente e gerar o orçamento vin
 
 **Critérios de aceite**
 
-- **FR-CLN-03.1** — Dado um plano com procedimentos, quando o orçamento é gerado, então traz os mesmos procedimentos e fica vinculado ao plano.
+- **FR-CLN-03.1** — Dado um plano com 3 procedimentos, quando o dentista o salva, então o prontuário mostra o plano com os 3.
 
 ## FR-CLN-04 — Evolução clínica por atendimento
 
@@ -196,3 +196,22 @@ O sistema deve armazenar imagens e arquivos de exame vinculados ao paciente.
 **Critérios de aceite**
 
 - **FR-CLN-10.1** — Dado um exame anexado, quando o dentista abre o prontuário, então o arquivo está disponível para visualização.
+
+## FR-CLN-11 — Orçamento gerado do plano
+
+> Como dentista, quero gerar o orçamento a partir do plano de tratamento, para que o que é proposto ao paciente seja o que é cobrado.
+
+O sistema deve gerar o orçamento a partir do plano de tratamento, vinculado a ele.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | O orçamento nasce do plano, para que os dois não divirjam. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-CLN-11.1** — Dado um plano com procedimentos, quando o orçamento é gerado, então traz os mesmos procedimentos e fica vinculado ao plano.

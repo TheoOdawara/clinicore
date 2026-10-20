@@ -61,13 +61,13 @@ O sistema deve restringir cada ação ao conjunto de papéis autorizados a ela, 
 **Critérios de aceite**
 
 - **FR-ACC-03.1** — Dado um usuário com o papel recepção, quando ele tenta uma ação reservada ao gestor, então o sistema recusa a ação.
-- **FR-ACC-03.2** — Para cada papel, 100% das ações não listadas como permitidas a ele são recusadas.
+- **FR-ACC-03.2** — Dado um papel qualquer, quando o usuário com esse papel tenta uma ação fora da lista das permitidas a ele, então o sistema recusa a ação.
 
-## FR-ACC-04 — Alcance por clínica dentro da rede
+## FR-ACC-04 — Gestor limitado à própria clínica
 
-> Como dono de rede, quero ver todas as clínicas da rede, enquanto cada gestor vê só a sua, para que a rede seja acompanhada sem expor uma clínica à outra.
+> Como dono de rede, quero que cada gestor veja só a própria clínica, para que uma clínica da rede não fique exposta à outra.
 
-O sistema deve limitar o gestor aos dados da própria clínica e dar ao dono de rede acesso aos dados de todas as clínicas da rede.
+O sistema deve limitar o gestor aos dados da própria clínica.
 
 | Atributo | Valor |
 | --- | --- |
@@ -81,17 +81,16 @@ O sistema deve limitar o gestor aos dados da própria clínica e dar ao dono de 
 **Critérios de aceite**
 
 - **FR-ACC-04.1** — Dado o gestor de uma das 3 clínicas de uma rede, quando ele lista pacientes, então vê só os da clínica dele.
-- **FR-ACC-04.2** — Dado o dono dessa rede, quando ele lista pacientes, então vê os das 3 clínicas.
 
-## FR-ACC-05 — Gestão de usuários da clínica
+## FR-ACC-05 — Desativar usuário
 
-> Como gestor, quero convidar, alterar o papel e desativar usuários da minha clínica, para que a equipe tenha acesso sem depender de suporte.
+> Como gestor, quero desativar um usuário da minha clínica, para que quem saiu da equipe perca o acesso sem depender de suporte.
 
-O sistema deve permitir que o gestor convide um usuário, altere o papel dele e o desative.
+O sistema deve permitir que o gestor desative um usuário da própria clínica.
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | O acesso da equipe acompanha a clínica sem depender de suporte. |
+| Justificativa | Quem sai da equipe não pode continuar alcançando dado de saúde. |
 | Origem | Theo, kickoff de 2026-09-15 |
 | Prioridade | Must |
 | Status | approved |
@@ -102,11 +101,11 @@ O sistema deve permitir que o gestor convide um usuário, altere o papel dele e 
 
 - **FR-ACC-05.1** — Dado um usuário desativado pelo gestor, quando ele tenta entrar, então o sistema recusa o acesso.
 
-## FR-ACC-06 — Trilha de auditoria de acesso ao prontuário
+## FR-ACC-06 — Consulta da trilha de acesso ao prontuário
 
 > Como gestor, quero consultar quem abriu o prontuário de um paciente e quando, para que eu responda a um questionamento sobre acesso a dado de saúde.
 
-O sistema deve registrar cada acesso ao prontuário com o usuário, o paciente e o instante, e permitir a consulta desse registro.
+O sistema deve apresentar ao gestor os acessos ao prontuário de um paciente, com o usuário e o instante de cada um.
 
 | Atributo | Valor |
 | --- | --- |
@@ -144,7 +143,7 @@ O sistema deve criar uma conta a partir de nome, e-mail e senha.
 
 > Como usuário, quero entrar com meu e-mail e minha senha, para que eu acesse a área logada.
 
-O sistema deve abrir uma sessão para a conta que informa e-mail confirmado e senha correta.
+O sistema deve abrir uma sessão para a conta que informa e-mail e senha corretos.
 
 | Atributo | Valor |
 | --- | --- |
@@ -235,7 +234,7 @@ O sistema deve encerrar a sessão a pedido da pessoa e recusar, a partir desse i
 
 **Critérios de aceite**
 
-- **FR-ACC-12.1** — Dada uma pessoa que saiu, quando uma requisição usa a sessão encerrada, então a API a recusa.
+- **FR-ACC-12.1** — Dada uma pessoa que saiu, quando uma requisição usa a sessão encerrada, então o sistema a recusa.
 
 ## FR-ACC-13 — Entrar com passkey
 
@@ -256,11 +255,11 @@ O sistema deve abrir uma sessão para a pessoa que se autentica com uma passkey 
 
 - **FR-ACC-13.1** — Dada uma conta com passkey registrada, quando a pessoa confirma a biometria do aparelho, então entra na área logada.
 
-## FR-ACC-14 — Gerenciar passkeys
+## FR-ACC-14 — Remover passkey
 
-> Como usuário, quero registrar, listar e remover as passkeys da minha conta, para que eu controle em quais aparelhos a biometria entra.
+> Como usuário, quero remover uma passkey da minha conta, para que um aparelho perdido ou trocado deixe de entrar.
 
-O sistema deve permitir que a pessoa logada registre uma passkey, liste as existentes e remova uma delas.
+O sistema deve permitir que a pessoa logada remova uma passkey da própria conta.
 
 | Atributo | Valor |
 | --- | --- |
@@ -277,7 +276,7 @@ O sistema deve permitir que a pessoa logada registre uma passkey, liste as exist
 
 ## FR-ACC-15 — Confirmar o e-mail antes do primeiro acesso
 
-> Como gestor, quero que só entre quem confirmou o e-mail, para que ninguém crie conta com o endereço de outra pessoa.
+> Como usuário, quero que só entre quem confirmou o e-mail da conta, para que ninguém crie conta com o meu endereço.
 
 O sistema deve recusar o acesso da conta cujo e-mail não foi confirmado pelo link enviado a ele.
 
@@ -294,3 +293,117 @@ O sistema deve recusar o acesso da conta cujo e-mail não foi confirmado pelo li
 
 - **FR-ACC-15.1** — Dado um visitante que criou a conta, quando ele abre o link de confirmação recebido por e-mail, então a conta passa a poder entrar.
 - **FR-ACC-15.2** — Dada uma conta sem e-mail confirmado, quando ela tenta entrar, então o sistema recusa o acesso.
+
+## FR-ACC-16 — Dono de rede alcança todas as clínicas
+
+> Como dono de rede, quero ver os dados de todas as clínicas da rede, para que eu acompanhe a rede inteira.
+
+O sistema deve dar ao dono de rede acesso aos dados de todas as clínicas da rede.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | Só o dono de rede responde pelo conjunto das clínicas. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-ACC-16.1** — Dado o dono de uma rede com 3 clínicas, quando ele lista pacientes, então vê os das 3 clínicas.
+
+## FR-ACC-17 — Convidar usuário
+
+> Como gestor, quero convidar uma pessoa para a minha clínica, para que a equipe tenha acesso sem depender de suporte.
+
+O sistema deve permitir que o gestor convide uma pessoa, pelo e-mail dela, para a própria clínica.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | O acesso da equipe acompanha a clínica sem depender de suporte. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-ACC-17.1** — Dado um convite do gestor, quando a pessoa convidada o aceita, então ela passa a ser usuária da clínica do gestor.
+
+## FR-ACC-18 — Alterar o papel do usuário
+
+> Como gestor, quero alterar o papel de um usuário da minha clínica, para que o acesso acompanhe a função dele.
+
+O sistema deve permitir que o gestor altere o papel de um usuário da própria clínica.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | O acesso acompanha a função que a pessoa exerce na clínica. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-ACC-18.1** — Dado um usuário com o papel recepção, quando o gestor o altera para dentista, então o usuário passa a ter as permissões de dentista e perde as de recepção.
+
+## FR-ACC-19 — Registro de acesso ao prontuário
+
+> Como gestor, quero que todo acesso ao prontuário fique registrado, para que nenhum acesso a dado de saúde fique sem rastro.
+
+O sistema deve registrar cada acesso ao prontuário com o usuário, o paciente e o instante.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | A LGPD trata dado de saúde como sensível; o acesso precisa ser demonstrável. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-ACC-19.1** — Dado um usuário que abre o prontuário de um paciente, quando o prontuário é exibido, então existe um registro com esse usuário, esse paciente e o instante.
+
+## FR-ACC-20 — Registrar passkey
+
+> Como usuário, quero registrar uma passkey na minha conta, para que eu entre com a biometria do aparelho.
+
+O sistema deve permitir que a pessoa logada registre uma passkey na própria conta.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | A passkey precisa estar na conta antes de servir para entrar. |
+| Origem | Theo, ao especificar a autenticação: [spec 004 — sessão por token](../../specs/autenticacao/004-sessao-por-token-api.md) · [spec 004 — app e passkey](../../specs/autenticacao/004-autenticacao-mobile.md) |
+| Prioridade | Should |
+| Status | approved |
+| Marco | M3 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-ACC-20.1** — Dada uma pessoa logada, quando ela registra uma passkey, então passa a poder entrar com ela.
+
+## FR-ACC-21 — Listar passkeys
+
+> Como usuário, quero ver as passkeys da minha conta, para que eu saiba quais aparelhos entram com biometria.
+
+O sistema deve apresentar à pessoa logada as passkeys registradas na própria conta.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | Só remove a passkey certa quem sabe quais existem. |
+| Origem | Theo, ao especificar a autenticação: [spec 004 — sessão por token](../../specs/autenticacao/004-sessao-por-token-api.md) · [spec 004 — app e passkey](../../specs/autenticacao/004-autenticacao-mobile.md) |
+| Prioridade | Should |
+| Status | approved |
+| Marco | M3 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-ACC-21.1** — Dada uma conta com 2 passkeys registradas, quando a pessoa abre a lista, então vê as 2.

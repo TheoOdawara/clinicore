@@ -8,7 +8,7 @@ A marcação de consultas, a comunicação com o paciente e o que acontece quand
 
 > Como recepção, quero marcar e consultar os horários de cada dentista, para que eu saiba quem atende quem e quando.
 
-O sistema deve manter a agenda de consultas de cada dentista.
+O sistema deve registrar cada consulta na agenda do dentista que a atende.
 
 | Atributo | Valor |
 | --- | --- |
@@ -28,7 +28,7 @@ O sistema deve manter a agenda de consultas de cada dentista.
 
 > Como recepção, quero ver a ocupação de cada cadeira ou sala, para que duas consultas não disputem o mesmo espaço.
 
-O sistema deve manter a agenda de cada cadeira ou sala da clínica.
+O sistema deve registrar cada consulta na agenda da cadeira ou da sala que ela ocupa.
 
 | Atributo | Valor |
 | --- | --- |
@@ -43,11 +43,11 @@ O sistema deve manter a agenda de cada cadeira ou sala da clínica.
 
 - **FR-SCH-02.1** — Dada uma cadeira ocupada num horário, quando outra consulta que não é encaixe é marcada nela no mesmo horário, então o sistema recusa.
 
-## FR-SCH-03 — Confirmação por WhatsApp
+## FR-SCH-03 — Pedido de confirmação por WhatsApp
 
-> Como recepção, quero que o paciente confirme a consulta pelo WhatsApp, para que eu não ligue para cada paciente.
+> Como recepção, quero que o paciente receba pelo WhatsApp o pedido de confirmação da consulta, para que eu não ligue para cada paciente.
 
-O sistema deve enviar ao paciente um pedido de confirmação por WhatsApp e registrar a resposta na consulta.
+O sistema deve enviar ao paciente, por WhatsApp e com a antecedência configurada pela clínica, um pedido de confirmação da consulta.
 
 | Atributo | Valor |
 | --- | --- |
@@ -60,14 +60,13 @@ O sistema deve enviar ao paciente um pedido de confirmação por WhatsApp e regi
 
 **Critérios de aceite**
 
-- **FR-SCH-03.1** — Dada uma consulta marcada, quando chega a janela de confirmação, então o paciente recebe a mensagem no WhatsApp.
-- **FR-SCH-03.2** — Dada a resposta do paciente, quando ela chega, então a consulta passa a confirmada ou a cancelada na agenda.
+- **FR-SCH-03.1** — Dada uma consulta marcada, quando chega a antecedência de confirmação configurada pela clínica, então o paciente recebe o pedido no WhatsApp.
 
 ## FR-SCH-04 — Lembrete por WhatsApp
 
 > Como recepção, quero que o paciente seja lembrado da consulta, para que ele não falte por esquecimento.
 
-O sistema deve enviar ao paciente um lembrete da consulta por WhatsApp antes do horário.
+O sistema deve enviar ao paciente, por WhatsApp e com a antecedência configurada pela clínica, um lembrete da consulta.
 
 | Atributo | Valor |
 | --- | --- |
@@ -80,7 +79,7 @@ O sistema deve enviar ao paciente um lembrete da consulta por WhatsApp antes do 
 
 **Critérios de aceite**
 
-- **FR-SCH-04.1** — Dada uma consulta confirmada, quando chega a janela de lembrete, então o paciente recebe o lembrete no WhatsApp.
+- **FR-SCH-04.1** — Dada uma consulta confirmada, quando chega a antecedência de lembrete configurada pela clínica, então o paciente recebe o lembrete no WhatsApp.
 
 ## FR-SCH-05 — Registro de falta
 
@@ -139,11 +138,11 @@ O sistema deve permitir marcar uma consulta de encaixe num horário já ocupado,
 
 - **FR-SCH-07.1** — Dado um horário ocupado, quando a recepção marca um encaixe nele, então a consulta é criada e aparece identificada como encaixe.
 
-## FR-SCH-08 — Lista de espera
+## FR-SCH-08 — Inclusão na lista de espera
 
-> Como recepção, quero manter os pacientes que querem um horário mais cedo, para que eu preencha uma desistência.
+> Como recepção, quero incluir na lista de espera o paciente que quer um horário mais cedo, para que eu o chame numa desistência.
 
-O sistema deve manter uma lista de espera de pacientes e apresentá-la quando um horário é liberado.
+O sistema deve registrar na lista de espera o paciente que quer um horário mais cedo que o marcado.
 
 | Atributo | Valor |
 | --- | --- |
@@ -156,4 +155,42 @@ O sistema deve manter uma lista de espera de pacientes e apresentá-la quando um
 
 **Critérios de aceite**
 
-- **FR-SCH-08.1** — Dado um paciente na lista de espera, quando uma consulta é cancelada, então a recepção vê a lista ao lado do horário liberado.
+- **FR-SCH-08.1** — Dado um paciente com consulta marcada, quando a recepção o inclui na lista de espera, então ele aparece na lista com a consulta que tem.
+
+## FR-SCH-09 — Resposta da confirmação na agenda
+
+> Como recepção, quero ver na agenda a resposta do paciente ao pedido de confirmação, para que eu saiba quem vem sem ligar.
+
+O sistema deve registrar na consulta a resposta do paciente ao pedido de confirmação.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | A resposta do paciente atualiza a agenda sem passar pela recepção. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-SCH-09.1** — Dada a resposta do paciente ao pedido de confirmação, quando ela chega, então a consulta passa a confirmada ou a cancelada na agenda.
+
+## FR-SCH-10 — Lista de espera no horário liberado
+
+> Como recepção, quero ver a lista de espera quando um horário é liberado, para que eu preencha a desistência.
+
+O sistema deve apresentar a lista de espera ao lado do horário liberado por um cancelamento.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | Um horário liberado pode ser oferecido a quem espera. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-SCH-10.1** — Dado um paciente na lista de espera, quando uma consulta é cancelada, então a recepção vê a lista ao lado do horário liberado.

@@ -3,7 +3,7 @@
 > **Status:** publicada
 > **Perfil:** API
 > **Módulo:** `apps/api`, feature `auth`
-> **Epic:** #91, dentro da #1 — Plataforma; as tasks de passkey em #92, dentro da #90 — Beta com a clínica piloto
+> **Epic:** #91, dentro da #1 — Plataforma; as tasks de passkey em #92, dentro da #90 — Passkey
 > **Spec irmã:** `docs/specs/autenticacao/004-autenticacao-mobile.md` (perfil UI)
 > **Base:** `docs/specs/autenticacao/003-autenticacao-api.md`. Tudo que esta spec não altera continua
 > valendo como está lá; as regras daqui citam as de lá por número.

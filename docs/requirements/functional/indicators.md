@@ -21,7 +21,7 @@ O sistema deve apresentar, por período, a quantidade e o valor de orçamentos a
 
 **Critérios de aceite**
 
-- **FR-KPI-01.1** — Dado um mês com orçamentos apresentados e aceitos, quando o gestor abre o painel, então vê as duas quantidades e a taxa de aceite.
+- **FR-KPI-01.1** — Dado um mês com orçamentos apresentados e aceitos, quando o gestor abre o painel, então vê a quantidade e o valor dos apresentados e dos aceitos.
 
 ## FR-KPI-02 — Ocupação de cadeira e de dentista
 
@@ -99,15 +99,15 @@ O sistema deve apresentar, por período, a quantidade de pacientes inativos e a 
 
 - **FR-KPI-05.1** — Dado um mês de operação, quando o gestor abre o painel, então vê a quantidade de inativos e a de reativados.
 
-## FR-KPI-06 — Visão por clínica e consolidada por rede
+## FR-KPI-06 — Indicadores por clínica
 
-> Como dono de rede, quero ver os indicadores de cada clínica e o consolidado da rede, para que eu compare as unidades.
+> Como gestor, quero ver os indicadores da minha clínica, para que eu acompanhe a unidade que gerencio.
 
-O sistema deve apresentar cada indicador por clínica e, ao dono de rede, também consolidado.
+O sistema deve apresentar cada indicador por clínica.
 
 | Atributo | Valor |
 | --- | --- |
-| Justificativa | O dono de rede decide olhando o conjunto e a diferença entre unidades. |
+| Justificativa | Cada gestor acompanha a própria unidade. |
 | Origem | Theo, kickoff de 2026-09-15 |
 | Prioridade | Must |
 | Status | approved |
@@ -116,5 +116,23 @@ O sistema deve apresentar cada indicador por clínica e, ao dono de rede, també
 
 **Critérios de aceite**
 
-- **FR-KPI-06.1** — Dado um dono de rede com 3 clínicas, quando abre os indicadores, então vê o consolidado e cada clínica.
-- **FR-KPI-06.2** — Dado o gestor de uma delas, quando abre os indicadores, então vê só os da clínica dele.
+- **FR-KPI-06.1** — Dado o gestor de uma das clínicas de uma rede, quando abre os indicadores, então vê só os da clínica dele.
+
+## FR-KPI-07 — Indicadores consolidados da rede
+
+> Como dono de rede, quero ver os indicadores de cada clínica e o consolidado da rede, para que eu compare as unidades.
+
+O sistema deve apresentar ao dono de rede cada indicador consolidado entre as clínicas da rede.
+
+| Atributo | Valor |
+| --- | --- |
+| Justificativa | O dono de rede decide olhando o conjunto e a diferença entre unidades. |
+| Origem | Theo, kickoff de 2026-09-15 |
+| Prioridade | Must |
+| Status | approved |
+| Marco | M1 |
+| Desde | v2.0.0 |
+
+**Critérios de aceite**
+
+- **FR-KPI-07.1** — Dado um dono de rede com 3 clínicas, quando abre os indicadores, então vê o consolidado e cada clínica.

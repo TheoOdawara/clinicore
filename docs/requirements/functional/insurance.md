@@ -8,7 +8,7 @@ O atendimento por convênio odontológico, faturado por arquivo no padrão TISS.
 
 > Como gestor, quero cadastrar as operadoras e suas tabelas de procedimentos, para que o atendimento por convênio use o valor contratado.
 
-O sistema deve manter o cadastro de operadoras de convênio e a tabela de procedimentos de cada uma.
+O sistema deve registrar as operadoras de convênio, cada uma com a sua tabela de procedimentos.
 
 | Atributo | Valor |
 | --- | --- |
@@ -27,7 +27,7 @@ O sistema deve manter o cadastro de operadoras de convênio e a tabela de proced
 
 > Como gestor, quero gerar as guias e os lotes no padrão TISS, para que eu fature o convênio sem redigitar.
 
-O sistema deve gerar guias e lotes em arquivo no padrão TISS para as operadoras do primeiro corte.
+O sistema deve gerar guias e lotes em arquivo no padrão TISS para as operadoras do primeiro corte ([OQ-06](../open-questions.md#oq-06--operadoras-do-primeiro-corte-tiss)).
 
 | Atributo | Valor |
 | --- | --- |

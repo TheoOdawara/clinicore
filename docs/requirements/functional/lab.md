@@ -6,9 +6,9 @@ Os pedidos enviados ao laboratório protético, controlados manualmente.
 
 ## FR-LAB-01 — Cadastro de laboratórios
 
-> Como responsável por laboratório, quero cadastrar os laboratórios com que a clínica trabalha, para que o pedido aponte para um deles.
+> Como responsável por estoque e laboratório, quero cadastrar os laboratórios com que a clínica trabalha, para que o pedido aponte para um deles.
 
-O sistema deve manter o cadastro de laboratórios protéticos.
+O sistema deve cadastrar os laboratórios protéticos com que a clínica trabalha.
 
 | Atributo | Valor |
 | --- | --- |
@@ -25,7 +25,7 @@ O sistema deve manter o cadastro de laboratórios protéticos.
 
 ## FR-LAB-02 — Pedido ao laboratório
 
-> Como responsável por laboratório, quero registrar o pedido com paciente, tratamento, prazo e situação, para que eu saiba o que está fora e quando volta.
+> Como responsável por estoque e laboratório, quero registrar o pedido com paciente, tratamento, prazo e situação, para que eu saiba o que está fora e quando volta.
 
 O sistema deve registrar o pedido ao laboratório vinculado ao paciente e ao tratamento, com envio, prazo, retorno e situação, lançados manualmente.
 

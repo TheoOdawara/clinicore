@@ -34,4 +34,4 @@ O sistema deve permitir instalar o web como aplicativo no dispositivo.
 
 **Critérios de aceite**
 
-- **NFR-FLEX-02.1** — O navegador oferece a instalação do web e o manifesto não tem erro.
+- **NFR-FLEX-02.1** — Dado o web aberto no navegador do celular, quando a pessoa o instala, então ele abre como aplicativo, sem a barra do navegador.

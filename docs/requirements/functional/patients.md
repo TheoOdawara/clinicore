@@ -8,7 +8,7 @@ O cadastro do paciente e a visão única de tudo que a clínica sabe dele.
 
 > Como recepção, quero cadastrar e atualizar os dados de um paciente, para que a clínica tenha um registro só por paciente.
 
-O sistema deve manter o cadastro do paciente com dados de identificação e de contato.
+O sistema deve cadastrar o paciente com dados de identificação e de contato.
 
 | Atributo | Valor |
 | --- | --- |

@@ -3,7 +3,7 @@
 > **Status:** publicada
 > **Perfil:** UI
 > **Módulo:** `apps/mobile` (novo) e `apps/web`
-> **Epic:** #91, dentro da #1 — Plataforma; as tasks de passkey em #92, dentro da #90 — Beta com a clínica piloto
+> **Epic:** #91, dentro da #1 — Plataforma; as tasks de passkey em #92, dentro da #90 — Passkey
 > **Spec irmã:** `docs/specs/autenticacao/004-sessao-por-token-api.md` (perfil API)
 > **Base:** `docs/specs/autenticacao/003-autenticacao-web.md`. As telas do app são as do web, com as
 > diferenças desta spec; em todo o resto, as regras da 003-web valem para o app.
