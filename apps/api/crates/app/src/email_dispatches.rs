@@ -1,8 +1,5 @@
-use std::time::Duration;
-
+use clinicore_core::lifetimes::DISPATCH_WINDOW;
 use sqlx::{PgConnection, PgPool};
-
-pub const DISPATCH_WINDOW: Duration = Duration::from_secs(24 * 60 * 60);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, sqlx::Type)]
 #[sqlx(type_name = "email_dispatch_kind", rename_all = "snake_case")]

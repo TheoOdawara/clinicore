@@ -74,7 +74,7 @@ pub fn config_with(overrides: &[(&str, Option<&str>)]) -> Config {
 pub fn lazy_state(config: &Config) -> AppState {
     state(
         config,
-        db::connect_lazy(config).expect("a lazy database"),
+        db::connect_lazy(&config.database_url).expect("a lazy database"),
         AsyncStubTransport::new_ok(),
     )
 }
@@ -288,10 +288,11 @@ pub fn capture_log(config: &Config) -> (CapturedLog, DefaultGuard) {
     });
     let log = CapturedLog::default();
     let writer = log.clone();
-    let guard =
-        tracing::subscriber::set_default(clinicore_app::telemetry::subscriber(config, move || {
-            writer.clone()
-        }));
+    let guard = tracing::subscriber::set_default(clinicore_core::telemetry::subscriber(
+        config.app_env,
+        config.log_level,
+        move || writer.clone(),
+    ));
     (log, guard)
 }
 

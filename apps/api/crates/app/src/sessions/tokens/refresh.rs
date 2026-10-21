@@ -9,8 +9,6 @@ use crate::credentials::secret;
 use crate::http::client::SessionClient;
 use crate::http::openapi;
 
-pub const ABSOLUTE_LIFETIME: Duration = Duration::from_secs(30 * 24 * 60 * 60);
-
 pub static FORMAT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"^[0-9a-f]{{8}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{4}}-[0-9a-f]{{12}}\.{}$",

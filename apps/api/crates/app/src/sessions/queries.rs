@@ -1,3 +1,4 @@
+use clinicore_core::lifetimes::SESSION_ABSOLUTE_LIFETIME;
 use clinicore_core::redis::Redis;
 use ipnet::IpNet;
 use sqlx::PgPool;
@@ -108,7 +109,7 @@ pub async fn rotate_session(
         FROM sessions WHERE id = $1 FOR UPDATE"#,
         session_id,
         presented_hash,
-        refresh::ABSOLUTE_LIFETIME.as_secs_f64()
+        SESSION_ABSOLUTE_LIFETIME.as_secs_f64()
     )
     .fetch_optional(&mut *transaction)
     .await?;

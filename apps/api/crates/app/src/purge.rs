@@ -1,10 +1,9 @@
 use std::time::Duration;
 
+use clinicore_core::lifetimes::{DISPATCH_WINDOW, SESSION_ABSOLUTE_LIFETIME};
 use sqlx::PgPool;
 
 use crate::AppState;
-use crate::email_dispatches::DISPATCH_WINDOW;
-use crate::sessions::tokens::refresh;
 
 const EVERY: Duration = Duration::from_secs(60 * 60);
 
@@ -38,7 +37,7 @@ pub async fn purge_expired(pool: &PgPool) -> Result<Purged, sqlx::Error> {
     let sessions = sqlx::query!(
         "DELETE FROM sessions
         WHERE expires_at <= now() OR created_at <= now() - make_interval(secs => $1)",
-        refresh::ABSOLUTE_LIFETIME.as_secs_f64()
+        SESSION_ABSOLUTE_LIFETIME.as_secs_f64()
     )
     .execute(pool)
     .await?;

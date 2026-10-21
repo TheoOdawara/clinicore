@@ -20,8 +20,9 @@ async fn main() -> ExitCode {
         }
     };
 
-    tracing::subscriber::set_global_default(clinicore_app::telemetry::subscriber(
-        &config,
+    tracing::subscriber::set_global_default(clinicore_core::telemetry::subscriber(
+        config.app_env,
+        config.log_level,
         io::stdout,
     ))
     .expect("the only global subscriber");
@@ -60,7 +61,7 @@ async fn main() -> ExitCode {
 fn connect(config: &Config) -> Result<AppState, Box<dyn std::error::Error + Send + Sync>> {
     Ok(AppState::new(
         config,
-        db::connect_lazy(config)?,
+        db::connect_lazy(&config.database_url)?,
         Redis::connect_lazy(config)?,
         Mailer::smtp(config)?,
         GoogleClient::new(config, GoogleEndpoints::production())?,
