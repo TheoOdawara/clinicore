@@ -1,9 +1,10 @@
 use axum::Router;
 use regex::Regex;
 use utoipa::OpenApi;
+use utoipa::openapi::header::HeaderBuilder;
 use utoipa::openapi::path::{Operation, ParameterBuilder, ParameterIn};
 use utoipa::openapi::schema::{Object, ObjectBuilder, Type};
-use utoipa::openapi::{ContentBuilder, Ref, Required, ResponseBuilder};
+use utoipa::openapi::{ContentBuilder, Ref, RefOr, Required, ResponseBuilder};
 use utoipa_swagger_ui::SwaggerUi;
 
 use super::error::Problem;
@@ -81,6 +82,15 @@ fn document_guarded(operation: &mut Operation, changes_state: bool) {
             .responses
             .entry(status.to_string())
             .or_insert_with(|| problem(description).into());
+    }
+    if let Some(RefOr::T(unauthorized)) = operation.responses.responses.get_mut("401") {
+        unauthorized.headers.insert(
+            "WWW-Authenticate".into(),
+            HeaderBuilder::new()
+                .description(Some(r#"Bearer realm="clinicore""#))
+                .build()
+                .into(),
+        );
     }
 }
 

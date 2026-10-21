@@ -188,6 +188,10 @@ async fn a_wrong_password_and_an_unknown_email_answer_the_same_in_the_same_time(
             let response = sign_in(&app, &address, "Errada#2026", &[]).await;
             timings.push(started.elapsed());
             assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+            assert_eq!(
+                response.headers()["www-authenticate"],
+                r#"Bearer realm="clinicore""#
+            );
             assert_eq!(json_body(response).await, expected);
         }
     }

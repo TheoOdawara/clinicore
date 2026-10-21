@@ -38,6 +38,11 @@ async fn development_serves_the_document_with_the_guards_on_every_business_route
         json!({"$ref": "#/components/schemas/Problem"})
     );
     assert_eq!(
+        document["paths"]["/sessions/current"]["get"]["responses"]["401"]["headers"]["WWW-Authenticate"]
+            ["schema"],
+        json!({"type": "string"})
+    );
+    assert_eq!(
         document["components"]["schemas"]["SignUpRequest"]["required"],
         json!(["name", "email", "password"])
     );

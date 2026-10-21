@@ -2,8 +2,8 @@ use std::any::Any;
 use std::error::Error;
 
 use axum::Json;
-use axum::http::StatusCode;
-use axum::http::header::CONTENT_TYPE;
+use axum::http::header::{CONTENT_TYPE, WWW_AUTHENTICATE};
+use axum::http::{HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use clinicore_core::redis::RedisError;
 use serde::Serialize;
@@ -116,12 +116,19 @@ fn problem(
         status: status.as_u16(),
         errors,
     };
-    (
+    let mut response = (
         status,
         [(CONTENT_TYPE, "application/problem+json")],
         Json(body),
     )
-        .into_response()
+        .into_response();
+    if status == StatusCode::UNAUTHORIZED {
+        response.headers_mut().insert(
+            WWW_AUTHENTICATE,
+            HeaderValue::from_static(r#"Bearer realm="clinicore""#),
+        );
+    }
+    response
 }
 
 pub(crate) fn panic_response(payload: Box<dyn Any + Send + 'static>) -> Response {

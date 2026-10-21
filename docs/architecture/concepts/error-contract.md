@@ -13,6 +13,8 @@ Todo erro da API é um Problem Details da RFC 9457, em `application/problem+json
 - **Falha interna sai sem detalhe**: `500` para banco e panic, `503` para o Redis fora. A causa vai só
   para o log.
 - **Erro de validação traz um `code` por campo**, o do validador que recusou.
+- **Todo `401` traz `WWW-Authenticate: Bearer realm="clinicore"`**, como pede a RFC 9110. É um desafio
+  só para o web e o mobile; o web decide pelo `type` do corpo e ignora o header.
 
 ## Nos clientes — M1
 

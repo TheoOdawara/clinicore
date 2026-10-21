@@ -46,6 +46,10 @@ async fn sign_out_revokes_the_session_at_once_on_each_transport(pool: PgPool) {
                 StatusCode::UNAUTHORIZED,
                 "{transport:?} {method}"
             );
+            assert_eq!(
+                again.headers()["www-authenticate"],
+                r#"Bearer realm="clinicore""#
+            );
             if let (Transport::Web, "DELETE") = (transport, method) {
                 let cleared = set_cookie(&again, "clinicore_refresh").expect("a cleared cookie");
                 assert!(cleared.contains("Max-Age=0"), "{cleared}");
