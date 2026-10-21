@@ -47,6 +47,6 @@ Fora de produção, o documento OpenAPI fica em `/api-json` e a interface dele e
 ## Para mudar com segurança
 
 As camadas, a ordem dos guards, as regras de SQL, de erro e de teste estão no
-[`apps/api/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/apps/api/AGENTS.md). O que o cliente observa — URL, status, cookies,
+[`apps/api/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/apps/api/AGENTS.md). O que o cliente observa — URL, status, cookies,
 limites e o formato do erro — é contrato, e toda rota nova chega ao app por regeração do cliente
 ([mobile.md](mobile.md)).

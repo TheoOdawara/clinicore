@@ -12,7 +12,7 @@ issue mora no GitHub, nunca aqui.
 | A purga roda dentro de cada réplica da API | réplicas repetem o `DELETE`; inofensivo, mas é trabalho que pertence ao worker | #71 |
 | O offline ainda não tem spec | versão, UUID do cliente e idempotência precisam nascer com a primeira rota de escrita do produto, ou viram migração | [ADR 0007](../decisions/0007-app-nativo-em-flutter-com-offline.md) |
 | O web replica o contrato da API à mão, em Zod | uma mudança na API que o web não acompanha só aparece em runtime | [ADR 0007](../decisions/0007-app-nativo-em-flutter-com-offline.md), item 2 |
-| `main` e `develop` protegidas só por convenção | um push direto não é barrado pelo GitHub | [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/AGENTS.md) → Branches |
+| `main` e `staging` protegidas só por convenção | um push direto não é barrado pelo GitHub | [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/AGENTS.md) → Branches |
 | Parecer jurídico e custo da assinatura digital em aberto | o alcance da assinatura avançada pode mudar o fluxo do prontuário | [OQ-04](../requirements/open-questions.md#oq-04--assinatura-digital-parecer-jurídico), [OQ-05](../requirements/open-questions.md#oq-05--assinatura-digital-custos-e-requisitos) |
 | Prazo de guarda do prontuário e direitos do titular sem decisão | o modelo de dados clínico nasce sem saber quando e como apaga | [OQ-09](../requirements/open-questions.md#oq-09--prazo-de-guarda-do-prontuário), [OQ-10](../requirements/open-questions.md#oq-10--direitos-do-titular-na-lgpd) |
 
