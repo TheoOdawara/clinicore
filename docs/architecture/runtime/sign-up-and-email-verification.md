@@ -11,12 +11,11 @@ já tinha conta.
 2. **A API** passa a requisição pelos guards, nesta ordem: cliente, origem, limite por IP no **Redis** e
    validação do corpo.
 3. **A API** gera o hash Argon2 da senha e um segredo aleatório para o link.
-4. **A API** grava no **PostgreSQL**, numa transação, o usuário, a conta de credencial, a verificação
-   com o hash do segredo e o registro do envio. Um e-mail que já existe não cria nada, por
+4. **A API** grava no **PostgreSQL**, numa transação, o usuário, a conta de credencial, o registro do
+   envio, a verificação com o hash do segredo e, na fila `email_outbox`, o e-mail com o link
+   `<APP_ORIGIN>/verify-email?token=<segredo>`. Um e-mail que já existe não cria nada, por
    `ON CONFLICT … DO NOTHING`.
-5. **A API**, só quando a conta foi criada, entrega ao **servidor SMTP** o e-mail com o link
-   `<APP_ORIGIN>/verify-email?token=<segredo>`.
-6. **A API** responde `202`, sem corpo, nos dois casos.
+5. **A API** responde `202`, sem corpo, nos dois casos.
 
 ## Confirmação
 
@@ -33,9 +32,20 @@ já tinha conta.
 1. **O cliente** manda `POST /email-verifications` para a **API**, com o e-mail.
 2. **A API** reserva um envio para o endereço no **PostgreSQL**, serializado por
    `pg_advisory_xact_lock`. Sem envio disponível na janela de 24 horas, nada sai.
-3. **A API**, se o endereço é de uma conta ainda não verificada, grava uma verificação nova e entrega o
-   e-mail ao **servidor SMTP**.
+3. **A API**, na mesma transação e só se o endereço é de uma conta ainda não verificada, grava uma
+   verificação nova e o e-mail na fila.
 4. **A API** responde `202`, sem corpo, em todos os casos.
 
 Um login com senha correta numa conta não verificada dispara o mesmo reenvio e responde
 `403 email-not-verified`.
+
+## Envio
+
+1. **O [worker](../building-blocks/worker.md)**, a cada 5 segundos, reserva no **PostgreSQL** até 10
+   e-mails da fila que ainda não venceram, com `FOR UPDATE SKIP LOCKED`, e comita a reserva antes de
+   enviar.
+2. **O worker** entrega cada e-mail ao **servidor SMTP**, um por vez.
+3. **O worker** apaga o e-mail entregue. O que falhou volta à fila 1, 2, 4 e 8 minutos depois, e a
+   quinta falha o marca `failed` e apaga o corpo.
+
+O SMTP fora do ar não muda a resposta da API, que já respondeu `202`.

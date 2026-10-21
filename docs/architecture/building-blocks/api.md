@@ -1,7 +1,8 @@
 # `apps/api`
 
-A API HTTP que o web e o app consomem, em Rust com axum e sqlx. É o único bloco que fala com o
-PostgreSQL e com o Redis, e é onde mora toda a regra de negócio.
+A API HTTP que o web e o app consomem, em Rust com axum e sqlx. Fala com o PostgreSQL e com o Redis, e é
+onde mora toda a regra de negócio. Não fala com o SMTP: o e-mail vai para a fila `email_outbox`, e o
+[worker](worker.md) o envia.
 
 **Nunca faz:** servir tela, guardar estado em memória entre requisições, montar SQL por concatenação.
 
@@ -16,11 +17,12 @@ PostgreSQL e com o Redis, e é onde mora toda a regra de negócio.
 | Encanamento HTTP | `crates/app/src/http/` | erro em Problem Details, extractor de validação, log de requisição, OpenAPI, guards de cliente e de origem, limite de requisições |
 | `health` | `crates/app/src/health.rs` | `GET /health` |
 | `users` | `crates/app/src/users/` | o cadastro, em `POST /users` |
-| `email_verifications` | `crates/app/src/email_verifications/` | o envio e a confirmação do link de e-mail |
+| `email_verifications` | `crates/app/src/email_verifications/` | o pedido e a confirmação do link de e-mail |
+| `email_outbox` | `crates/app/src/email_outbox.rs` | grava o token e o e-mail na fila numa escrita só, na transação de quem pede o envio |
 | `sessions` | `crates/app/src/sessions/` | login, leitura da sessão, refresh e logout, com os tokens em `tokens/` |
 | `oauth` | `crates/app/src/oauth/` | o login com Google por OpenID Connect com PKCE, com o `id_token` conferido, e o vínculo com a conta do mesmo e-mail |
 | `credentials` | `crates/app/src/credentials/` | hash de senha em Argon2 e segredo aleatório, usados por várias features |
-| `core` | `crates/core/` | configuração, pool do Postgres, cliente do Redis, e-mail, subscriber do `tracing` e os prazos que a API divide com o [worker](worker.md); biblioteca que não conhece HTTP. Na #161 o envio SMTP sai dele para o worker, e o template do e-mail fica |
+| `core` | `crates/core/` | configuração, pool do Postgres, cliente do Redis, o template do e-mail, o sinal de parada, o subscriber do `tracing` e os prazos que a API divide com o [worker](worker.md); biblioteca que não conhece HTTP |
 
 As features de produto — pacientes, agenda, prontuário, financeiro, estoque, laboratório — entram como
 pastas novas em `crates/app/src/`, no M1.
@@ -31,7 +33,7 @@ pastas novas em `crates/app/src/`, no M1.
 | --- | --- |
 | `GET /health` | responde que o processo está de pé |
 | `POST /users` | cria a conta com e-mail e senha |
-| `POST /email-verifications` | envia um novo link de confirmação |
+| `POST /email-verifications` | pede um novo link de confirmação |
 | `POST /email-verifications/confirmation` | confirma o e-mail com o token do link |
 | `POST /sessions` | entra com e-mail e senha |
 | `GET /sessions/current` | lê o usuário da sessão |

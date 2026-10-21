@@ -6,7 +6,7 @@ de o app fazer qualquer coisa. Nenhuma tem valor padrão.
 | App | De onde vem | Onde é lida | Se falta |
 | --- | --- | --- | --- |
 | `apps/api` | variáveis do processo, injetadas pelo `infisical run` em dev e pelo orquestrador fora dele | `crates/core/src/config.rs` | escreve `Invalid environment:` com uma linha por variável e sai com código 1, antes do bind |
-| worker | as mesmas, pela mesma pasta `/api` do Infisical, mas só as que ele usa: `APP_ENV`, `LOG_LEVEL` e `DATABASE_URL`, e as cinco do SMTP a partir da #161 | `crates/core/src/config.rs`, no `WorkerConfig` | o mesmo da API, antes de abrir conexão |
+| worker | as mesmas, pela mesma pasta `/api` do Infisical, mas só as oito que ele usa: `APP_ENV`, `LOG_LEVEL`, `DATABASE_URL` e as cinco do SMTP, que a API não lê | `crates/core/src/config.rs`, no `WorkerConfig` | o mesmo da API, antes de abrir conexão |
 | `apps/web` | variáveis do build do Vite | `src/shared/env/` | a validação do schema falha |
 | `apps/mobile` | `--dart-define-from-file=config/<ambiente>.json` | `lib/shared/env/env.dart` | o app sobe numa tela que só mostra os nomes que faltam |
 | `apps/site` | não lê configuração | — | — |

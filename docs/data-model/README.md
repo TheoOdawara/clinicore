@@ -1,6 +1,6 @@
 # Modelo de dados
 
-O que o sistema guarda hoje: a conta, a sessão e a confirmação de e-mail. As entidades dos módulos de
+O que o sistema guarda hoje: a conta, a sessão, a confirmação de e-mail e a fila do e-mail. As entidades dos módulos de
 produto — cliente, clínica, paciente, agenda, prontuário, financeiro, estoque, laboratório — entram
 aqui com a spec de cada um, no M1.
 
@@ -8,8 +8,8 @@ aqui com a spec de cada um, no M1.
 
 ![Modelo conceitual](diagrams/conceptual.drawio.svg)
 
-`Verification` e `EmailDispatch` se ligam ao `User` pelo endereço de e-mail, não por chave estrangeira:
-as duas existem para um endereço, e sobrevivem ao usuário até vencerem.
+`Verification`, `EmailDispatch` e `EmailOutbox` se ligam ao `User` pelo endereço de e-mail, não por chave
+estrangeira: as três existem para um endereço, e sobrevivem ao usuário até vencerem.
 
 ## Modelo lógico
 
@@ -19,8 +19,8 @@ as duas existem para um endereço, e sobrevivem ao usuário até vencerem.
 
 ![Modelo físico](diagrams/physical.drawio.svg)
 
-Lido do catálogo de um PostgreSQL 18 com a única migration de `apps/api/migrations/`,
-`20260929120000_init.sql`, aplicada em 2026-10-15. Hoje há um módulo só, o de acesso, então os
+Lido do catálogo de um PostgreSQL 18 com as duas migrations de `apps/api/migrations/`, a última
+aplicada em 2026-10-21. Hoje há um módulo só, o de acesso, então os
 diagramas inteiros são também os do módulo.
 
 ## Entidades
@@ -32,7 +32,7 @@ diagramas inteiros são também os do módulo.
 | Session | um login ativo num navegador ou num aparelho | existe |
 | Verification | um token de uso único mandado a um e-mail: confirmação de e-mail ou redefinição de senha | existe |
 | EmailDispatch | o registro de um e-mail enviado, para limitar o envio | existe |
-| EmailOutbox | um e-mail transacional esperando o envio pelo worker | M1 · #161 |
+| EmailOutbox | um e-mail transacional esperando o envio pelo worker | existe |
 
 ## Invariantes
 
@@ -59,7 +59,7 @@ diagramas inteiros são também os do módulo.
 - **EmailDispatch:** um endereço recebe no máximo 5 e-mails do mesmo tipo em 24 horas, e no máximo 1 a
   cada 60 segundos, exista ou não uma conta nele. A contagem e o registro acontecem sob o mesmo lock por
   endereço, então dois pedidos simultâneos não passam os dois.
-- **EmailOutbox** (M1 · #161, [spec 006](../specs/autenticacao/006-worker-e-fila-de-email-api.md)):
+- **EmailOutbox** ([spec 006](../specs/autenticacao/006-worker-e-fila-de-email-api.md)):
   - nasce na mesma transação da verificação que o link carrega, com o mesmo `expires_at`;
   - a linha enviada é apagada, e a que vence nunca é enviada;
   - só a linha `pending` guarda os corpos; a quinta falha a marca `failed` e apaga os dois na mesma

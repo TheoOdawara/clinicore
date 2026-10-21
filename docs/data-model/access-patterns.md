@@ -8,11 +8,11 @@ operação abaixo percorre uma tabela inteira, fora a purga.
 
 | Operação | Lê | Escreve | Filtro e ordem |
 | --- | --- | --- | --- |
-| Cadastro | — | `users`, `accounts`, `email_dispatches`, `verifications`, numa transação | conflito por `users.email` |
+| Cadastro | — | `users`, `accounts`, `email_dispatches`, `verifications`, `email_outbox`, numa transação | conflito por `users.email` |
 | Reservar um envio | `email_dispatches` | `email_dispatches` | por `email` e `kind`, dentro da janela de 24 horas, sob lock por endereço |
-| Pedir novo link | `users` | `email_dispatches`, `verifications` | por `email`, depois de reservar o envio |
+| Pedir novo link | `users` | `email_dispatches`, `verifications`, `email_outbox`, numa transação | por `email`, depois de reservar o envio |
 | Confirmar e-mail | `verifications` | `verifications`, `users` | por `token_hash`; depois consome todas as pendentes do `email`, sob lock por endereço |
-| Pedir redefinição de senha | `users` | `email_dispatches`, `verifications` | por `email`, depois de reservar o envio |
+| Pedir redefinição de senha | `users` | `email_dispatches`, `verifications`, `email_outbox`, numa transação | por `email`, depois de reservar o envio |
 | Redefinir a senha | `verifications`, `users` (com lock de linha) | `accounts`, `verifications`, `sessions` | por `token_hash`; grava ou cria a conta de senha, consome as redefinições pendentes do `email` e apaga as sessões por `user_id` |
 | Trocar a senha | `accounts`, `users` (com lock de linha) | `accounts`, `sessions` | por `user_id` e `provider = credential`; apaga as sessões do usuário menos a do pedido |
 | Login | `users`, `accounts` | — | por `email` e `provider = credential` |
@@ -20,8 +20,6 @@ operação abaixo percorre uma tabela inteira, fora a purga.
 | Ler o usuário da sessão | `users` | — | por `id` |
 | Refresh | `sessions` (com lock de linha) | `sessions` | por `id` |
 | Logout | — | `sessions` | por `id` |
-| Purga diária, às 03:00, no worker | — | `sessions`, `verifications`, `email_dispatches` | por `expires_at` e por `created_at` |
-| Gravar o e-mail na fila (M1 · #161) | — | `email_outbox` | na transação do cadastro, do novo link e da redefinição, junto da `verifications` |
-| Reservar e-mail (M1 · #161) | `email_outbox` | `email_outbox` | até 10 linhas `pending` com `next_attempt_at` e `expires_at` em ordem, `FOR UPDATE SKIP LOCKED` |
-| Resultado do envio (M1 · #161) | — | `email_outbox` | por `id`: apaga a enviada, adia ou marca `failed` a que falhou |
-| Purga da fila (M1 · #161) | — | `email_outbox` | na purga diária, por `expires_at` |
+| Purga diária, às 03:00, no worker | — | `sessions`, `verifications`, `email_dispatches`, `email_outbox` | por `expires_at` e por `created_at` |
+| Reservar e-mail, no worker | `email_outbox` | `email_outbox` | até 10 linhas `pending` com `next_attempt_at` e `expires_at` em ordem, `FOR UPDATE SKIP LOCKED` |
+| Resultado do envio, no worker | — | `email_outbox` | por `id`: apaga a enviada, adia ou marca `failed` a que falhou |

@@ -50,5 +50,4 @@ fora, nada é apagado e a rota responde `503`.
 
 Uma vez por dia, às 03:00 de `America/Sao_Paulo`, **o [worker](../building-blocks/worker.md)** apaga no
 **PostgreSQL** a sessão vencida ou que passou do teto de 30 dias, a verificação vencida e o registro de
-envio com mais de 24 horas. Na #161 ela passa a apagar também a linha vencida da `email_outbox`
-([spec 006](../../specs/autenticacao/006-worker-e-fila-de-email-api.md)).
+envio com mais de 24 horas, e o e-mail vencido da fila `email_outbox`.

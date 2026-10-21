@@ -38,11 +38,11 @@ cookie de sessão em `SameSite=Lax`.
 | Formulário | — | TanStack Form com schema Zod, que entra com o primeiro formulário (#78) | — | — |
 | Estilo | — | Tailwind 4.3, que a #77 troca por CSS Modules | Tailwind 4.3, que a #77 troca por CSS Modules | — |
 | Auth | `jsonwebtoken` e `argon2`; access token curto e refresh na tabela `sessions`; login com Google por `openidconnect`, com PKCE e `id_token` verificado | axios contra `/users` e `/sessions` da API, com o refresh no interceptor, a partir da #78 | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
-| Fila e agendamento | o binário `worker`, com a purga às 03:00 de `America/Sao_Paulo` por `croner` sobre `jiff`; a fila de e-mail no Postgres chega na #161 | — | — | — |
+| Fila e agendamento | o binário `worker`, com a fila de e-mail na tabela `email_outbox` do Postgres e a purga às 03:00 de `America/Sao_Paulo` por `croner` sobre `jiff` | — | — | — |
 | Redis 8 | contagem do limite por IP e denylist de revogação de sessão | — | — | — |
 | HTTP de saída | `openidconnect` 4.0 sobre `reqwest` 0.12, só para o Google | — | — | — |
 | Configuração | variáveis de ambiente tipadas e validadas no boot, em `crates/core` | `VITE_API_URL`, validada por Zod em `src/shared/env/` | — | `--dart-define-from-file`, lida e validada em `lib/shared/env/env.dart` |
-| E-mail | `lettre` por SMTP, com o layout em `askama` | — | — | — |
+| E-mail | `lettre` por SMTP, só no worker, com o layout em `askama` | — | — | — |
 | Log | `tracing` com `tracing-subscriber`, JSON em stdout | — | — | — |
 | Testes | `cargo test`, com os testes de integração em `crates/app/tests/` e `crates/worker/tests/` | Jest 30 · `@swc/jest` · jsdom; Testing Library entra com o primeiro componente testado | — | `flutter_test` |
 

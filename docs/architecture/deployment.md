@@ -37,7 +37,7 @@ disco. No emulador Android, a API local é `http://10.0.2.2:3333`.
 | `apps/site` | `clinicore.com.br` | aplicação do Coolify pelo `apps/site/Dockerfile`, com o servidor standalone do Next.js |
 | `apps/web` | `app.clinicore.com.br` | aplicação do Coolify pelo `apps/web/Dockerfile`, com o nginx servindo o build do Vite |
 | `apps/api` | `api.clinicore.com.br` | aplicação do Coolify pelo `apps/api/Dockerfile`, com o binário `api`, que migra o schema no boot |
-| worker | — | aplicação do Coolify com o Dockerfile da API e o binário `worker`; a aplicação nasce com a #4, e até lá nada purga fora do desenvolvimento |
+| worker | — | aplicação do Coolify com o Dockerfile da API e o binário `worker`; a aplicação nasce com a #4, e até lá nada purga nem envia e-mail fora do desenvolvimento |
 | PostgreSQL 18 | rede interna | recurso Database do Coolify, com volume cifrado ([NFR-SEC-05](../requirements/non-functional/security.md#nfr-sec-05--criptografia-em-repouso)) |
 | Redis 8 | rede interna | recurso Database do Coolify, com `--appendonly yes` e volume |
 | `apps/mobile` | App Store e Google Play | publicado pelas lojas |

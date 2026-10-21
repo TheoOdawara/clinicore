@@ -49,8 +49,8 @@ Infisical.
 **Um crate por processo ou capacidade, em `crates/`** (ADR 0010). O pacote tem o
 prefixo `clinicore-`, porque `core` é o nome da biblioteca base do Rust.
 
-- **`crates/core/` (`clinicore-core`)** tem a configuração, o pool do Postgres, o Redis, o e-mail, o
-  subscriber do `tracing` e os prazos que mais de um processo usa. Serve a qualquer processo e não
+- **`crates/core/` (`clinicore-core`)** tem a configuração, o pool do Postgres, o Redis, o template do
+  e-mail, o sinal de parada, o subscriber do `tracing` e os prazos que mais de um processo usa. Serve a qualquer processo e não
   conhece feature.
 - **`crates/app/` (`clinicore-app`)** é a API inteira e gera o binário `api`.
 - **`crates/worker/` (`clinicore-worker`)** gera o binário `worker`, que faz o trabalho fora da
@@ -66,13 +66,15 @@ prefixo `clinicore-`, porque `core` é o nome da biblioteca base do Rust.
 crates/
 ├── core/
 │   ├── templates/  mail.html  mail.txt              layout do e-mail, em askama
-│   └── src/  lib.rs  config.rs  db.rs  redis.rs  mail.rs  telemetry.rs  lifetimes.rs
+│   └── src/  lib.rs  config.rs  db.rs  redis.rs  mail.rs  shutdown.rs  telemetry.rs  lifetimes.rs
 ├── worker/
 │   ├── src/
-│   │   ├── main.rs                              liga o worker
+│   │   ├── main.rs                              liga o worker e espera o sinal de parada
+│   │   ├── outbox.rs                            reserva, envia e tenta de novo o e-mail da fila
+│   │   ├── mail.rs                              o Mailer, o SMTP do lettre
 │   │   ├── schedule.rs                          o cron da purga, às 03:00 de São Paulo
 │   │   └── purge.rs                             apaga o que venceu
-│   └── tests/worker/  main.rs  boot.rs  purge.rs  schedule.rs
+│   └── tests/worker/  main.rs  support.rs  boot.rs  outbox.rs  purge.rs  schedule.rs
 └── app/
     ├── src/
     │   ├── main.rs                                  liga o servidor
@@ -83,6 +85,7 @@ crates/
     │   │   └── client.rs  origin.rs  rate_limit.rs
     │   ├── health.rs                                feature de uma rota só
     │   ├── email_dispatches.rs                      a reserva de envio por endereço, de várias features
+    │   ├── email_outbox.rs                          o token e o e-mail na fila, de várias features
     │   ├── credentials/                             senha e segredo aleatório, de várias features
     │   │   └── mod.rs  password.rs  secret.rs  error.rs
     │   ├── users/                                   o cadastro e a troca de senha
@@ -107,7 +110,7 @@ crates/
         ├── main.rs  support.rs
         ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  request_log.rs
         ├── users/  mod.rs  sign_up.rs  change_password.rs
-        ├── email_verifications/  mod.rs  confirmation.rs
+        ├── email_verifications/  mod.rs  request.rs  confirmation.rs
         ├── oauth/  mod.rs  google_sign_in.rs
         ├── password_resets/  mod.rs  request.rs  confirmation.rs
         └── sessions/  mod.rs  sign_in.rs  current_session.rs  refresh.rs
@@ -129,7 +132,7 @@ migrations/  .sqlx/
 - **A camada nasce quando tem conteúdo.** Uma leitura simples vai do handler direto à consulta. O
   `service.rs` existe quando há decisão: regra de negócio, mais de uma escrita ou efeito colateral.
   Nenhum service só repassa a chamada.
-- **O estado da API é o `AppState`**, com o pool, o Redis, o `Mailer`, o `GoogleClient` e o que a configuração entrega
+- **O estado da API é o `AppState`**, com o pool, o Redis, o `GoogleClient` e o que a configuração entrega
   às features. O handler recebe `State<AppState>`, e o service e a consulta recebem o que usam.
 - **O `core` monta o e-mail e a feature escreve o texto.** O layout é o `askama`, em
   `crates/core/templates/`, e o `mail::compose` o renderiza; o conteúdo de cada e-mail mora em
@@ -165,10 +168,14 @@ migrations/  .sqlx/
   linhas de `sessions` sem passar pela denylist, e o access token de cada uma continuaria aceito.
 - **A purga do que venceu roda no worker, às 03:00 de `America/Sao_Paulo`**, e nunca no boot. Ela apaga
   a sessão vencida ou que passou do teto de 30 dias (`SESSION_ABSOLUTE_LIFETIME`), a verificação vencida
-  e o envio com mais de 24 horas (`DISPATCH_WINDOW`, a mesma janela do limite de envio). Não escreve na
+  o envio com mais de 24 horas (`DISPATCH_WINDOW`, a mesma janela do limite de envio) e o e-mail vencido
+  da fila. Não escreve na
   denylist, porque o access token de uma sessão vencida já venceu. Os dois prazos ficam no
   `crates/core/src/lifetimes.rs`, porque a API e o worker leem os mesmos. Duas instâncias purgam duas
   vezes, e a segunda apaga zero linhas; uma purga que falha só tenta de novo na 03:00 seguinte.
+- **A API nunca fala com o SMTP.** Rota que manda e-mail grava o token e a mensagem pelo
+  `email_outbox::enqueue_with_token`, dentro da transação que reserva o envio, e o worker entrega. Depois
+  do commit, o e-mail fica na fila até o worker entregá-lo ou desistir dele.
 - **O `pointer` do erro de campo é o nome do JSON, em camelCase**, e o `ValidJson` o deriva do nome do
   campo Rust. Request com mais de uma palavra num campo leva `#[serde(rename_all = "camelCase")]`.
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
@@ -198,7 +205,7 @@ migrations/  .sqlx/
   - Cada variante com código leva status, slug e `title`; o `type` é
     `tag:clinicore.com.br,2026:<slug>`. `Rejected(status)` é o `about:blank` do protocolo: 404, 415,
     JSON malformado e corpo grande.
-  - O `core` é biblioteca e não conhece HTTP: cada módulo devolve o erro tipado dele (`MailError`,
+  - O `core` é biblioteca e não conhece HTTP: cada módulo devolve o erro tipado dele (`askama::Error`,
     `RedisError`, `sqlx::Error`, `InvalidEnvironment`), nunca `Box<dyn Error>`.
   - A feature tem o próprio `enum` em `<feature>/error.rs` e o `impl From<ErroDaFeature> for
     AppError`. Service e helpers da feature devolvem o erro dela, e o handler converte com `?`.
@@ -227,7 +234,8 @@ migrations/  .sqlx/
 
 ## Configuração
 
-- **As 17 variáveis são lidas uma vez, em `crates/core/src/config.rs`, e nenhuma tem default.** Com uma
+- **As variáveis são lidas uma vez, em `crates/core/src/config.rs`, e nenhuma tem default**: 12 no
+  `Config` da API e 8 no `WorkerConfig`, que são as únicas a ler as do SMTP. Com uma
   ou mais recusadas, o processo escreve `Invalid environment:` e uma linha por variável, em ordem
   alfabética, e sai com código 1 antes do bind.
 - **O binário não lê arquivo `.env`.** As variáveis chegam pelo processo, injetadas pelo
@@ -251,7 +259,8 @@ migrations/  .sqlx/
 - **A suíte só lê `DATABASE_URL` e `REDIS_URL` do ambiente**; o resto vem do mapa do `support.rs`. Com
   as portas de dev ocupadas por outro projeto, o gate roda contra um `postgres:18` e um `redis:8`
   descartáveis em portas livres, com as duas variáveis na linha de comando e sem o `infisical run`. O
-  binário rodado assim precisa das 17, e o `SMTP_HOST` só aceita hostname com domínio.
+  binário rodado assim precisa das 12 da API, e o do worker das 8 dele, em que o `SMTP_HOST` só aceita
+  hostname com domínio.
 - **O Redis dos testes é o de dev, sem flush.** Cada requisição de teste sai de um `fresh_client()`, um
   /64 de documentação novo por chamada, então nenhum contador de limite atravessa testes nem execuções.
   **Pelo mesmo motivo, teste que faz login usa um `fresh_email()`**: o contador de falhas por e-mail
@@ -296,8 +305,8 @@ migrations/  .sqlx/
   `CfConnectingIp`, e a origem só aceita tráfego da Cloudflare, por firewall com as faixas dela ou por
   Cloudflare Tunnel: quem alcança o Traefik direto forja o `CF-Connecting-IP`. A porta da API nunca é
   publicada fora do Traefik.
-- **O binário em dev envia e-mail de verdade.** O `cargo run` sob o `infisical run` liga o SMTP real, sem
-  stub, e toda rota que manda e-mail entrega. Teste à mão usa só endereço `@example.com`, que é
+- **O worker em dev envia e-mail de verdade.** O `cargo run -p clinicore-worker` sob o `infisical run`
+  liga o SMTP real, sem stub, e entrega tudo o que a API grava na fila. Teste à mão usa só endereço `@example.com`, que é
   reservado; `exemplo.com` não é.
 - **O `openidconnect` 4.0.1 vem sobre o `oauth2` 5.0.0, que só aceita o `reqwest` 0.12, e é ele que a
   API usa**, pelo reexport `openidconnect::reqwest`. Um `reqwest` próprio no `Cargo.toml` põe duas

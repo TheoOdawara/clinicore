@@ -36,8 +36,7 @@ Issues com a label `tech-debt`, todas do épico #124.
 | O OpenAPI precisa continuar gerando o mesmo cliente Dart | #126 |
 | O contrato do erro de validação não está travado | #127 |
 | Faltam testes de confirmação de e-mail, limites e validação | #128 |
-| A entrega do e-mail de verificação não tem limite nem garantia | #132 |
-| O reenvio da verificação não é atômico | #133 |
+| Prazos do envio literais no SQL e consultas sem timeout | #133 |
 | A API não manda os headers de limite de requisições | #134 |
 | O idioma do schema e o lugar do limite não estão registrados como decisão | #135 |
 | Limpeza do código e do suporte de teste do cadastro | #137 |
