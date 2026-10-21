@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT users.id FROM verifications\n        JOIN users ON users.email = verifications.email\n        WHERE verifications.token_hash = $1 AND verifications.purpose = 'password_reset'\n            AND verifications.consumed_at IS NULL AND verifications.expires_at > now()\n        FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "082e331fac1724eefceca46a2a7376cf5978ea1a1019e6d9d89f217c672d6c64"
+}

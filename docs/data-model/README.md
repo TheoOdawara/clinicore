@@ -28,9 +28,9 @@ diagramas inteiros são também os do módulo.
 | Entidade | O que é | Marco |
 | --- | --- | --- |
 | User | uma pessoa que entra no sistema | existe |
-| Account | um jeito de essa pessoa provar quem é: senha ou Google | existe; Google no M1 · #120 |
+| Account | um jeito de essa pessoa provar quem é: senha ou Google | existe |
 | Session | um login ativo num navegador ou num aparelho | existe |
-| Verification | um token de uso único mandado a um e-mail | existe; redefinição de senha no M1 · #119 |
+| Verification | um token de uso único mandado a um e-mail: confirmação de e-mail ou redefinição de senha | existe |
 | EmailDispatch | o registro de um e-mail enviado, para limitar o envio | existe |
 
 ## Invariantes
@@ -51,9 +51,9 @@ diagramas inteiros são também os do módulo.
     ([ADR 0012](../decisions/0012-revogacao-de-sessao-antes-de-apagar.md)).
 - **Verification:**
   - o segredo do link nunca é guardado, só o hash, e a busca é sempre por ele;
-  - a confirmação de e-mail vence 1 hora depois da emissão;
+  - toda verificação vence 1 hora depois da emissão;
   - token vencido ou já consumido não confirma nada, e confirmar um token consome todas as verificações
-    pendentes do mesmo endereço;
+    pendentes do mesmo endereço e do mesmo `purpose`;
   - apagar o usuário não apaga a verificação, que some pela purga quando vence.
 - **EmailDispatch:** um endereço recebe no máximo 5 e-mails do mesmo tipo em 24 horas, e no máximo 1 a
   cada 60 segundos, exista ou não uma conta nele. A contagem e o registro acontecem sob o mesmo lock por

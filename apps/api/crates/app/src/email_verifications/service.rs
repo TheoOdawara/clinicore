@@ -2,6 +2,7 @@ use super::error::EmailVerificationError;
 use super::{NETWORK_CONFIRMATIONS, emails, queries};
 use crate::AppState;
 use crate::credentials::secret;
+use crate::email_dispatches::{EmailDispatchKind, reserve_dispatch};
 use crate::http::client::ClientAddress;
 use crate::http::rate_limit;
 
@@ -10,7 +11,7 @@ pub async fn request_email_verification(
     email: &str,
 ) -> Result<(), EmailVerificationError> {
     let address = email.to_lowercase();
-    if !queries::reserve_dispatch(&state.pool, &address).await? {
+    if !reserve_dispatch(&state.pool, &address, EmailDispatchKind::EmailVerification).await? {
         return Ok(());
     }
 
@@ -26,7 +27,7 @@ pub async fn resend_verification(
     address: &str,
     name: &str,
 ) -> Result<(), EmailVerificationError> {
-    if !queries::reserve_dispatch(&state.pool, address).await? {
+    if !reserve_dispatch(&state.pool, address, EmailDispatchKind::EmailVerification).await? {
         return Ok(());
     }
     send_verification(state, address, name).await

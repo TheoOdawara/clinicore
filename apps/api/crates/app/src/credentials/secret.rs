@@ -1,10 +1,22 @@
+use std::sync::LazyLock;
+
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use regex::Regex;
 use sha2::{Digest, Sha256};
+use utoipa::openapi::schema::Object;
 
 use super::error::CredentialError;
+use crate::http::openapi;
 
 pub const PATTERN: &str = "[A-Za-z0-9_-]{43}";
+
+pub static FORMAT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!("^{PATTERN}$")).expect("a valid pattern"));
+
+pub fn schema() -> Object {
+    openapi::matching(&FORMAT)
+}
 
 pub struct IssuedSecret {
     pub secret: String,

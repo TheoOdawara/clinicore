@@ -33,8 +33,9 @@ a mesma versão do job `api` do CI, e o `cargo-audit` com
 `cargo install cargo-audit --version 0.22.2 --locked`. **As advisories ignoradas ficam no
 `.cargo/audit.toml`**, e cada uma tem o motivo aqui:
 
-- **RUSTSEC-2023-0071**: o `rsa` vem do backend `rust_crypto` do `jsonwebtoken`, e a API só assina e
-  confere HS256, sem chave RSA para o ataque de tempo alcançar.
+- **RUSTSEC-2023-0071**: o ataque de tempo dela alcança operação com chave privada RSA, e a API não tem
+  nenhuma. O `rsa` vem do `jsonwebtoken`, que só assina e confere HS256, e do `openidconnect`, que só
+  confere a assinatura RS256 do `id_token` com a chave pública do Google.
 - **RUSTSEC-2026-0367 a 0369**: o `zip` 8.6 é build-dependency do `utoipa-swagger-ui` 10.0.1 e só
   extrai, no `build.rs`, o zip do Swagger UI que vem dentro do próprio crate, nunca um arquivo de fora;
   ele não entra no binário. O ignore sai quando o `utoipa-swagger-ui` aceitar o `zip` 9.
@@ -75,12 +76,17 @@ crates/
     │   │   ├── error.rs  validation.rs  request_log.rs  openapi.rs
     │   │   └── client.rs  origin.rs  rate_limit.rs
     │   ├── health.rs                                feature de uma rota só
+    │   ├── email_dispatches.rs                      a reserva de envio por endereço, de várias features
     │   ├── credentials/                             senha e segredo aleatório, de várias features
     │   │   └── mod.rs  password.rs  secret.rs  error.rs
-    │   ├── users/                                   o cadastro
+    │   ├── users/                                   o cadastro e a troca de senha
     │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  error.rs
     │   ├── email_verifications/                     o link de confirmação do e-mail
     │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  emails.rs  error.rs
+    │   ├── password_resets/                         o link de redefinição de senha
+    │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  emails.rs  error.rs
+    │   ├── oauth/                                   o login com Google e o vínculo com a conta
+    │   │   └── mod.rs  handlers.rs  requests.rs  service.rs  queries.rs  google.rs  cookies.rs  error.rs
     │   └── sessions/                                login, refresh e logout
     │       ├── mod.rs                               routes(): o Router, que liga URL e handler
     │       ├── handlers.rs                          recebe o request, chama o service, devolve o status
@@ -94,8 +100,10 @@ crates/
     └── tests/api/
         ├── main.rs  support.rs
         ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  purge.rs  request_log.rs
-        ├── users/  mod.rs  sign_up.rs
+        ├── users/  mod.rs  sign_up.rs  change_password.rs
         ├── email_verifications/  mod.rs  confirmation.rs
+        ├── oauth/  mod.rs  google_sign_in.rs
+        ├── password_resets/  mod.rs  request.rs  confirmation.rs
         └── sessions/  mod.rs  sign_in.rs  current_session.rs  refresh.rs
 migrations/  .sqlx/
 ```
@@ -115,7 +123,7 @@ migrations/  .sqlx/
 - **A camada nasce quando tem conteúdo.** Uma leitura simples vai do handler direto à consulta. O
   `service.rs` existe quando há decisão: regra de negócio, mais de uma escrita ou efeito colateral.
   Nenhum service só repassa a chamada.
-- **O estado da API é o `AppState`**, com o pool, o Redis, o `Mailer` e o que a configuração entrega
+- **O estado da API é o `AppState`**, com o pool, o Redis, o `Mailer`, o `GoogleClient` e o que a configuração entrega
   às features. O handler recebe `State<AppState>`, e o service e a consulta recebem o que usam.
 - **O `core` monta o e-mail e a feature escreve o texto.** O layout é o `askama`, em
   `crates/core/templates/`, e o `mail::compose` o renderiza; o conteúdo de cada e-mail mora em
@@ -129,9 +137,9 @@ migrations/  .sqlx/
 - **Toda rota limitada conta em duas chaves, nunca numa só.** O IP é a do `route_layer`; a segunda é
   a identidade, contada por `rate_limit::enforce` com uma `Quota` do `mod.rs` da feature: a sessão
   por rota no `CurrentSession` (sessão, método e `MatchedPath`), a sessão do refresh e as falhas de
-  senha por e-mail no service, e a faixa de rede na confirmação (`network_key`: /48 no IPv6, /24 no
-  IPv4), porque o corpo dela só traz o token. As rotas que mandam e-mail têm a segunda no
-  `email_dispatches`. Rota nova limitada nasce com as duas.
+  senha por e-mail no service, as falhas da senha atual por usuário na troca de senha, e a faixa de
+  rede nas duas confirmações (`network_key`: /48 no IPv6, /24 no IPv4), porque o corpo delas só traz
+  o token, e nas duas rotas do Google, que são navegação pública sem identidade. As rotas que mandam e-mail têm a segunda no `email_dispatches`. Rota nova limitada nasce com as duas.
 - **Rota nasce com `routes!` do `utoipa-axum` num `OpenApiRouter`** (ADR 0011), nunca com o `route`
   do axum, então a rota não existe sem o `#[utoipa::path]`. O header `Clinicore-Client` e as respostas
   dos guards (400, 403, 429, 503) entram sozinhos pelo `document_guards`; o handler declara só as
@@ -155,6 +163,8 @@ migrations/  .sqlx/
   access token de uma sessão vencida já venceu. Cada réplica roda a sua, e o `DELETE` repetido apaga
   zero linhas; uma rodada que falha, como a do boot com o Postgres subindo, tenta de novo na hora
   seguinte. Sobe para o `crates/worker/` quando a #71 o criar.
+- **O `pointer` do erro de campo é o nome do JSON, em camelCase**, e o `ValidJson` o deriva do nome do
+  campo Rust. Request com mais de uma palavra num campo leva `#[serde(rename_all = "camelCase")]`.
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
   campo é o do `validator` (`email`, `length`, e o nome do validador próprio, como `weak_password`).
   O request tem `#[serde(deny_unknown_fields)]`, e campo desconhecido ou de tipo errado sai como
@@ -163,7 +173,8 @@ migrations/  .sqlx/
   faz o utoipa marcar o campo como opcional, então todo campo obrigatório leva também
   `#[schema(required = true)]`; sem ele o cliente Dart o gera como `String?`.
 - **Um formato de token tem uma `Regex` só**, que valida o corpo, entra no schema e confere o token
-  lido do cookie. O segredo é o `credentials::secret::PATTERN`; o `pattern` do schema sai da mesma
+  lido do cookie. O segredo é o `credentials::secret::PATTERN`, e o `secret::FORMAT` é a `Regex` dele
+  nos corpos das duas confirmações; o `pattern` do schema sai da mesma
   `Regex` por `schema_with` e `openapi::matching`, porque o `pattern` do utoipa só aceita literal.
 - **Concorrência se resolve no Postgres, sem retry na aplicação.** Unicidade por
   `ON CONFLICT … DO NOTHING`, e a serialização por chave (o registro de envio por endereço) por
@@ -231,6 +242,10 @@ migrations/  .sqlx/
 
 - **O `cargo test` precisa do Postgres e do Redis de pé e roda dentro do `infisical run`.** O
   `#[sqlx::test(migrations = "../../migrations")]` cria um banco por teste a partir da `DATABASE_URL`.
+- **A suíte só lê `DATABASE_URL` e `REDIS_URL` do ambiente**; o resto vem do mapa do `support.rs`. Com
+  as portas de dev ocupadas por outro projeto, o gate roda contra um `postgres:18` e um `redis:8`
+  descartáveis em portas livres, com as duas variáveis na linha de comando e sem o `infisical run`. O
+  binário rodado assim precisa das 17, e o `SMTP_HOST` só aceita hostname com domínio.
 - **O Redis dos testes é o de dev, sem flush.** Cada requisição de teste sai de um `fresh_client()`, um
   /64 de documentação novo por chamada, então nenhum contador de limite atravessa testes nem execuções.
   **Pelo mesmo motivo, teste que faz login usa um `fresh_email()`**: o contador de falhas por e-mail
@@ -271,6 +286,24 @@ migrations/  .sqlx/
   `ConnectInfo`, o socket, que não se forja. Atrás de proxy é o header que só ele escreve
   (`RightmostXForwardedFor`, `CfConnectingIp`, …), e a API só pode ser alcançável por ele: exposta
   direto, o header vem do cliente.
+- **Em produção a requisição passa pela Cloudflare e depois pelo Traefik do Coolify.** A fonte é
+  `CfConnectingIp`, e a origem só aceita tráfego da Cloudflare, por firewall com as faixas dela ou por
+  Cloudflare Tunnel: quem alcança o Traefik direto forja o `CF-Connecting-IP`. A porta da API nunca é
+  publicada fora do Traefik.
+- **O binário em dev envia e-mail de verdade.** O `cargo run` sob o `infisical run` liga o SMTP real, sem
+  stub, e toda rota que manda e-mail entrega. Teste à mão usa só endereço `@example.com`, que é
+  reservado; `exemplo.com` não é.
+- **O `openidconnect` 4.0.1 vem sobre o `oauth2` 5.0.0, que só aceita o `reqwest` 0.12, e é ele que a
+  API usa**, pelo reexport `openidconnect::reqwest`. Um `reqwest` próprio no `Cargo.toml` põe duas
+  versões no binário.
+- **As chaves públicas do Google são baixadas a cada login**, e não ficam em env nem em cache: o Google
+  as troca sozinho. O `CoreClient` nasce com um conjunto de chaves vazio, então o `id_token_verifier()`
+  dele recusa todo token: o verificador é montado por login, com as chaves baixadas, e as chaves são
+  baixadas antes de o `code` ser trocado, para uma falha nelas não gastar o `code`. Sem discovery, para o boot não depender do Google.
+- **Os endpoints do Google são o `GoogleEndpoints`, e não variável de ambiente**: emissor, autorização,
+  token e chaves são iguais em todo ambiente. O binário usa o `GoogleEndpoints::production()`, e o
+  teste sobe um axum em `127.0.0.1:0`, que assina o `id_token` com a chave de teste de
+  `tests/api/oauth/google_test_key.der`, e o passa ao `GoogleClient` pelo `app_with_google` do `support.rs`.
 - **O bind em `::` entrega o IPv4 como `::ffff:a.b.c.d`.** O `ClientAddress` de `http/client.rs`
   passa o endereço por `to_canonical()`, e o limite agrupa o IPv6 em /64 antes de montar a chave.
 - **O `MockConnectInfo` do axum não põe `ConnectInfo` nas extensions**, só o extractor o enxerga. O

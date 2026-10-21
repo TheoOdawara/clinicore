@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE verifications SET consumed_at = now()\n            WHERE email = $1 AND purpose = 'email_verification' AND consumed_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "583c6998bcfadeff5e7be4d5867c6d91b13308f9c0330c1c01d5bc9f47a0ad3e"
+}

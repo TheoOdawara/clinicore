@@ -1,10 +1,10 @@
 pub(crate) mod error;
-mod extractors;
+pub(crate) mod extractors;
 pub(crate) mod handlers;
 mod queries;
 mod requests;
-mod responses;
-mod service;
+pub(crate) mod responses;
+pub(crate) mod service;
 pub(crate) mod tokens;
 
 use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouterExt};

@@ -11,7 +11,7 @@ use axum::extract::ConnectInfo;
 use axum::http::Request;
 use axum::http::StatusCode;
 use axum::response::Response;
-use clinicore_app::AppState;
+use clinicore_app::{AppState, GoogleClient, GoogleEndpoints};
 use clinicore_core::config::Config;
 use clinicore_core::db;
 use clinicore_core::mail::Mailer;
@@ -84,11 +84,31 @@ pub fn state(config: &Config, pool: PgPool, mail: AsyncStubTransport) -> AppStat
     state_on_redis(config, pool, mail, &redis_url)
 }
 
+pub fn app_with_google(pool: &PgPool, google: GoogleEndpoints) -> Router {
+    let config = config_with(&[]);
+    let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run");
+    let mail = AsyncStubTransport::new_ok();
+    clinicore_app::app(
+        &config,
+        state_with_google(&config, pool.clone(), mail, &redis_url, google),
+    )
+}
+
 pub fn state_on_redis(
     config: &Config,
     pool: PgPool,
     mail: AsyncStubTransport,
     redis_url: &str,
+) -> AppState {
+    state_with_google(config, pool, mail, redis_url, GoogleEndpoints::production())
+}
+
+fn state_with_google(
+    config: &Config,
+    pool: PgPool,
+    mail: AsyncStubTransport,
+    redis_url: &str,
+    google: GoogleEndpoints,
 ) -> AppState {
     let mut config = config.clone();
     config.redis_url = redis_url.to_string();
@@ -97,6 +117,7 @@ pub fn state_on_redis(
         pool,
         Redis::connect_lazy(&config).expect("a lazy redis"),
         Mailer::stub(&config, mail).expect("a valid sender"),
+        GoogleClient::new(&config, google).expect("a google client"),
     )
 }
 

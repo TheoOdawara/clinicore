@@ -2,7 +2,14 @@
 
 ## Autenticação e sessão — existe
 
-- **A senha é guardada como hash Argon2**, e a política de senha forte é conferida no cadastro.
+- **A senha é guardada como hash Argon2**, e a política de senha forte é conferida no cadastro, na
+  redefinição e na troca.
+- **Redefinir a senha derruba todas as sessões do usuário, e trocá-la derruba todas menos a que fez o
+  pedido.** A redefinição também dá login por senha a quem só entrou com Google.
+- **O login com Google vincula pelo e-mail que o Google verificou**, com `state`, PKCE e `nonce` em cookies
+  `HttpOnly` de 10 minutos, e o perfil lido do `id_token` depois de conferidos a assinatura, o emissor,
+  a audiência e a expiração. Vincular a uma conta cujo e-mail nunca foi confirmado apaga a senha dela, e
+  nenhum token do Google é guardado.
 - **A sessão é uma linha no PostgreSQL**, com o hash do refresh token. O access token é um JWT HS256 de
   15 minutos; o refresh token vive 24 horas no web e 7 dias no app, é rotacionado a cada uso, e o reuso
   de um antigo derruba a sessão. Cada usuário tem no máximo 5 sessões, e nenhuma passa de 30 dias.
@@ -13,8 +20,8 @@
 - **A origem é conferida em toda rota**, contra `ALLOWED_ORIGINS`, e o CORS só libera essas origens.
 - **Toda rota limitada conta em duas chaves**: o IP e uma identidade — a sessão, o e-mail ou a faixa de
   rede.
-- **Nenhuma resposta revela se um e-mail tem conta**: cadastro e reenvio respondem `202` sempre, e o
-  login confere a senha mesmo sem conta.
+- **Nenhuma resposta revela se um e-mail tem conta**: cadastro, reenvio e pedido de redefinição
+  respondem `202` sempre, e o login confere a senha mesmo sem conta.
 
 O passo a passo está em [`../runtime/session-lifecycle.md`](../runtime/session-lifecycle.md).
 
@@ -23,8 +30,7 @@ O passo a passo está em [`../runtime/session-lifecycle.md`](../runtime/session-
 | O que | Requisito | Marco |
 | --- | --- | --- |
 | Token do app guardado no Keychain e no Keystore | `FR-ACC-12` | M1 · #98 |
-| Login com Google | `FR-ACC-09` | M1 · #120 |
-| Recuperar e trocar a senha | `FR-ACC-10`, `FR-ACC-11` | M1 · #119 |
+| Login com Google no app, pelo `idToken` do SDK nativo | `FR-ACC-09` | M1 · #94 |
 | Isolamento entre clientes: todo dado de clínica pertence a um cliente | `NFR-SEC-01` | M1 |
 | Papéis com menor privilégio e alcance por clínica dentro da rede | `FR-ACC-03`, `FR-ACC-04` | M1 |
 | Trilha de auditoria de acesso ao prontuário | `FR-ACC-06` | M1 |

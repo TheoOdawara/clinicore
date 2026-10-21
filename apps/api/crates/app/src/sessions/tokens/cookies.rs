@@ -33,7 +33,7 @@ pub fn clear(jar: CookieJar, secure: bool) -> CookieJar {
         .add(cookie(REFRESH, "", REFRESH_PATH, Duration::ZERO, secure))
 }
 
-fn cookie(
+pub(crate) fn cookie(
     name: &'static str,
     value: &str,
     path: &'static str,

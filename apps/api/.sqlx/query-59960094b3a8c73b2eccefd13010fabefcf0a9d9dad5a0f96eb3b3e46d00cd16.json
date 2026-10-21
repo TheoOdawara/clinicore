@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO accounts (user_id, provider, provider_account_id) VALUES ($1, 'google', $2)\n        ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "59960094b3a8c73b2eccefd13010fabefcf0a9d9dad5a0f96eb3b3e46d00cd16"
+}
