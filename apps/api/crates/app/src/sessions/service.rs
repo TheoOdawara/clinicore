@@ -9,7 +9,7 @@ use super::{SESSION_REFRESHES, SIGN_IN_FAILURES};
 use crate::AppState;
 use crate::credentials::password::{self, UNMATCHABLE_HASH};
 use crate::credentials::secret;
-use crate::email_verifications::service::resend_verification;
+use crate::email_verifications::service::request_email_verification;
 use crate::http::client::SessionClient;
 use crate::http::rate_limit;
 
@@ -33,7 +33,7 @@ pub async fn sign_in(
     };
     rate_limit::refund(&state.redis, SIGN_IN_FAILURES, &address).await?;
     if !user.email_verified {
-        resend_verification(state, &address, &user.name).await?;
+        request_email_verification(state, &address).await?;
         return Err(SessionError::EmailNotVerified);
     }
 

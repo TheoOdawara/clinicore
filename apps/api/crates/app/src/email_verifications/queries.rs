@@ -1,35 +1,45 @@
-use sqlx::{PgExecutor, PgPool};
+use clinicore_core::mail::MailMessage;
+use sqlx::PgPool;
 
 use super::error::EmailVerificationError;
+use crate::email_dispatches::{EmailDispatchKind, claim_dispatch};
+use crate::email_outbox::{VerificationPurpose, enqueue_with_token};
 
-pub struct UserSummary {
-    pub name: String,
-    pub email_verified: bool,
-}
-
-pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<UserSummary>, sqlx::Error> {
-    sqlx::query_as!(
-        UserSummary,
-        "SELECT name, email_verified FROM users WHERE email = $1",
-        email
-    )
-    .fetch_optional(pool)
-    .await
-}
-
-pub async fn create_verification(
-    executor: impl PgExecutor<'_>,
+pub async fn request_verification(
+    pool: &PgPool,
     email: &str,
     token_hash: &str,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "INSERT INTO verifications (email, purpose, token_hash, expires_at)
-        VALUES ($1, 'email_verification', $2, now() + interval '1 hour')",
+    render: impl FnOnce(&str) -> Result<MailMessage, askama::Error>,
+) -> Result<(), EmailVerificationError> {
+    let mut transaction = pool.begin().await?;
+    if !claim_dispatch(
+        &mut transaction,
         email,
-        token_hash
+        EmailDispatchKind::EmailVerification,
     )
-    .execute(executor)
+    .await?
+    {
+        transaction.commit().await?;
+        return Ok(());
+    }
+
+    let name = sqlx::query_scalar!(
+        "SELECT name FROM users WHERE email = $1 AND NOT email_verified",
+        email
+    )
+    .fetch_optional(&mut *transaction)
     .await?;
+    if let Some(name) = name {
+        enqueue_with_token(
+            &mut transaction,
+            email,
+            VerificationPurpose::EmailVerification,
+            token_hash,
+            &render(&name)?,
+        )
+        .await?;
+    }
+    transaction.commit().await?;
     Ok(())
 }
 

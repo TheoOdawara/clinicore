@@ -4,11 +4,9 @@ use std::process::ExitCode;
 
 use clinicore_app::{AppState, GoogleClient, GoogleEndpoints};
 use clinicore_core::config::Config;
-use clinicore_core::db;
-use clinicore_core::mail::Mailer;
 use clinicore_core::redis::Redis;
+use clinicore_core::{db, shutdown};
 use tokio::net::TcpListener;
-use tokio::signal;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -48,7 +46,7 @@ async fn main() -> ExitCode {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .with_graceful_shutdown(shutdown_signal())
+    .with_graceful_shutdown(shutdown::requested())
     .await
     {
         tracing::error!(error = %error, "the server stopped");
@@ -62,29 +60,6 @@ fn connect(config: &Config) -> Result<AppState, Box<dyn std::error::Error + Send
         config,
         db::connect_lazy(&config.database_url)?,
         Redis::connect_lazy(config)?,
-        Mailer::smtp(config)?,
         GoogleClient::new(config, GoogleEndpoints::production())?,
     ))
-}
-
-async fn shutdown_signal() {
-    #[cfg(unix)]
-    let terminate = async {
-        match signal::unix::signal(signal::unix::SignalKind::terminate()) {
-            Ok(mut terminate) => {
-                terminate.recv().await;
-            }
-            Err(error) => {
-                tracing::error!(error = %error, "could not listen for SIGTERM");
-                std::future::pending::<()>().await;
-            }
-        }
-    };
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = signal::ctrl_c() => {}
-        _ = terminate => {}
-    }
 }

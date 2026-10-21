@@ -2,6 +2,7 @@ pub mod http;
 
 mod credentials;
 mod email_dispatches;
+mod email_outbox;
 mod email_verifications;
 mod health;
 mod oauth;
@@ -14,7 +15,6 @@ use axum::extract::DefaultBodyLimit;
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::{HeaderValue, Method, StatusCode};
 use clinicore_core::config::{AppEnv, Config};
-use clinicore_core::mail::Mailer;
 use clinicore_core::redis::Redis;
 use sqlx::PgPool;
 use tower::ServiceBuilder;
@@ -30,7 +30,6 @@ pub use oauth::google::{GoogleClient, GoogleEndpoints};
 pub struct AppState {
     pool: PgPool,
     redis: Redis,
-    mailer: Mailer,
     google: GoogleClient,
     app_origin: String,
     access_keys: sessions::AccessKeys,
@@ -38,17 +37,10 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(
-        config: &Config,
-        pool: PgPool,
-        redis: Redis,
-        mailer: Mailer,
-        google: GoogleClient,
-    ) -> Self {
+    pub fn new(config: &Config, pool: PgPool, redis: Redis, google: GoogleClient) -> Self {
         Self {
             pool,
             redis,
-            mailer,
             google,
             app_origin: config.app_origin.clone(),
             access_keys: sessions::AccessKeys::new(&config.jwt_secret),

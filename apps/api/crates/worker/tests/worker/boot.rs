@@ -6,7 +6,14 @@ use std::time::{Duration, Instant};
 fn an_incomplete_environment_stops_the_boot_and_names_every_rejected_variable() {
     let mut child = Command::new(env!("CARGO_BIN_EXE_worker"))
         .env_clear()
-        .envs([("APP_ENV", "test"), ("LOG_LEVEL", "off")])
+        .envs([
+            ("APP_ENV", "test"),
+            ("LOG_LEVEL", "off"),
+            ("MAIL_FROM", "test@example.com"),
+            ("SMTP_HOST", "smtp.gmail.com"),
+            ("SMTP_PORT", "587"),
+            ("SMTP_USER", "test@example.com"),
+        ])
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
@@ -24,6 +31,6 @@ fn an_incomplete_environment_stops_the_boot_and_names_every_rejected_variable() 
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(
         String::from_utf8(output.stderr).expect("a UTF-8 stderr"),
-        "Invalid environment:\n  DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)\n"
+        "Invalid environment:\n  DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)\n  SMTP_PASSWORD: expected a non-empty string\n"
     );
 }

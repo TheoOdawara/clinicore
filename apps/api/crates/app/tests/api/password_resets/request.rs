@@ -1,10 +1,9 @@
 use axum::http::StatusCode;
-use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
 use crate::support::{
-    app, config_with, count, eventually, fresh_email, json_body, post_json, register, state,
+    app, app_with, config_with, count, fresh_email, json_body, post_json, queued_mail, register,
     text_body,
 };
 
@@ -26,39 +25,38 @@ async fn dispatches_to(pool: &PgPool, email: &str) -> i64 {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_reset_request_answers_the_same_and_mails_only_the_account_owner(pool: PgPool) {
-    let config = config_with(&[]);
-    let mail = AsyncStubTransport::new_ok();
-    let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
+async fn a_reset_request_answers_the_same_and_queues_mail_only_for_the_account_owner(pool: PgPool) {
+    let app = app_with(&pool);
     let owner = fresh_email();
     let stranger = fresh_email();
     register(&app, &pool, &owner, true).await;
-    let is_reset = |raw: &str| raw.contains("Subject: Redefinir sua senha do Clinicore");
 
     request_reset(&app, &owner).await;
     request_reset(&app, &stranger).await;
 
-    let delivered = || async { mail.messages().await.iter().any(|(_, raw)| is_reset(raw)) };
-    assert!(eventually(delivered).await);
-    let messages = mail.messages().await;
-    let resets: Vec<_> = messages.iter().filter(|(_, raw)| is_reset(raw)).collect();
+    let resets: Vec<_> = queued_mail(&pool, &owner)
+        .await
+        .into_iter()
+        .filter(|mail| mail.subject == "Redefinir sua senha do Clinicore")
+        .collect();
     assert_eq!(resets.len(), 1);
-    let (envelope, raw) = resets[0];
-    assert_eq!(envelope.to()[0].to_string(), owner);
+    assert_eq!(resets[0].status, "pending");
     assert!(
-        raw.contains("http://localhost:3000/reset-password?token="),
-        "{raw}"
+        resets[0]
+            .text_body
+            .contains("http://localhost:3000/reset-password?token="),
+        "{}",
+        resets[0].text_body
     );
+    assert!(queued_mail(&pool, &stranger).await.is_empty());
     let open_reset = "SELECT count(*) FROM verifications
         WHERE purpose = 'password_reset' AND consumed_at IS NULL";
     assert_eq!(count(&pool, open_reset).await, 1);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn repeated_requests_for_one_address_write_and_send_once(pool: PgPool) {
-    let config = config_with(&[]);
-    let mail = AsyncStubTransport::new_ok();
-    let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
+async fn repeated_requests_for_one_address_write_and_queue_once(pool: PgPool) {
+    let app = app_with(&pool);
     let owner = fresh_email();
     let stranger = fresh_email();
     register(&app, &pool, &owner, true).await;
@@ -74,14 +72,9 @@ async fn repeated_requests_for_one_address_write_and_send_once(pool: PgPool) {
     assert_eq!(dispatches_to(&pool, &stranger).await, 1);
     let resets = "SELECT count(*) FROM verifications WHERE purpose = 'password_reset'";
     assert_eq!(count(&pool, resets).await, 1);
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    let delivered = mail
-        .messages()
-        .await
-        .iter()
-        .filter(|(_, raw)| raw.contains("Subject: Redefinir sua senha do Clinicore"))
-        .count();
-    assert_eq!(delivered, 1);
+    let queued_resets = "SELECT count(*) FROM email_outbox
+        WHERE subject = 'Redefinir sua senha do Clinicore'";
+    assert_eq!(count(&pool, queued_resets).await, 1);
 }
 
 #[tokio::test]

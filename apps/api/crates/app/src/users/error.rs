@@ -1,4 +1,3 @@
-use clinicore_core::mail::MailError;
 use clinicore_core::redis::RedisError;
 
 use crate::credentials::error::CredentialError;
@@ -16,7 +15,7 @@ pub enum UserError {
     #[error(transparent)]
     Redis(#[from] RedisError),
     #[error(transparent)]
-    Mail(#[from] MailError),
+    Template(#[from] askama::Error),
     #[error(transparent)]
     Credential(#[from] CredentialError),
 }

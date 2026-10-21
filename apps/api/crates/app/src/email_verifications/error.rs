@@ -1,5 +1,3 @@
-use clinicore_core::mail::MailError;
-
 use crate::credentials::error::CredentialError;
 use crate::http::error::AppError;
 use crate::http::rate_limit::RateLimitError;
@@ -15,7 +13,7 @@ pub enum EmailVerificationError {
     #[error(transparent)]
     Database(#[from] sqlx::Error),
     #[error(transparent)]
-    Mail(#[from] MailError),
+    Template(#[from] askama::Error),
     #[error(transparent)]
     Credential(#[from] CredentialError),
 }

@@ -1,8 +1,8 @@
-use clinicore_core::mail::{MailContent, MailError, MailMessage, compose};
+use clinicore_core::mail::{MailContent, MailMessage, compose};
 
 use crate::email_verifications::emails::first_name;
 
-pub fn password_reset(name: &str, link: &str) -> Result<MailMessage, MailError> {
+pub fn password_reset(name: &str, link: &str) -> Result<MailMessage, askama::Error> {
     let greeting = first_name(name);
     compose(
         "Redefinir sua senha do Clinicore",

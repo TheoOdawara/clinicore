@@ -1,6 +1,6 @@
 use super::PASSWORD_FAILURES;
 use super::error::UserError;
-use super::queries::{self, SignUpOutcome};
+use super::queries;
 use crate::AppState;
 use crate::credentials::password::{self, UNMATCHABLE_HASH};
 use crate::credentials::secret;
@@ -20,12 +20,15 @@ pub async fn sign_up(
     let issued = secret::issue()?;
     let message = emails::verification(name, &verification_link(state, &issued.secret))?;
 
-    let outcome =
-        queries::create_user(&state.pool, name, &address, &password_hash, &issued.hash).await?;
-
-    if outcome == SignUpOutcome::CreatedWithToken {
-        state.mailer.send(&address, message);
-    }
+    queries::create_user(
+        &state.pool,
+        name,
+        &address,
+        &password_hash,
+        &issued.hash,
+        &message,
+    )
+    .await?;
     Ok(())
 }
 

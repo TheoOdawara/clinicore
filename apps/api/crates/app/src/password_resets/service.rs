@@ -11,17 +11,14 @@ pub async fn request_password_reset(
 ) -> Result<(), PasswordResetError> {
     let address = email.to_lowercase();
     let issued = secret::issue()?;
-    let Some(name) = queries::reserve_password_reset(&state.pool, &address, &issued.hash).await?
-    else {
-        return Ok(());
-    };
     let link = format!(
         "{}/reset-password?token={}",
         state.app_origin, issued.secret
     );
-    let message = emails::password_reset(&name, &link)?;
-    state.mailer.send(&address, message);
-    Ok(())
+    queries::reserve_password_reset(&state.pool, &address, &issued.hash, |name| {
+        emails::password_reset(name, &link)
+    })
+    .await
 }
 
 pub async fn confirm_password_reset(

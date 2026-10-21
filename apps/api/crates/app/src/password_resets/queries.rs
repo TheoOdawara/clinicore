@@ -1,36 +1,39 @@
+use clinicore_core::mail::MailMessage;
 use clinicore_core::redis::Redis;
 use sqlx::PgPool;
 
 use super::error::PasswordResetError;
 use crate::email_dispatches::{EmailDispatchKind, claim_dispatch};
+use crate::email_outbox::{VerificationPurpose, enqueue_with_token};
 use crate::sessions::tokens::access;
 
 pub async fn reserve_password_reset(
     pool: &PgPool,
     email: &str,
     token_hash: &str,
-) -> Result<Option<String>, sqlx::Error> {
+    render: impl FnOnce(&str) -> Result<MailMessage, askama::Error>,
+) -> Result<(), PasswordResetError> {
     let mut transaction = pool.begin().await?;
     if !claim_dispatch(&mut transaction, email, EmailDispatchKind::PasswordReset).await? {
         transaction.commit().await?;
-        return Ok(None);
+        return Ok(());
     }
 
     let name = sqlx::query_scalar!("SELECT name FROM users WHERE email = $1", email)
         .fetch_optional(&mut *transaction)
         .await?;
-    if name.is_some() {
-        sqlx::query!(
-            "INSERT INTO verifications (email, purpose, token_hash, expires_at)
-            VALUES ($1, 'password_reset', $2, now() + interval '1 hour')",
+    if let Some(name) = name {
+        enqueue_with_token(
+            &mut transaction,
             email,
-            token_hash
+            VerificationPurpose::PasswordReset,
+            token_hash,
+            &render(&name)?,
         )
-        .execute(&mut *transaction)
         .await?;
     }
     transaction.commit().await?;
-    Ok(name)
+    Ok(())
 }
 
 pub async fn reset_password(

@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use std::net::{Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicU16, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, Once};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::Router;
 use axum::body::Body;
@@ -14,16 +14,14 @@ use axum::response::Response;
 use clinicore_app::{AppState, GoogleClient, GoogleEndpoints};
 use clinicore_core::config::Config;
 use clinicore_core::db;
-use clinicore_core::mail::Mailer;
 use clinicore_core::redis::Redis;
 use http_body_util::BodyExt;
-use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 use tower::ServiceExt;
 use tracing::subscriber::{DefaultGuard, NoSubscriber};
 
-pub const VALID_ENVIRONMENT: [(&str, &str); 17] = [
+pub const VALID_ENVIRONMENT: [(&str, &str); 12] = [
     ("ALLOWED_ORIGINS", "http://localhost:3000"),
     ("API_URL", "http://localhost:3333"),
     ("APP_ENV", "test"),
@@ -40,13 +38,8 @@ pub const VALID_ENVIRONMENT: [(&str, &str); 17] = [
         "a-test-jwt-secret-with-at-least-32-characters",
     ),
     ("LOG_LEVEL", "info"),
-    ("MAIL_FROM", "test@example.com"),
     ("PORT", "3333"),
     ("REDIS_URL", "redis://localhost:6379"),
-    ("SMTP_HOST", "smtp.gmail.com"),
-    ("SMTP_PASSWORD", "test-smtp-password"),
-    ("SMTP_PORT", "587"),
-    ("SMTP_USER", "test@example.com"),
 ];
 
 pub fn environment_with(overrides: &[(&str, Option<&str>)]) -> HashMap<String, String> {
@@ -75,38 +68,30 @@ pub fn lazy_state(config: &Config) -> AppState {
     state(
         config,
         db::connect_lazy(&config.database_url).expect("a lazy database"),
-        AsyncStubTransport::new_ok(),
     )
 }
 
-pub fn state(config: &Config, pool: PgPool, mail: AsyncStubTransport) -> AppState {
+pub fn state(config: &Config, pool: PgPool) -> AppState {
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run");
-    state_on_redis(config, pool, mail, &redis_url)
+    state_on_redis(config, pool, &redis_url)
 }
 
 pub fn app_with_google(pool: &PgPool, google: GoogleEndpoints) -> Router {
     let config = config_with(&[]);
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run");
-    let mail = AsyncStubTransport::new_ok();
     clinicore_app::app(
         &config,
-        state_with_google(&config, pool.clone(), mail, &redis_url, google),
+        state_with_google(&config, pool.clone(), &redis_url, google),
     )
 }
 
-pub fn state_on_redis(
-    config: &Config,
-    pool: PgPool,
-    mail: AsyncStubTransport,
-    redis_url: &str,
-) -> AppState {
-    state_with_google(config, pool, mail, redis_url, GoogleEndpoints::production())
+pub fn state_on_redis(config: &Config, pool: PgPool, redis_url: &str) -> AppState {
+    state_with_google(config, pool, redis_url, GoogleEndpoints::production())
 }
 
 fn state_with_google(
     config: &Config,
     pool: PgPool,
-    mail: AsyncStubTransport,
     redis_url: &str,
     google: GoogleEndpoints,
 ) -> AppState {
@@ -116,7 +101,6 @@ fn state_with_google(
         &config,
         pool,
         Redis::connect_lazy(&config).expect("a lazy redis"),
-        Mailer::stub(&config, mail).expect("a valid sender"),
         GoogleClient::new(&config, google).expect("a google client"),
     )
 }
@@ -136,10 +120,7 @@ pub fn fresh_email() -> String {
 
 pub fn app_with(pool: &PgPool) -> Router {
     let config = config_with(&[]);
-    clinicore_app::app(
-        &config,
-        state(&config, pool.clone(), AsyncStubTransport::new_ok()),
-    )
+    clinicore_app::app(&config, state(&config, pool.clone()))
 }
 
 pub async fn register(app: &Router, pool: &PgPool, email: &str, verified: bool) {
@@ -159,6 +140,35 @@ pub async fn count(pool: &PgPool, sql: &'static str) -> i64 {
         .fetch_one(pool)
         .await
         .expect("a count")
+}
+
+#[derive(sqlx::FromRow)]
+pub struct QueuedMail {
+    pub subject: String,
+    pub text_body: String,
+    pub status: String,
+    pub attempts: i32,
+}
+
+impl QueuedMail {
+    pub fn link_token(&self) -> &str {
+        let (_, after) = self
+            .text_body
+            .split_once("token=")
+            .expect("a link with a token");
+        after.split_whitespace().next().unwrap_or_default()
+    }
+}
+
+pub async fn queued_mail(pool: &PgPool, email: &str) -> Vec<QueuedMail> {
+    sqlx::query_as(
+        "SELECT subject, text_body, status::text AS status, attempts FROM email_outbox
+        WHERE email = $1 ORDER BY created_at",
+    )
+    .bind(email)
+    .fetch_all(pool)
+    .await
+    .expect("the queued mail")
 }
 
 pub fn app(config: &Config) -> Router {
@@ -222,20 +232,6 @@ pub async fn request_from(
     };
     let request = request.body(body).expect("a valid request");
     app.oneshot(request).await.expect("an infallible router")
-}
-
-pub async fn eventually<Check, Ready>(mut check: Check) -> bool
-where
-    Check: FnMut() -> Ready,
-    Ready: Future<Output = bool>,
-{
-    for _ in 0..100 {
-        if check().await {
-            return true;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    false
 }
 
 pub async fn send(app: Router, method: &str, path: &str) -> Response {

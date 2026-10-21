@@ -1,4 +1,3 @@
-use lettre::transport::stub::AsyncStubTransport;
 use sqlx::PgPool;
 
 use crate::sessions::Transport;
@@ -44,10 +43,7 @@ fn log_level_debug_reaches_the_api_crates_and_not_the_dependencies() {
 async fn trace_logs_the_session_requests_without_any_secret(pool: PgPool) {
     let config = config_with(&[("LOG_LEVEL", Some("trace"))]);
     let (log, _subscriber) = capture_log(&config);
-    let app = clinicore_app::app(
-        &config,
-        state(&config, pool.clone(), AsyncStubTransport::new_ok()),
-    );
+    let app = clinicore_app::app(&config, state(&config, pool.clone()));
     register(&app, &pool, "ana@example.com", true).await;
 
     let web = Transport::Web.sign_in(&app, "ana@example.com").await;

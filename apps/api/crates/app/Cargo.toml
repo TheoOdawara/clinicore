@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 argon2.workspace = true
+askama.workspace = true
 axum.workspace = true
 axum-client-ip.workspace = true
 axum-extra.workspace = true
@@ -43,5 +44,4 @@ path = "src/main.rs"
 
 [dev-dependencies]
 http-body-util.workspace = true
-lettre.workspace = true
 redis.workspace = true

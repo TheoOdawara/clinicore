@@ -1,5 +1,4 @@
 use axum::http::StatusCode;
-use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
@@ -138,12 +137,7 @@ async fn a_redis_outage_closes_the_door_instead_of_opening_it(pool: PgPool) {
     let session = Transport::Web.sign_in(&app, email).await;
 
     let config = config_with(&[]);
-    let state = state_on_redis(
-        &config,
-        pool.clone(),
-        AsyncStubTransport::new_ok(),
-        "redis://127.0.0.1:1",
-    );
+    let state = state_on_redis(&config, pool.clone(), "redis://127.0.0.1:1");
     let outage = clinicore_app::app(&config, state);
 
     for method in ["GET", "DELETE"] {

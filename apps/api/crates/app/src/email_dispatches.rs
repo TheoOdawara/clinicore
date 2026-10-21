@@ -1,5 +1,5 @@
 use clinicore_core::lifetimes::DISPATCH_WINDOW;
-use sqlx::{PgConnection, PgPool};
+use sqlx::PgConnection;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, sqlx::Type)]
 #[sqlx(type_name = "email_dispatch_kind", rename_all = "snake_case")]
@@ -44,15 +44,4 @@ pub async fn claim_dispatch(
     .execute(&mut *connection)
     .await?;
     Ok(true)
-}
-
-pub async fn reserve_dispatch(
-    pool: &PgPool,
-    email: &str,
-    kind: EmailDispatchKind,
-) -> Result<bool, sqlx::Error> {
-    let mut transaction = pool.begin().await?;
-    let claimed = claim_dispatch(&mut transaction, email, kind).await?;
-    transaction.commit().await?;
-    Ok(claimed)
 }

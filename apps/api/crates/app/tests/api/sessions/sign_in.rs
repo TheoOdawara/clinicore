@@ -1,14 +1,13 @@
 use std::time::Instant;
 
 use axum::http::StatusCode;
-use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
 use super::{Session, Transport, lifetime_matches, session_exists, sign_in};
 use crate::support::{
-    MOBILE, PASSWORD, app_with, config_with, cookie_value, count, eventually, fresh_client,
-    fresh_email, json_body, register, request, request_from, set_cookie, state,
+    MOBILE, PASSWORD, app_with, config_with, cookie_value, count, fresh_client, fresh_email,
+    json_body, queued_mail, register, request, request_from, set_cookie, state,
 };
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -132,10 +131,7 @@ async fn an_https_api_sets_secure_cookies(pool: PgPool) {
     let email = fresh_email();
     let email = email.as_str();
     let config = config_with(&[("API_URL", Some("https://api.clinicore.com.br"))]);
-    let app = clinicore_app::app(
-        &config,
-        state(&config, pool.clone(), AsyncStubTransport::new_ok()),
-    );
+    let app = clinicore_app::app(&config, state(&config, pool.clone()));
     register(&app, &pool, email, true).await;
 
     let response = sign_in(&app, email, PASSWORD, &[]).await;
@@ -210,9 +206,7 @@ async fn a_wrong_password_and_an_unknown_email_answer_the_same_in_the_same_time(
 async fn an_unverified_email_is_refused_and_gets_a_new_link(pool: PgPool) {
     let email = fresh_email();
     let email = email.as_str();
-    let mail = AsyncStubTransport::new_ok();
-    let config = config_with(&[]);
-    let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
+    let app = app_with(&pool);
     register(&app, &pool, email, false).await;
     sqlx::query("DELETE FROM email_dispatches")
         .execute(&pool)
@@ -235,13 +229,9 @@ async fn an_unverified_email_is_refused_and_gets_a_new_link(pool: PgPool) {
     );
     assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 0);
     assert_eq!(count(&pool, links).await, before + 1);
-    let resent = || async {
-        mail.messages()
-            .await
-            .iter()
-            .any(|(_, raw)| raw.contains("Subject: Confirme seu e-mail no Clinicore"))
-    };
-    assert!(eventually(resent).await);
+    let queued = queued_mail(&pool, email).await;
+    assert_eq!(queued.len(), 2);
+    assert_eq!(queued[1].subject, "Confirme seu e-mail no Clinicore");
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -298,10 +288,7 @@ async fn the_sign_in_limit_refuses_the_sixth_attempt_even_with_a_forged_forwarde
     let email = fresh_email();
     let email = email.as_str();
     let config = config_with(&[("CLIENT_IP_SOURCE", Some("RightmostXForwardedFor"))]);
-    let app = clinicore_app::app(
-        &config,
-        state(&config, pool.clone(), AsyncStubTransport::new_ok()),
-    );
+    let app = clinicore_app::app(&config, state(&config, pool.clone()));
     let proxy_hop = fresh_client().ip().to_string();
 
     for attempt in 1..=6 {

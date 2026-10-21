@@ -1,11 +1,8 @@
-use std::time::Duration;
-
 use crate::support::{
-    app, capture_log, config_with, content_type, count, eventually, json_body, post_json, state,
-    text_body,
+    MOBILE, app, app_with, config_with, content_type, count, json_body, post_json, queued_mail,
+    request, text_body,
 };
 use axum::http::StatusCode;
-use lettre::transport::stub::AsyncStubTransport;
 use serde_json::json;
 use sqlx::PgPool;
 
@@ -22,12 +19,10 @@ async fn assert_accepted(response: axum::response::Response) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn sign_up_creates_the_user_and_delivers_the_link(pool: PgPool) {
-    let config = config_with(&[]);
-    let mail = AsyncStubTransport::new_ok();
-    let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
+async fn sign_up_creates_the_user_and_queues_the_link_with_the_token(pool: PgPool) {
+    let app = app_with(&pool);
 
-    assert_accepted(post_json(app, "/users", &sign_up_body(EMAIL)).await).await;
+    assert_accepted(post_json(app.clone(), "/users", &sign_up_body(EMAIL)).await).await;
 
     let unverified_user = "SELECT count(*) FROM users WHERE NOT email_verified";
     let credential_account =
@@ -35,35 +30,36 @@ async fn sign_up_creates_the_user_and_delivers_the_link(pool: PgPool) {
     let open_verification = "SELECT count(*) FROM verifications
         WHERE purpose = 'email_verification' AND consumed_at IS NULL";
     let dispatch = "SELECT count(*) FROM email_dispatches WHERE kind = 'email_verification'";
+    let same_expiry = "SELECT count(*) FROM email_outbox
+        JOIN verifications USING (email) WHERE email_outbox.expires_at = verifications.expires_at";
     assert_eq!(count(&pool, unverified_user).await, 1);
     assert_eq!(count(&pool, credential_account).await, 1);
     assert_eq!(count(&pool, open_verification).await, 1);
     assert_eq!(count(&pool, dispatch).await, 1);
+    assert_eq!(count(&pool, same_expiry).await, 1);
 
-    assert!(eventually(|| async { !mail.messages().await.is_empty() }).await);
-    let messages = mail.messages().await;
-    assert_eq!(messages.len(), 1);
-    let (envelope, raw) = &messages[0];
-    assert_eq!(envelope.to()[0].to_string(), EMAIL);
-    assert!(
-        raw.contains("Subject: Confirme seu e-mail no Clinicore"),
-        "{raw}"
-    );
-    assert!(raw.contains("Message-ID: <"), "{raw}");
-    assert!(raw.contains("@example.com>"), "{raw}");
+    let queued = queued_mail(&pool, EMAIL).await;
+    assert_eq!(queued.len(), 1);
+    assert_eq!(queued[0].subject, "Confirme seu e-mail no Clinicore");
+    assert_eq!(queued[0].status, "pending");
+    assert_eq!(queued[0].attempts, 0);
+
+    let confirmation = request(
+        app,
+        "POST",
+        "/email-verifications/confirmation",
+        &[MOBILE],
+        Some(&json!({"token": queued[0].link_token()})),
+    )
+    .await;
+    assert_eq!(confirmation.status(), StatusCode::NO_CONTENT);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_repeated_sign_up_writes_nothing_sends_nothing_and_answers_the_same(pool: PgPool) {
-    let config = config_with(&[]);
-    let setup = clinicore_app::app(
-        &config,
-        state(&config, pool.clone(), AsyncStubTransport::new_ok()),
-    );
-    assert_accepted(post_json(setup, "/users", &sign_up_body(EMAIL)).await).await;
+async fn a_repeated_sign_up_writes_nothing_queues_nothing_and_answers_the_same(pool: PgPool) {
+    let app = app_with(&pool);
+    assert_accepted(post_json(app.clone(), "/users", &sign_up_body(EMAIL)).await).await;
 
-    let mail = AsyncStubTransport::new_ok();
-    let app = clinicore_app::app(&config, state(&config, pool.clone(), mail.clone()));
     for _ in 0..3 {
         assert_accepted(post_json(app.clone(), "/users", &sign_up_body(EMAIL)).await).await;
     }
@@ -71,6 +67,7 @@ async fn a_repeated_sign_up_writes_nothing_sends_nothing_and_answers_the_same(po
     let users = "SELECT count(*) FROM users";
     assert_eq!(count(&pool, users).await, 1);
     assert_eq!(count(&pool, "SELECT count(*) FROM accounts").await, 1);
+    assert_eq!(queued_mail(&pool, EMAIL).await.len(), 1);
 
     let racing_body = sign_up_body("bia@exemplo.com");
     let (first, second) = tokio::join!(
@@ -80,43 +77,7 @@ async fn a_repeated_sign_up_writes_nothing_sends_nothing_and_answers_the_same(po
     assert_accepted(first).await;
     assert_accepted(second).await;
     assert_eq!(count(&pool, users).await, 2);
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    let delivered: Vec<String> = mail
-        .messages()
-        .await
-        .iter()
-        .map(|(envelope, _)| envelope.to()[0].to_string())
-        .collect();
-    assert!(!delivered.iter().any(|to| to == EMAIL), "{delivered:?}");
-}
-
-#[sqlx::test(migrations = "../../migrations")]
-async fn a_failing_smtp_keeps_the_sign_up_and_the_answer_and_logs_the_failure(pool: PgPool) {
-    let config = config_with(&[("LOG_LEVEL", Some("error"))]);
-    let (log, _subscriber) = capture_log(&config);
-    let app = clinicore_app::app(
-        &config,
-        state(&config, pool.clone(), AsyncStubTransport::new_error()),
-    );
-
-    assert_accepted(post_json(app, "/users", &sign_up_body(EMAIL)).await).await;
-
-    assert_eq!(count(&pool, "SELECT count(*) FROM users").await, 1);
-    assert_eq!(count(&pool, "SELECT count(*) FROM accounts").await, 1);
-    assert_eq!(
-        count(&pool, "SELECT count(*) FROM email_dispatches").await,
-        1
-    );
-
-    let failure_logged = || async {
-        log.lines().iter().any(|line| {
-            line["level"] == "ERROR"
-                && line["email"] == "a***@exemplo.com"
-                && line["reason"] == "stub error"
-        })
-    };
-    assert!(eventually(failure_logged).await, "{:?}", log.lines());
+    assert_eq!(queued_mail(&pool, "bia@exemplo.com").await.len(), 1);
 }
 
 #[tokio::test]

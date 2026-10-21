@@ -37,12 +37,12 @@ fn an_invalid_environment_stops_the_boot_and_names_every_rejected_variable() {
     let exit = boot(&[
         ("DATABASE_URL", None),
         ("PORT", Some("abc")),
-        ("MAIL_FROM", Some("someone-else@example.com")),
+        ("JWT_SECRET", Some("too-short")),
     ]);
 
     assert_eq!(exit.code, Some(1));
     assert_eq!(
         exit.stderr,
-        "Invalid environment:\n  DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)\n  MAIL_FROM: expected an email address equal to SMTP_USER\n  PORT: expected an integer between 1 and 65535\n"
+        "Invalid environment:\n  DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)\n  JWT_SECRET: expected a string with at least 32 characters\n  PORT: expected an integer between 1 and 65535\n"
     );
 }

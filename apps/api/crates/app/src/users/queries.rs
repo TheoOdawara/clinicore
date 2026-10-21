@@ -1,19 +1,13 @@
+use clinicore_core::mail::MailMessage;
 use clinicore_core::redis::Redis;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::error::UserError;
 use crate::email_dispatches::{EmailDispatchKind, claim_dispatch};
-use crate::email_verifications::queries::create_verification;
+use crate::email_outbox::{VerificationPurpose, enqueue_with_token};
 use crate::sessions::extractors::CurrentSession;
 use crate::sessions::tokens::access;
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SignUpOutcome {
-    CreatedWithToken,
-    Created,
-    Duplicate,
-}
 
 pub async fn create_user(
     pool: &PgPool,
@@ -21,7 +15,8 @@ pub async fn create_user(
     email: &str,
     password_hash: &str,
     token_hash: &str,
-) -> Result<SignUpOutcome, sqlx::Error> {
+    message: &MailMessage,
+) -> Result<(), sqlx::Error> {
     let mut transaction = pool.begin().await?;
     let created = sqlx::query!(
         "WITH created AS (
@@ -39,7 +34,7 @@ pub async fn create_user(
     .await?;
 
     if created.rows_affected() == 0 {
-        return Ok(SignUpOutcome::Duplicate);
+        return Ok(());
     }
 
     if !claim_dispatch(
@@ -50,12 +45,19 @@ pub async fn create_user(
     .await?
     {
         transaction.commit().await?;
-        return Ok(SignUpOutcome::Created);
+        return Ok(());
     }
 
-    create_verification(&mut *transaction, email, token_hash).await?;
+    enqueue_with_token(
+        &mut transaction,
+        email,
+        VerificationPurpose::EmailVerification,
+        token_hash,
+        message,
+    )
+    .await?;
     transaction.commit().await?;
-    Ok(SignUpOutcome::CreatedWithToken)
+    Ok(())
 }
 
 pub async fn find_password_hash(

@@ -28,13 +28,8 @@ pub struct Config {
     pub google_client_secret: String,
     pub jwt_secret: String,
     pub log_level: LevelFilter,
-    pub mail_from: String,
     pub port: u16,
     pub redis_url: String,
-    pub smtp_host: String,
-    pub smtp_password: String,
-    pub smtp_port: u16,
-    pub smtp_user: String,
 }
 
 #[derive(Clone)]
@@ -42,6 +37,11 @@ pub struct WorkerConfig {
     pub app_env: AppEnv,
     pub database_url: String,
     pub log_level: LevelFilter,
+    pub mail_from: String,
+    pub smtp_host: String,
+    pub smtp_password: String,
+    pub smtp_port: u16,
+    pub smtp_user: String,
 }
 
 #[derive(Debug)]
@@ -163,25 +163,12 @@ impl Config {
             |raw| Some(raw).filter(|secret| secret.chars().count() >= 32),
         );
         let log_level = reader.log_level();
-        let smtp_user = reader.require("SMTP_USER", "expected an email address", |raw| {
-            Some(raw).filter(|user| EmailAddress::is_valid(user))
-        });
-        let mail_from = reader.require(
-            "MAIL_FROM",
-            "expected an email address equal to SMTP_USER",
-            |raw| Some(raw).filter(|from| Some(from) == smtp_user.as_ref()),
-        );
         let port = reader.require("PORT", PORT_RANGE, parse_port);
         let redis_url = reader.require(
             "REDIS_URL",
             "expected a Redis connection string (redis://…)",
             |raw| url_with_scheme(raw, &["redis"]),
         );
-        let smtp_host = reader.require("SMTP_HOST", "expected a hostname", |raw| {
-            Some(raw).filter(|host| is_fqdn(host))
-        });
-        let smtp_password = reader.require("SMTP_PASSWORD", NON_EMPTY, non_empty);
-        let smtp_port = reader.require("SMTP_PORT", PORT_RANGE, parse_port);
 
         let config = (|| {
             Some(Config {
@@ -195,13 +182,8 @@ impl Config {
                 google_client_secret: google_client_secret?,
                 jwt_secret: jwt_secret?,
                 log_level: log_level?,
-                mail_from: mail_from?,
                 port: port?,
                 redis_url: redis_url?,
-                smtp_host: smtp_host?,
-                smtp_password: smtp_password?,
-                smtp_port: smtp_port?,
-                smtp_user: smtp_user?,
             })
         })();
         reader.finish(config)
@@ -222,12 +204,30 @@ impl WorkerConfig {
         let app_env = reader.app_env();
         let database_url = reader.database_url();
         let log_level = reader.log_level();
+        let smtp_user = reader.require("SMTP_USER", "expected an email address", |raw| {
+            Some(raw).filter(|user| EmailAddress::is_valid(user))
+        });
+        let mail_from = reader.require(
+            "MAIL_FROM",
+            "expected an email address equal to SMTP_USER",
+            |raw| Some(raw).filter(|from| Some(from) == smtp_user.as_ref()),
+        );
+        let smtp_host = reader.require("SMTP_HOST", "expected a hostname", |raw| {
+            Some(raw).filter(|host| is_fqdn(host))
+        });
+        let smtp_password = reader.require("SMTP_PASSWORD", NON_EMPTY, non_empty);
+        let smtp_port = reader.require("SMTP_PORT", PORT_RANGE, parse_port);
 
         let config = (|| {
             Some(WorkerConfig {
                 app_env: app_env?,
                 database_url: database_url?,
                 log_level: log_level?,
+                mail_from: mail_from?,
+                smtp_host: smtp_host?,
+                smtp_password: smtp_password?,
+                smtp_port: smtp_port?,
+                smtp_user: smtp_user?,
             })
         })();
         reader.finish(config)
@@ -299,13 +299,8 @@ mod tests {
             ("GOOGLE_CLIENT_SECRET", "client-secret"),
             ("JWT_SECRET", "a-jwt-secret-with-at-least-32-characters"),
             ("LOG_LEVEL", "off"),
-            ("MAIL_FROM", "person@example.com"),
             ("PORT", "3333"),
             ("REDIS_URL", "redis://localhost:6379"),
-            ("SMTP_HOST", "smtp.gmail.com"),
-            ("SMTP_PASSWORD", "password"),
-            ("SMTP_PORT", "587"),
-            ("SMTP_USER", "person@example.com"),
         ];
         let read = |name: &str| {
             environment
@@ -325,7 +320,6 @@ mod tests {
         assert_eq!(config.app_env, AppEnv::Development);
         assert_eq!(config.log_level, LevelFilter::OFF);
         assert_eq!(config.port, 3333);
-        assert_eq!(config.smtp_port, 587);
         assert_eq!(
             config.client_ip_source,
             ClientIpSource::RightmostXForwardedFor
