@@ -31,8 +31,8 @@ Além dos que as chaves e as restrições de unicidade criam:
 | `verifications (email, purpose, consumed_at)` | consumir, na confirmação, todas as verificações pendentes do endereço |
 | `email_dispatches (created_at)` | a purga |
 | `email_dispatches (email, kind, created_at)` | a contagem do limite de envio |
-| `email_outbox (next_attempt_at) WHERE status = 'pending'` | a reserva do worker — M1 · #71 |
-| `email_outbox (expires_at)` | a purga — M1 · #71 |
+| `email_outbox (next_attempt_at) WHERE status = 'pending'` | a reserva do worker — M1 · #161 |
+| `email_outbox (expires_at)` | a purga — M1 · #161 |
 
 ## Migrations
 

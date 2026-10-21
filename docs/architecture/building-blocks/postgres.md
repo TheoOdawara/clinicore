@@ -1,6 +1,6 @@
 # PostgreSQL 18
 
-O único armazenamento durável do sistema. Só a API fala com ele, por sqlx, e o schema é o que as
+O único armazenamento durável do sistema. Só a API e o [worker](worker.md) falam com ele, por sqlx, e o schema é o que as
 migrations de `apps/api/migrations/` aplicam.
 
 **Nunca recebe:** conexão de outro app, SQL montado em runtime, migration aplicada à mão.

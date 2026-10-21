@@ -49,11 +49,13 @@ Infisical.
 **Um crate por processo ou capacidade, em `crates/`** (ADR 0010). O pacote tem o
 prefixo `clinicore-`, porque `core` é o nome da biblioteca base do Rust.
 
-- **`crates/core/` (`clinicore-core`)** tem a configuração, o pool do Postgres, o Redis e o e-mail. Serve a
-  qualquer processo e não conhece feature.
+- **`crates/core/` (`clinicore-core`)** tem a configuração, o pool do Postgres, o Redis, o e-mail, o
+  subscriber do `tracing` e os prazos que mais de um processo usa. Serve a qualquer processo e não
+  conhece feature.
 - **`crates/app/` (`clinicore-app`)** é a API inteira e gera o binário `api`.
-- **`worker/` e `transfer/` só nascem com código**: o worker no primeiro job da fila, o transfer na
-  importação e exportação de arquivos.
+- **`crates/worker/` (`clinicore-worker`)** gera o binário `worker`, que faz o trabalho fora da
+  requisição, e depende só do `clinicore-core`.
+- **`transfer/` só nasce com código**, na importação e exportação de arquivos.
 - **Dependência nova entra em `[workspace.dependencies]` do `Cargo.toml` da raiz**, com a versão
   exata e as features comuns; o crate declara `nome.workspace = true` e só acrescenta a feature que é
   dele.
@@ -64,13 +66,17 @@ prefixo `clinicore-`, porque `core` é o nome da biblioteca base do Rust.
 crates/
 ├── core/
 │   ├── templates/  mail.html  mail.txt              layout do e-mail, em askama
-│   └── src/  lib.rs  config.rs  db.rs  redis.rs  mail.rs
+│   └── src/  lib.rs  config.rs  db.rs  redis.rs  mail.rs  telemetry.rs  lifetimes.rs
+├── worker/
+│   ├── src/
+│   │   ├── main.rs                              liga o worker
+│   │   ├── schedule.rs                          o cron da purga, às 03:00 de São Paulo
+│   │   └── purge.rs                             apaga o que venceu
+│   └── tests/worker/  main.rs  boot.rs  purge.rs  schedule.rs
 └── app/
     ├── src/
     │   ├── main.rs                                  liga o servidor
     │   ├── lib.rs                                   AppState, Router e camadas do tower
-    │   ├── telemetry.rs                             o subscriber do tracing, do processo inteiro
-    │   ├── purge.rs                                 a limpeza periódica do que venceu
     │   ├── http/                                    o encanamento HTTP
     │   │   ├── mod.rs
     │   │   ├── error.rs  validation.rs  request_log.rs  openapi.rs
@@ -99,7 +105,7 @@ crates/
     │           └── mod.rs  access.rs  refresh.rs  cookies.rs
     └── tests/api/
         ├── main.rs  support.rs
-        ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  purge.rs  request_log.rs
+        ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  request_log.rs
         ├── users/  mod.rs  sign_up.rs  change_password.rs
         ├── email_verifications/  mod.rs  confirmation.rs
         ├── oauth/  mod.rs  google_sign_in.rs
@@ -157,12 +163,12 @@ migrations/  .sqlx/
   sessões apagadas nos últimos 15 minutos e ao refresh de sessões revogadas cuja linha sobreviveu.
 - **Apagar um usuário revoga as sessões dele antes do `DELETE`.** O `ON DELETE CASCADE` apaga as
   linhas de `sessions` sem passar pela denylist, e o access token de cada uma continuaria aceito.
-- **A purga do que venceu roda dentro da API, de hora em hora**, no `purge::run` que o `main.rs` dispara.
-  Ela apaga a sessão vencida ou passada do teto de 30 dias, a verificação vencida e o envio de mais de
-  24 horas (`DISPATCH_WINDOW`, a mesma janela do limite de envio), sem escrever na denylist, porque o
-  access token de uma sessão vencida já venceu. Cada réplica roda a sua, e o `DELETE` repetido apaga
-  zero linhas; uma rodada que falha, como a do boot com o Postgres subindo, tenta de novo na hora
-  seguinte. Sobe para o `crates/worker/` quando a #71 o criar.
+- **A purga do que venceu roda no worker, às 03:00 de `America/Sao_Paulo`**, e nunca no boot. Ela apaga
+  a sessão vencida ou que passou do teto de 30 dias (`SESSION_ABSOLUTE_LIFETIME`), a verificação vencida
+  e o envio com mais de 24 horas (`DISPATCH_WINDOW`, a mesma janela do limite de envio). Não escreve na
+  denylist, porque o access token de uma sessão vencida já venceu. Os dois prazos ficam no
+  `crates/core/src/lifetimes.rs`, porque a API e o worker leem os mesmos. Duas instâncias purgam duas
+  vezes, e a segunda apaga zero linhas; uma purga que falha só tenta de novo na 03:00 seguinte.
 - **O `pointer` do erro de campo é o nome do JSON, em camelCase**, e o `ValidJson` o deriva do nome do
   campo Rust. Request com mais de uma palavra num campo leva `#[serde(rename_all = "camelCase")]`.
 - **O corpo é validado por `serde` e `validator`, pelo extractor `ValidJson`.** O `code` de cada
@@ -257,7 +263,7 @@ migrations/  .sqlx/
   o do `crates/core/src/config.rs`.
 - **O comportamento que o cliente observa é teste de integração em `crates/app/tests/api/`.** É um binário
   só, `tests/api/main.rs`, com um módulo por feature e o `support.rs` com os helpers. Arquivo solto em
-  `tests/` vira outro binário e é proibido.
+  `tests/` vira outro binário e é proibido. O worker segue a mesma forma, em `crates/worker/tests/worker/`.
 
 ## Pegadinhas da stack
 

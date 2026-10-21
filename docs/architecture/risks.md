@@ -9,7 +9,6 @@ issue mora no GitHub, nunca aqui.
 | --- | --- | --- |
 | Não há hospedagem, Dockerfile nem deploy | nada do que existe foi exercitado fora da máquina de desenvolvimento e do CI | [deployment.md](deployment.md) |
 | Backup e recuperação sem decisão | a perda aceitável de dado e o tempo de volta não têm número | [OQ-11](../requirements/open-questions.md#oq-11--backup-e-recuperação) |
-| A purga roda dentro de cada réplica da API | réplicas repetem o `DELETE`; inofensivo, mas é trabalho que pertence ao worker | #71 |
 | O offline ainda não tem spec | versão, UUID do cliente e idempotência precisam nascer com a primeira rota de escrita do produto, ou viram migração | [ADR 0007](../decisions/0007-app-nativo-em-flutter-com-offline.md) |
 | O web replica o contrato da API à mão, em Zod | uma mudança na API que o web não acompanha só aparece em runtime | [ADR 0007](../decisions/0007-app-nativo-em-flutter-com-offline.md), item 2 |
 | `main` e `staging` protegidas só por convenção | um push direto não é barrado pelo GitHub | [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/AGENTS.md) → Branches |
