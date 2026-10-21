@@ -1,5 +1,4 @@
 pub mod http;
-pub mod purge;
 
 mod credentials;
 mod email_dispatches;

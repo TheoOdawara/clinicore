@@ -1,8 +1,6 @@
-use clinicore_app::purge::{Purged, purge_expired};
+use clinicore_worker::purge::{Purged, purge_expired};
 use sqlx::PgPool;
 use uuid::Uuid;
-
-use crate::support::count;
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_purge_deletes_only_what_expired_and_a_second_run_deletes_nothing(pool: PgPool) {
@@ -65,4 +63,11 @@ async fn the_purge_deletes_only_what_expired_and_a_second_run_deletes_nothing(po
             email_dispatches: 0
         }
     );
+}
+
+async fn count(pool: &PgPool, sql: &'static str) -> i64 {
+    sqlx::query_scalar(sql)
+        .fetch_one(pool)
+        .await
+        .expect("a count")
 }

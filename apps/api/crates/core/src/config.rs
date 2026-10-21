@@ -37,6 +37,13 @@ pub struct Config {
     pub smtp_user: String,
 }
 
+#[derive(Clone)]
+pub struct WorkerConfig {
+    pub app_env: AppEnv,
+    pub database_url: String,
+    pub log_level: LevelFilter,
+}
+
 #[derive(Debug)]
 pub struct InvalidEnvironment {
     rejected: Vec<(&'static str, &'static str)>,
@@ -72,6 +79,51 @@ impl<Read: Fn(&str) -> Option<String>> Reader<Read> {
         }
         value
     }
+
+    fn app_env(&mut self) -> Option<AppEnv> {
+        self.require(
+            "APP_ENV",
+            "expected one of development, production, test",
+            |raw| match raw.as_str() {
+                "development" => Some(AppEnv::Development),
+                "production" => Some(AppEnv::Production),
+                "test" => Some(AppEnv::Test),
+                _ => None,
+            },
+        )
+    }
+
+    fn database_url(&mut self) -> Option<String> {
+        self.require(
+            "DATABASE_URL",
+            "expected a PostgreSQL connection string (postgresql://…)",
+            |raw| url_with_scheme(raw, &["postgresql", "postgres"]),
+        )
+    }
+
+    fn log_level(&mut self) -> Option<LevelFilter> {
+        self.require(
+            "LOG_LEVEL",
+            "expected one of: error, warn, info, debug, trace, off",
+            |raw| match raw.as_str() {
+                "error" => Some(LevelFilter::ERROR),
+                "warn" => Some(LevelFilter::WARN),
+                "info" => Some(LevelFilter::INFO),
+                "debug" => Some(LevelFilter::DEBUG),
+                "trace" => Some(LevelFilter::TRACE),
+                "off" => Some(LevelFilter::OFF),
+                _ => None,
+            },
+        )
+    }
+
+    fn finish<Loaded>(self, loaded: Option<Loaded>) -> Result<Loaded, InvalidEnvironment> {
+        loaded.ok_or_else(|| {
+            let mut rejected = self.rejected;
+            rejected.sort();
+            InvalidEnvironment { rejected }
+        })
+    }
 }
 
 impl Config {
@@ -95,27 +147,14 @@ impl Config {
             },
         );
         let api_url = reader.require("API_URL", ABSOLUTE_URL, absolute_origin);
-        let app_env = reader.require(
-            "APP_ENV",
-            "expected one of development, production, test",
-            |raw| match raw.as_str() {
-                "development" => Some(AppEnv::Development),
-                "production" => Some(AppEnv::Production),
-                "test" => Some(AppEnv::Test),
-                _ => None,
-            },
-        );
+        let app_env = reader.app_env();
         let app_origin = reader.require("APP_ORIGIN", ABSOLUTE_URL, absolute_origin);
         let client_ip_source = reader.require(
             "CLIENT_IP_SOURCE",
             "expected one of: CfConnectingIp, CloudFrontViewerAddress, ConnectInfo, FlyClientIp, RightmostXForwardedFor, TrueClientIp, XEnvoyExternalAddress, XRealIp",
             |raw| raw.parse::<ClientIpSource>().ok(),
         );
-        let database_url = reader.require(
-            "DATABASE_URL",
-            "expected a PostgreSQL connection string (postgresql://…)",
-            |raw| url_with_scheme(raw, &["postgresql", "postgres"]),
-        );
+        let database_url = reader.database_url();
         let google_client_id = reader.require("GOOGLE_CLIENT_ID", NON_EMPTY, non_empty);
         let google_client_secret = reader.require("GOOGLE_CLIENT_SECRET", NON_EMPTY, non_empty);
         let jwt_secret = reader.require(
@@ -123,19 +162,7 @@ impl Config {
             "expected a string with at least 32 characters",
             |raw| Some(raw).filter(|secret| secret.chars().count() >= 32),
         );
-        let log_level = reader.require(
-            "LOG_LEVEL",
-            "expected one of: error, warn, info, debug, trace, off",
-            |raw| match raw.as_str() {
-                "error" => Some(LevelFilter::ERROR),
-                "warn" => Some(LevelFilter::WARN),
-                "info" => Some(LevelFilter::INFO),
-                "debug" => Some(LevelFilter::DEBUG),
-                "trace" => Some(LevelFilter::TRACE),
-                "off" => Some(LevelFilter::OFF),
-                _ => None,
-            },
-        );
+        let log_level = reader.log_level();
         let smtp_user = reader.require("SMTP_USER", "expected an email address", |raw| {
             Some(raw).filter(|user| EmailAddress::is_valid(user))
         });
@@ -177,11 +204,33 @@ impl Config {
                 smtp_user: smtp_user?,
             })
         })();
-        config.ok_or_else(|| {
-            let mut rejected = reader.rejected;
-            rejected.sort();
-            InvalidEnvironment { rejected }
-        })
+        reader.finish(config)
+    }
+}
+
+impl WorkerConfig {
+    pub fn from_env() -> Result<Self, InvalidEnvironment> {
+        Self::from_source(|name| std::env::var(name).ok())
+    }
+
+    pub fn from_source(read: impl Fn(&str) -> Option<String>) -> Result<Self, InvalidEnvironment> {
+        let mut reader = Reader {
+            read,
+            rejected: Vec::new(),
+        };
+
+        let app_env = reader.app_env();
+        let database_url = reader.database_url();
+        let log_level = reader.log_level();
+
+        let config = (|| {
+            Some(WorkerConfig {
+                app_env: app_env?,
+                database_url: database_url?,
+                log_level: log_level?,
+            })
+        })();
+        reader.finish(config)
     }
 }
 

@@ -43,7 +43,6 @@ async fn main() -> ExitCode {
         }
     };
 
-    tokio::spawn(clinicore_app::purge::run(state.clone()));
     let app = clinicore_app::app(&config, state);
     if let Err(error) = axum::serve(
         listener,

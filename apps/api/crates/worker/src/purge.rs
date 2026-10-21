@@ -1,11 +1,5 @@
-use std::time::Duration;
-
 use clinicore_core::lifetimes::{DISPATCH_WINDOW, SESSION_ABSOLUTE_LIFETIME};
 use sqlx::PgPool;
-
-use crate::AppState;
-
-const EVERY: Duration = Duration::from_secs(60 * 60);
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Purged {
@@ -14,21 +8,16 @@ pub struct Purged {
     pub email_dispatches: u64,
 }
 
-// shortcut: every API replica runs its own hourly purge, harmless because the deletes are idempotent; moves to crates/worker when #71 creates it
-pub async fn run(state: AppState) {
-    let mut interval = tokio::time::interval(EVERY);
-    loop {
-        interval.tick().await;
-        match purge_expired(&state.pool).await {
-            Ok(purged) => tracing::info!(
-                sessions = purged.sessions,
-                verifications = purged.verifications,
-                email_dispatches = purged.email_dispatches,
-                "purged the expired authentication records"
-            ),
-            Err(error) => {
-                tracing::error!(error = %error, "could not purge the expired authentication records")
-            }
+pub async fn purge_and_log(pool: &PgPool) {
+    match purge_expired(pool).await {
+        Ok(purged) => tracing::info!(
+            sessions = purged.sessions,
+            verifications = purged.verifications,
+            email_dispatches = purged.email_dispatches,
+            "purged the expired authentication records"
+        ),
+        Err(error) => {
+            tracing::error!(error = %error, "could not purge the expired authentication records")
         }
     }
 }

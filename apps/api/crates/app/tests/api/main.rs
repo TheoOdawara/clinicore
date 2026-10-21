@@ -6,7 +6,6 @@ mod health;
 mod oauth;
 mod openapi;
 mod password_resets;
-mod purge;
 mod request_log;
 mod sessions;
 mod support;

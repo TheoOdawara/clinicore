@@ -1,0 +1,23 @@
+[package]
+name = "clinicore-worker"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+clinicore-core.workspace = true
+croner.workspace = true
+jiff.workspace = true
+sqlx.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+tracing.workspace = true
+
+[[bin]]
+name = "worker"
+path = "src/main.rs"
+
+[dev-dependencies]
+uuid.workspace = true
