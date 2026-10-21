@@ -161,23 +161,23 @@ renderizado no Chromium headless, porque o canvas não exporta por ferramenta.
 
 ## Branches
 
-- **`main` é produção e `develop` é homolog, as duas protegidas por convenção** — nunca commitar
+- **`main` é produção e `staging` é homolog, as duas protegidas por convenção** — nunca commitar
   direto nelas. O GitHub não aplica a proteção: nenhuma das duas tem regra de proteção nem ruleset
   configurado.
-- Cada entrega nasce em `feature/<número>-<assunto>` a partir de `develop` e volta para ela por pull
+- Cada entrega nasce em `feature/<número>-<assunto>` a partir de `staging` e volta para ela por pull
   request. Correção urgente é `hotfix/<número>-<assunto>`, a partir da `main`.
-- Release é pull request de `develop` para `main`.
+- Release é pull request de `staging` para `main`.
 - **A mensagem de commit é só o título.** O porquê e o detalhe vão na descrição do pull request.
-- **CI roda em pull request para `develop` e para `main`**, por `.github/workflows/ci.yml`, com um job por app.
+- **CI roda em pull request para `staging` e para `main`**, por `.github/workflows/ci.yml`, com um job por app.
 
 ## Backlog
 
 - **O backlog é o GitHub Project `Clinicore`**, em `https://github.com/users/TheoOdawara/projects/3`, com a
   sprint de duas semanas no campo `Sprint`.
 - **A branch padrão do GitHub é a `main`**, então a palavra de fechamento só fecha a issue quando o
-  release chega nela. O pull request para a `develop` não liga a issue nem move o item.
+  release chega nela. O pull request para a `staging` não liga a issue nem move o item.
 - **`In Review` e `Staging` são marcados à mão**, com `gh project item-edit`: `In Review` ao abrir o
-  pull request, `Staging` no merge na `develop`. O `Done` vem sozinho quando a issue fecha.
+  pull request, `Staging` no merge na `staging`. O `Done` vem sozinho quando a issue fecha.
 - **A ordem de entrega é API e banco, depois web e PWA, depois mobile.** A próxima issue é a primeira
   aberta nessa ordem, respeitando o `Depende de` de cada uma.
 - **Toda issue de tela ou de comportamento do `apps/web` tem uma gêmea no `apps/mobile`**, criada junto

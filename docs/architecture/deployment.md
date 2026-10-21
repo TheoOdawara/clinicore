@@ -10,7 +10,7 @@ Onde cada bloco roda, em cada ambiente, e como ele chega lá.
 | --- | --- | --- |
 | Desenvolvimento | existe | a máquina de quem desenvolve |
 | CI | existe | GitHub Actions |
-| Homolog (`develop`) | planejado | a VPS com Coolify |
+| Homolog (`staging`) | planejado | a VPS com Coolify |
 | Produção (`main`) | planejado | a VPS com Coolify |
 
 **Não há hospedagem hoje.** Nenhum app tem Dockerfile ainda. Cada um vai ser publicado no Coolify pelo
@@ -51,11 +51,11 @@ Backup e recuperação estão em aberto, na
 
 ## Entrega
 
-- **Toda entrega chega por pull request** para a `develop`; o release é um pull request da `develop`
+- **Toda entrega chega por pull request** para a `staging`; o release é um pull request da `staging`
   para a `main`.
 - **O CI roda em todo pull request** para as duas, por `.github/workflows/ci.yml`, com um job por app:
   `api` (com PostgreSQL e Redis de serviço), `web`, `site` e `mobile`. Os gates de cada job são os do
-  [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/AGENTS.md), em Comandos.
+  [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/AGENTS.md), em Comandos.
 - **Não há deploy automático.** Ele nasce junto da hospedagem.
 - **Toda publicação é um rolling update.** O container novo sobe ao lado do antigo e só recebe tráfego
   depois de passar no health check do `/health`; o antigo para em seguida. Por isso toda migration é

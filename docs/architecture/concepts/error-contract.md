@@ -23,5 +23,5 @@ As telas que consomem erro ainda não existem; estas são as regras com que elas
 - **Código sem tradução cai numa mensagem genérica**, nunca no texto cru da API.
 - **O `401` no web dispara o refresh uma vez**, e as requisições concorrentes esperam por ele.
 
-As regras de implementação estão no [`apps/api/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/apps/api/AGENTS.md) e no
-[`apps/web/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/apps/web/AGENTS.md).
+As regras de implementação estão no [`apps/api/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/apps/api/AGENTS.md) e no
+[`apps/web/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/apps/web/AGENTS.md).

@@ -10,4 +10,4 @@ O que atravessa mais de um bloco e precisa ser igual em todos.
 | [Offline](offline.md) | o que o app guarda no aparelho e como uma escrita offline chega à API | M1 |
 
 Log não tem arquivo próprio: só a API registra log hoje, e a regra está no
-[`apps/api/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/apps/api/AGENTS.md), em Log.
+[`apps/api/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/apps/api/AGENTS.md), em Log.

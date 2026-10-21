@@ -19,5 +19,5 @@ de redirecionamento de autenticação. Não tem CMS nem banco: o conteúdo mora 
 ## Para mudar com segurança
 
 As regras de Server Component, imagem, fonte e URL em pt-BR estão no
-[`apps/site/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/apps/site/AGENTS.md). O gate do site confere o conteúdo do HTML
+[`apps/site/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/apps/site/AGENTS.md). O gate do site confere o conteúdo do HTML
 pré-renderizado, porque build verde não garante página com conteúdo.

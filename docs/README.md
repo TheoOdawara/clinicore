@@ -10,7 +10,7 @@
 | [`decisions/`](decisions/README.md) | as ADRs: por que cada decisão transversal foi tomada |
 | [`specs/`](specs/README.md) | uma entrega em profundidade |
 
-As regras de como o código é construído não ficam aqui: estão no [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/develop/AGENTS.md) da raiz e
+As regras de como o código é construído não ficam aqui: estão no [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/AGENTS.md) da raiz e
 no de cada app.
 
 ## Ler como site
