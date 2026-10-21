@@ -32,6 +32,7 @@ diagramas inteiros são também os do módulo.
 | Session | um login ativo num navegador ou num aparelho | existe |
 | Verification | um token de uso único mandado a um e-mail: confirmação de e-mail ou redefinição de senha | existe |
 | EmailDispatch | o registro de um e-mail enviado, para limitar o envio | existe |
+| EmailOutbox | um e-mail transacional esperando o envio pelo worker | M1 · #71 |
 
 ## Invariantes
 
@@ -58,6 +59,12 @@ diagramas inteiros são também os do módulo.
 - **EmailDispatch:** um endereço recebe no máximo 5 e-mails do mesmo tipo em 24 horas, e no máximo 1 a
   cada 60 segundos, exista ou não uma conta nele. A contagem e o registro acontecem sob o mesmo lock por
   endereço, então dois pedidos simultâneos não passam os dois.
+- **EmailOutbox** (M1 · #71, [spec 006](../specs/autenticacao/006-worker-e-fila-de-email-api.md)):
+  - nasce na mesma transação da verificação que o link carrega, com o mesmo `expires_at`;
+  - a linha enviada é apagada, e a que vence nunca é enviada;
+  - só a linha `pending` guarda os corpos; a quinta falha a marca `failed` e apaga os dois na mesma
+    escrita;
+  - dois workers nunca reservam a mesma linha, e a reserva que ninguém fechou volta em 2 minutos.
 
 ## Conteúdo
 

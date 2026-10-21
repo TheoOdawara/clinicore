@@ -21,3 +21,7 @@ operação abaixo percorre uma tabela inteira, fora a purga.
 | Refresh | `sessions` (com lock de linha) | `sessions` | por `id` |
 | Logout | — | `sessions` | por `id` |
 | Purga, de hora em hora | — | `sessions`, `verifications`, `email_dispatches` | por `expires_at` e por `created_at` |
+| Gravar o e-mail na fila (M1 · #71) | — | `email_outbox` | na transação do cadastro, do novo link e da redefinição, junto da `verifications` |
+| Reservar e-mail (M1 · #71) | `email_outbox` | `email_outbox` | até 10 linhas `pending` com `next_attempt_at` e `expires_at` em ordem, `FOR UPDATE SKIP LOCKED` |
+| Resultado do envio (M1 · #71) | — | `email_outbox` | por `id`: apaga a enviada, adia ou marca `failed` a que falhou |
+| Purga diária, às 03:00 (M1 · #71) | — | `sessions`, `verifications`, `email_dispatches`, `email_outbox` | substitui a de hora em hora; a `email_outbox` por `expires_at` |

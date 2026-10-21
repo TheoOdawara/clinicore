@@ -11,7 +11,7 @@ PostgreSQL e com o Redis, e é onde mora toda a regra de negócio.
 
 | Bloco | Onde | Responsabilidade |
 | --- | --- | --- |
-| Boot | `crates/app/src/main.rs` | lê a configuração, liga o `tracing`, faz o bind e dispara a purga |
+| Boot | `crates/app/src/main.rs` | lê a configuração, liga o `tracing`, faz o bind e dispara a purga, que sai daqui na #71 |
 | Router | `crates/app/src/lib.rs` | o `AppState`, as rotas e as camadas do tower: log, CORS, panic, IP do cliente e limite de corpo |
 | Encanamento HTTP | `crates/app/src/http/` | erro em Problem Details, extractor de validação, log de requisição, OpenAPI, guards de cliente e de origem, limite de requisições |
 | `health` | `crates/app/src/health.rs` | `GET /health` |
@@ -20,9 +20,9 @@ PostgreSQL e com o Redis, e é onde mora toda a regra de negócio.
 | `sessions` | `crates/app/src/sessions/` | login, leitura da sessão, refresh e logout, com os tokens em `tokens/` |
 | `oauth` | `crates/app/src/oauth/` | o login com Google por OpenID Connect com PKCE, com o `id_token` conferido, e o vínculo com a conta do mesmo e-mail |
 | `credentials` | `crates/app/src/credentials/` | hash de senha em Argon2 e segredo aleatório, usados por várias features |
-| Purga | `crates/app/src/purge.rs` | apaga, de hora em hora, sessão, verificação e registro de envio vencidos |
-| Telemetria | `crates/app/src/telemetry.rs` | o subscriber do `tracing` |
-| `core` | `crates/core/` | configuração, pool do Postgres, cliente do Redis e e-mail; biblioteca que não conhece HTTP |
+| Purga | `crates/app/src/purge.rs` | apaga, de hora em hora, sessão, verificação e registro de envio vencidos; vai para o worker na #71, às 03:00 de São Paulo |
+| Telemetria | `crates/app/src/telemetry.rs` | o subscriber do `tracing`; desce para o `crates/core/` na #71, para servir também ao worker |
+| `core` | `crates/core/` | configuração, pool do Postgres, cliente do Redis e e-mail; biblioteca que não conhece HTTP. Na #71 o envio SMTP sai dele para o worker, e o template do e-mail fica |
 
 As features de produto — pacientes, agenda, prontuário, financeiro, estoque, laboratório — entram como
 pastas novas em `crates/app/src/`, no M1.

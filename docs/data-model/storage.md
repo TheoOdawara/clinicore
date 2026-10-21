@@ -17,6 +17,7 @@ não aparecem no diagrama: `CHECK (email = lower(email))` em `users`, e o `CHECK
 | `verification_purpose` | `email_verification`, `password_reset` |
 | `email_dispatch_kind` | `email_verification`, `password_reset` |
 | `session_client` | `web`, `mobile` |
+| `email_outbox_status` | `pending`, `failed` — M1 · #71 |
 
 ## Índices
 
@@ -30,6 +31,8 @@ Além dos que as chaves e as restrições de unicidade criam:
 | `verifications (email, purpose, consumed_at)` | consumir, na confirmação, todas as verificações pendentes do endereço |
 | `email_dispatches (created_at)` | a purga |
 | `email_dispatches (email, kind, created_at)` | a contagem do limite de envio |
+| `email_outbox (next_attempt_at) WHERE status = 'pending'` | a reserva do worker — M1 · #71 |
+| `email_outbox (expires_at)` | a purga — M1 · #71 |
 
 ## Migrations
 

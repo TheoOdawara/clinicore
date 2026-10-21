@@ -11,3 +11,4 @@ cada uma mora na issue, nunca aqui.
 | [004 · API](autenticacao/004-sessao-por-token-api.md) | Emitir a sessão por token para o app e entrar com Google nativo e com passkey |
 | [004 · app e web](autenticacao/004-autenticacao-mobile.md) | Entrar, cadastrar-se e usar passkey no app e no web |
 | [005](005-migrar-api-para-rust.md) | Migrar a API para Rust e extrair o scaffold NestJS |
+| [006 · API](autenticacao/006-worker-e-fila-de-email-api.md) | Enviar o e-mail por fila e purgar o que venceu num worker |

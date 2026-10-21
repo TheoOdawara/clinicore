@@ -49,4 +49,6 @@ fora, nada é apagado e a rota responde `503`.
 ## Purga
 
 De hora em hora, **a API** apaga no **PostgreSQL** a sessão vencida ou passada do teto de 30 dias, a
-verificação vencida e o registro de envio de mais de 24 horas. Sobe para o worker com a #71.
+verificação vencida e o registro de envio de mais de 24 horas. Na #71 ela sobe para o worker e passa a
+rodar uma vez por dia, às 03:00 de `America/Sao_Paulo`, apagando também a linha vencida da
+`email_outbox` ([spec 006](../../specs/autenticacao/006-worker-e-fila-de-email-api.md)).

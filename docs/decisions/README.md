@@ -21,3 +21,4 @@ aceita não é reescrita; outra a emenda ou a substitui.
 | [0014](0014-deploy-por-dockerfile-no-coolify.md) | Deploy de cada app pelo próprio Dockerfile no Coolify | aceita |
 | [0015](0015-front-em-bun.md) | Front em Bun, como gerenciador de pacotes e runtime | aceita |
 | [0016](0016-front-em-css-modules.md) | Front em CSS puro, com CSS Modules | aceita |
+| [0017](0017-fila-de-email-no-postgres-e-worker-com-cron.md) | Fila de e-mail numa tabela do Postgres e worker com cron | aceita |
