@@ -1,10 +1,10 @@
 # 006 — Enviar o e-mail por fila e purgar o que venceu num worker (API)
 
-> **Status:** fechada
+> **Status:** publicada
 > **Perfil:** API
 > **Módulo:** `apps/api`: `crates/worker/` novo, `crates/core/`, `crates/app/` e `migrations/`
 > **Epic:** #3 — Autenticação e sessão com JWT, refresh e Google
-> **Issue:** #71
+> **Issues:** #71 e #161
 > **Requisitos:** FR-ACC-07, FR-ACC-10, FR-ACC-15
 > **Sprint:** 2
 > **Decisão:** `docs/decisions/0017-fila-de-email-no-postgres-e-worker-com-cron.md`
@@ -375,7 +375,7 @@ E o processo termina com código `0`
 
 ## Quebra em Tasks
 
-| # | Título | Escopo | Critério de aceite | Depende de |
-| --- | --- | --- | --- | --- |
-| 1 | Purge expired authentication records daily in a worker | `crates/worker/` novo com `main.rs` e `purge.rs`; `purge.rs` e o `spawn` saem do `crates/app/`; `WorkerConfig` só com `APP_ENV`, `LOG_LEVEL` e `DATABASE_URL`; `telemetry.rs` e `lifetimes.rs` no `crates/core/`; o teste da purga vai para `crates/worker/tests/`; ADR 0017 e os docs de arquitetura do worker. Consumidores do que muda de lugar: `purge.rs` (1 teste, `main.rs`), `telemetry.rs` (`main.rs` e `tests/api/support.rs`), as duas constantes (`email_dispatches.rs`, `sessions/tokens/refresh.rs` e `sessions/queries.rs`) | Cenários 1 (sem a `email_outbox`), 2 e 3 (com `DATABASE_URL`) | — |
-| 2 | Send transactional email through a Postgres outbox in the worker | migration da `email_outbox`; a gravação nas consultas do cadastro, da confirmação e da redefinição; `Mailer` do `crates/core/` para o worker, com `pool` e `timeout`; o `AppState` e o `Config` da API sem SMTP; a fila no worker; `.sqlx/`; os testes que hoje leem o `AsyncStubTransport` (`users/sign_up.rs`, `sessions/sign_in.rs`, `sessions/current_session.rs`, `password_resets/request.rs`, `support.rs`) passam a ler a `email_outbox`; docs de dados e de runtime. Fecha a #132 | Cenários 1 (com a `email_outbox`), 3 (com `SMTP_PASSWORD`), 4 a 13 | 1, #133 |
+| # | Issue | Título | Escopo | Critério de aceite | Depende de |
+| --- | --- | --- | --- | --- | --- |
+| 1 | #71 | Purge expired authentication records daily in a worker | `crates/worker/` novo com `main.rs` e `purge.rs`; `purge.rs` e o `spawn` saem do `crates/app/`; `WorkerConfig` só com `APP_ENV`, `LOG_LEVEL` e `DATABASE_URL`; `telemetry.rs` e `lifetimes.rs` no `crates/core/`; o teste da purga vai para `crates/worker/tests/`; ADR 0017 e os docs de arquitetura do worker. Consumidores do que muda de lugar: `purge.rs` (1 teste, `main.rs`), `telemetry.rs` (`main.rs` e `tests/api/support.rs`), as duas constantes (`email_dispatches.rs`, `sessions/tokens/refresh.rs` e `sessions/queries.rs`) | Cenários 1 (sem a `email_outbox`), 2 e 3 (com `DATABASE_URL`) | — |
+| 2 | #161 | Send transactional email through a Postgres outbox in the worker | migration da `email_outbox`; a gravação nas consultas do cadastro, da confirmação e da redefinição; `Mailer` do `crates/core/` para o worker, com `pool` e `timeout`; o `AppState` e o `Config` da API sem SMTP; a fila no worker; `.sqlx/`; os testes que hoje leem o `AsyncStubTransport` (`users/sign_up.rs`, `sessions/sign_in.rs`, `sessions/current_session.rs`, `password_resets/request.rs`, `support.rs`) passam a ler a `email_outbox`; docs de dados e de runtime. Começa depois da #133, que junta a reserva e o token numa transação. Fecha a #132 | Cenários 1 (com a `email_outbox`), 3 (com `SMTP_PASSWORD`), 4 a 13 | 1 |
