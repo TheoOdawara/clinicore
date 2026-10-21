@@ -2,6 +2,8 @@ use clinicore_worker::purge::{Purged, purge_expired};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::support::count;
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_purge_deletes_only_what_expired_and_a_second_run_deletes_nothing(pool: PgPool) {
     let user_id: Uuid = sqlx::query_scalar(
@@ -36,6 +38,14 @@ async fn the_purge_deletes_only_what_expired_and_a_second_run_deletes_nothing(po
     .execute(&pool)
     .await
     .expect("the dispatches");
+    sqlx::query(
+        "INSERT INTO email_outbox (email, subject, html_body, text_body, expires_at) VALUES
+        ('ana@example.com', 'expired', '<p>link</p>', 'link', now() - interval '1 second'),
+        ('ana@example.com', 'live', '<p>link</p>', 'link', now() + interval '1 hour')",
+    )
+    .execute(&pool)
+    .await
+    .expect("the queued mail");
 
     let purged = purge_expired(&pool).await.expect("a purge");
 
@@ -44,13 +54,15 @@ async fn the_purge_deletes_only_what_expired_and_a_second_run_deletes_nothing(po
         Purged {
             sessions: 2,
             verifications: 1,
-            email_dispatches: 1
+            email_dispatches: 1,
+            email_outbox: 1
         }
     );
     let survivors = [
         "SELECT count(*) FROM sessions WHERE refresh_token_hash = 'live'",
         "SELECT count(*) FROM verifications WHERE token_hash = 'live'",
         "SELECT count(*) FROM email_dispatches WHERE created_at > now() - interval '24 hours'",
+        "SELECT count(*) FROM email_outbox WHERE subject = 'live'",
     ];
     for survivor in survivors {
         assert_eq!(count(&pool, survivor).await, 1, "{survivor}");
@@ -60,14 +72,8 @@ async fn the_purge_deletes_only_what_expired_and_a_second_run_deletes_nothing(po
         Purged {
             sessions: 0,
             verifications: 0,
-            email_dispatches: 0
+            email_dispatches: 0,
+            email_outbox: 0
         }
     );
-}
-
-async fn count(pool: &PgPool, sql: &'static str) -> i64 {
-    sqlx::query_scalar(sql)
-        .fetch_one(pool)
-        .await
-        .expect("a count")
 }

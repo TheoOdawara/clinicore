@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE email_outbox\n        SET attempts = attempts + 1, next_attempt_at = now() + interval '2 minutes'\n        WHERE id IN (\n            SELECT id FROM email_outbox\n            WHERE status = 'pending' AND next_attempt_at <= now() AND expires_at > now()\n                AND attempts < $1\n            ORDER BY next_attempt_at\n            LIMIT 10\n            FOR UPDATE SKIP LOCKED\n        )\n        RETURNING id, email, subject, html_body AS \"html_body!\", text_body AS \"text_body!\", attempts",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "email_outbox",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "email",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "email_outbox",
+            "name": "email"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "subject",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "email_outbox",
+            "name": "subject"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "html_body!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "email_outbox",
+            "name": "html_body"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "text_body!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "email_outbox",
+            "name": "text_body"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "attempts",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "email_outbox",
+            "name": "attempts"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "7b2e17c8a87fe821aea98d671321ab74803ff037610f75e46b7d600198259cdf"
+}

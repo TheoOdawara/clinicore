@@ -6,6 +6,7 @@ pub struct Purged {
     pub sessions: u64,
     pub verifications: u64,
     pub email_dispatches: u64,
+    pub email_outbox: u64,
 }
 
 pub async fn purge_and_log(pool: &PgPool) {
@@ -14,6 +15,7 @@ pub async fn purge_and_log(pool: &PgPool) {
             sessions = purged.sessions,
             verifications = purged.verifications,
             email_dispatches = purged.email_dispatches,
+            email_outbox = purged.email_outbox,
             "purged the expired authentication records"
         ),
         Err(error) => {
@@ -39,9 +41,13 @@ pub async fn purge_expired(pool: &PgPool) -> Result<Purged, sqlx::Error> {
     )
     .execute(pool)
     .await?;
+    let email_outbox = sqlx::query!("DELETE FROM email_outbox WHERE expires_at <= now()")
+        .execute(pool)
+        .await?;
     Ok(Purged {
         sessions: sessions.rows_affected(),
         verifications: verifications.rows_affected(),
         email_dispatches: email_dispatches.rows_affected(),
+        email_outbox: email_outbox.rows_affected(),
     })
 }

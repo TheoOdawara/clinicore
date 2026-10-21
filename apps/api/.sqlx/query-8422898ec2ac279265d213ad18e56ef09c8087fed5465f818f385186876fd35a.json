@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE email_outbox SET next_attempt_at = now() + make_interval(mins => 1 << (attempts - 1))\n            WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8422898ec2ac279265d213ad18e56ef09c8087fed5465f818f385186876fd35a"
+}

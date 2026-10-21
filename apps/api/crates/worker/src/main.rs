@@ -2,8 +2,10 @@ use std::io;
 use std::process::ExitCode;
 
 use clinicore_core::config::WorkerConfig;
-use clinicore_core::{db, telemetry};
-use clinicore_worker::schedule;
+use clinicore_core::{db, shutdown, telemetry};
+use clinicore_worker::mail::Mailer;
+use clinicore_worker::{outbox, schedule};
+use tokio_util::sync::CancellationToken;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -29,7 +31,22 @@ async fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let mailer = match Mailer::smtp(&config) {
+        Ok(mailer) => mailer,
+        Err(error) => {
+            tracing::error!(error = %error, "could not set up the mail transport");
+            return ExitCode::FAILURE;
+        }
+    };
 
-    schedule::run(pool).await;
+    let stop = CancellationToken::new();
+    tokio::join!(
+        async {
+            shutdown::requested().await;
+            stop.cancel();
+        },
+        outbox::run(pool.clone(), mailer, stop.clone()),
+        schedule::run(pool, stop.clone()),
+    );
     ExitCode::SUCCESS
 }
