@@ -2,6 +2,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
+use crate::faults::faulty_app;
 use crate::support::{
     app, app_with, config_with, count, fresh_email, json_body, post_json, queued_mail, register,
     text_body,
@@ -93,4 +94,38 @@ async fn an_unknown_field_is_refused() {
             "errors": [{"pointer": "#/redirectTo", "code": "invalid"}]
         })
     );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_database_failure_at_any_step_answers_500_and_queues_nothing(pool: PgPool) {
+    let owner = fresh_email();
+    let faulty = faulty_app(&pool).await;
+    register(&faulty.app, &pool, &owner, true).await;
+    sqlx::raw_sql("DELETE FROM email_outbox; DELETE FROM email_dispatches")
+        .execute(&pool)
+        .await
+        .expect("no queued mail and no recent dispatch");
+    let body = json!({"email": owner});
+    let ask = || post_json(faulty.app.clone(), "/password-resets", &body);
+
+    for command in [
+        "BEGIN",
+        "pg_advisory_xact_lock",
+        "SELECT name FROM users",
+        "INSERT INTO verifications",
+        "COMMIT",
+    ] {
+        faulty.database.cut_at(command, 0);
+        assert_eq!(
+            ask().await.status(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "{command}"
+        );
+        assert!(queued_mail(&pool, &owner).await.is_empty(), "{command}");
+    }
+
+    request_reset(&faulty.app, &owner).await;
+    faulty.database.cut_at("COMMIT", 0);
+    assert_eq!(ask().await.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(queued_mail(&pool, &owner).await.len(), 1);
 }

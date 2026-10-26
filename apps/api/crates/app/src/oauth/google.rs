@@ -5,7 +5,6 @@ use openidconnect::core::{
     CoreAuthenticationFlow, CoreClient, CoreIdTokenVerifier, CoreJsonWebKeySet,
     CoreRequestTokenError,
 };
-use openidconnect::url::ParseError;
 use openidconnect::{
     AuthUrl, AuthorizationCode, ClaimsVerificationError, ClientId, ClientSecret, CsrfToken,
     DiscoveryError, EndpointNotSet, EndpointSet, HttpClientError, IssuerUrl, JsonWebKeySetUrl,
@@ -30,14 +29,6 @@ impl GoogleEndpoints {
             keys: "https://www.googleapis.com/oauth2/v3/certs".to_string(),
         }
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum GoogleClientError {
-    #[error(transparent)]
-    Url(#[from] ParseError),
-    #[error(transparent)]
-    Http(#[from] reqwest::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -85,8 +76,8 @@ pub struct GoogleClient {
 }
 
 impl GoogleClient {
-    pub fn new(config: &Config, endpoints: GoogleEndpoints) -> Result<Self, GoogleClientError> {
-        let issuer = IssuerUrl::new(endpoints.issuer)?;
+    pub fn new(config: &Config, endpoints: GoogleEndpoints) -> Self {
+        let issuer = IssuerUrl::new(endpoints.issuer).expect("a valid issuer URL");
         let callback = format!("{}/oauth/google/callback", config.api_url);
         let flow = CoreClient::new(
             ClientId::new(config.google_client_id.clone()),
@@ -94,19 +85,23 @@ impl GoogleClient {
             CoreJsonWebKeySet::new(Vec::new()),
         )
         .set_client_secret(ClientSecret::new(config.google_client_secret.clone()))
-        .set_auth_uri(AuthUrl::new(endpoints.authorization)?)
-        .set_token_uri(TokenUrl::new(endpoints.token)?)
-        .set_redirect_uri(RedirectUrl::new(callback)?);
+        .set_auth_uri(AuthUrl::new(endpoints.authorization).expect("a valid authorization URL"))
+        .set_token_uri(TokenUrl::new(endpoints.token).expect("a valid token URL"))
+        .set_redirect_uri(
+            RedirectUrl::new(callback)
+                .expect("API_URL is a validated origin, so the callback is a URL"),
+        );
         let http = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(10))
-            .build()?;
-        Ok(Self {
+            .build()
+            .expect("the TLS backend initializes with a fixed configuration");
+        Self {
             flow,
             http,
             issuer,
-            keys: JsonWebKeySetUrl::new(endpoints.keys)?,
-        })
+            keys: JsonWebKeySetUrl::new(endpoints.keys).expect("a valid key set URL"),
+        }
     }
 
     pub fn authorization(&self) -> Authorization {
@@ -137,7 +132,7 @@ impl GoogleClient {
         verifier: String,
         nonce: String,
     ) -> Result<GoogleProfile, GoogleError> {
-        // ponytail: fetches Google's signing keys on every sign-in, so a sign-in costs one more request and fails while that endpoint is down; cache them by the response's Cache-Control max-age, refetching on an unknown key id, when either matters
+        // shortcut: fetches Google's signing keys on every sign-in, so a sign-in costs one more request and fails while that endpoint is down; cache them by the response's Cache-Control max-age, refetching on an unknown key id, when either matters
         let keys = CoreJsonWebKeySet::fetch_async(&self.keys, &self.http).await?;
         let token = self
             .flow

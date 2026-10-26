@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use clinicore_core::config::WorkerConfig;
+use lettre::Address;
 use lettre::message::{Mailbox, MultiPart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::transport::stub::AsyncStubTransport;
@@ -11,8 +12,6 @@ use uuid::Uuid;
 pub enum MailError {
     #[error(transparent)]
     Address(#[from] lettre::address::AddressError),
-    #[error(transparent)]
-    Message(#[from] lettre::error::Error),
     #[error(transparent)]
     Smtp(#[from] lettre::transport::smtp::Error),
     #[error(transparent)]
@@ -30,8 +29,9 @@ pub struct Mailer {
 }
 
 impl Mailer {
-    pub fn smtp(config: &WorkerConfig) -> Result<Self, MailError> {
-        let transport = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.smtp_host)?
+    pub fn smtp(config: &WorkerConfig) -> Self {
+        let transport = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.smtp_host)
+            .expect("WorkerConfig validated SMTP_HOST as a hostname")
             .port(config.smtp_port)
             .credentials(Credentials::new(
                 config.smtp_user.clone(),
@@ -39,12 +39,12 @@ impl Mailer {
             ))
             .timeout(Some(Duration::from_secs(10)))
             .build();
-        Self::new(&config.mail_from, Transport::Smtp(transport))
+        Self::new(config.mail_from.clone(), Transport::Smtp(transport))
     }
 
-    pub fn new(mail_from: &str, transport: Transport) -> Result<Self, MailError> {
-        let from = Mailbox::new(Some("Clinicore".to_string()), mail_from.parse()?);
-        Ok(Self { transport, from })
+    pub fn new(mail_from: Address, transport: Transport) -> Self {
+        let from = Mailbox::new(Some("Clinicore".to_string()), mail_from);
+        Self { transport, from }
     }
 
     pub async fn deliver(
@@ -63,7 +63,8 @@ impl Mailer {
             .from(self.from.clone())
             .to(to.parse()?)
             .subject(subject)
-            .multipart(MultiPart::alternative_plain_html(text, html))?;
+            .multipart(MultiPart::alternative_plain_html(text, html))
+            .expect("a message with a sender and a recipient builds");
         match &self.transport {
             Transport::Smtp(smtp) => {
                 smtp.send(email).await?;

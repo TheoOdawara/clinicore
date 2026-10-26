@@ -2,6 +2,7 @@ mod boot;
 mod cors;
 mod email_verifications;
 mod errors;
+mod faults;
 mod health;
 mod oauth;
 mod openapi;

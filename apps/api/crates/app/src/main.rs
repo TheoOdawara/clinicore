@@ -25,13 +25,12 @@ async fn main() -> ExitCode {
     ))
     .expect("the only global subscriber");
 
-    let state = match connect(&config) {
-        Ok(state) => state,
-        Err(error) => {
-            tracing::error!(error = %error, "could not set up the clients");
-            return ExitCode::FAILURE;
-        }
-    };
+    let state = AppState::new(
+        &config,
+        db::connect_lazy(&config.database_url),
+        Redis::connect_lazy(&config),
+        GoogleClient::new(&config, GoogleEndpoints::production()),
+    );
 
     let listener = match TcpListener::bind(("::", config.port)).await {
         Ok(listener) => listener,
@@ -42,24 +41,12 @@ async fn main() -> ExitCode {
     };
 
     let app = clinicore_app::app(&config, state);
-    if let Err(error) = axum::serve(
+    axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(shutdown::requested())
     .await
-    {
-        tracing::error!(error = %error, "the server stopped");
-        return ExitCode::FAILURE;
-    }
+    .expect("axum::serve never returns an error");
     ExitCode::SUCCESS
-}
-
-fn connect(config: &Config) -> Result<AppState, Box<dyn std::error::Error + Send + Sync>> {
-    Ok(AppState::new(
-        config,
-        db::connect_lazy(&config.database_url)?,
-        Redis::connect_lazy(config)?,
-        GoogleClient::new(config, GoogleEndpoints::production())?,
-    ))
 }

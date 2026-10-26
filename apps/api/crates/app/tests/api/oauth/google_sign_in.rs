@@ -3,9 +3,10 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use super::{IdToken, OAUTH_COOKIES, callback, fake_google, sign_in_with_google, start};
+use crate::faults::faulty_app_with_google;
 use crate::sessions::sign_in;
 use crate::support::{
-    PASSWORD, app_with, app_with_google, count, fresh_email, register, send, set_cookie,
+    PASSWORD, app_with, app_with_google, count, fresh_email, register, request, send, set_cookie,
 };
 
 const ROWS: &str = "SELECT (SELECT count(*) FROM users) + (SELECT count(*) FROM accounts)
@@ -215,4 +216,113 @@ async fn linking_google_to_an_unverified_account_drops_its_password(pool: PgPool
     let with_the_first_password = sign_in(&app, &email, PASSWORD, &[]).await;
     assert_eq!(with_the_first_password.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 1);
+}
+
+const PROVIDER_ERROR: &str = "http://localhost:3000/login?error=PROVIDER_ERROR";
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_refused_code_no_id_token_unreachable_keys_or_no_email_are_provider_errors(pool: PgPool) {
+    let email = fresh_email();
+    let mut without_email = profile(&email, true);
+    without_email
+        .as_object_mut()
+        .expect("a profile object")
+        .remove("email");
+
+    for (id_token, claims) in [
+        (IdToken::Refused, profile(&email, true)),
+        (IdToken::Absent, profile(&email, true)),
+        (IdToken::KeysDown, profile(&email, true)),
+        (IdToken::Genuine, without_email),
+    ] {
+        let google = fake_google(id_token, claims).await;
+        let app = app_with_google(&pool, google.endpoints.clone());
+
+        let refused = sign_in_with_google(&app, &google).await;
+
+        assert_eq!(
+            refused.headers()["location"],
+            PROVIDER_ERROR,
+            "{id_token:?}"
+        );
+    }
+    assert_eq!(count(&pool, ROWS).await, 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_denied_authorization_is_a_provider_error(pool: PgPool) {
+    let google = fake_google(IdToken::Genuine, profile(&fresh_email(), true)).await;
+    let app = app_with_google(&pool, google.endpoints.clone());
+    let started = start(&app, &google).await;
+
+    let path = format!(
+        "/oauth/google/callback?error=access_denied&state={}",
+        started.state
+    );
+    let denied = request(app, "GET", &path, &[("cookie", &started.cookies)], None).await;
+
+    assert_eq!(denied.headers()["location"], PROVIDER_ERROR);
+    assert_eq!(count(&pool, ROWS).await, 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_account_linked_to_another_google_subject_is_a_provider_error(pool: PgPool) {
+    let email = fresh_email();
+    let google = fake_google(IdToken::Genuine, profile(&email, true)).await;
+    let app = app_with_google(&pool, google.endpoints.clone());
+    let linked = sign_in_with_google(&app, &google).await;
+    assert_eq!(linked.headers()["location"], "http://localhost:3000/app");
+
+    let mut another_subject = profile(&email, true);
+    another_subject["sub"] = json!("google-another-ana");
+    let another = fake_google(IdToken::Genuine, another_subject).await;
+    let app = app_with_google(&pool, another.endpoints.clone());
+    let refused = sign_in_with_google(&app, &another).await;
+
+    assert_eq!(refused.headers()["location"], PROVIDER_ERROR);
+    assert_eq!(count(&pool, GOOGLE_ACCOUNTS).await, 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_failure_while_linking_or_opening_the_session_answers_500_or_503(pool: PgPool) {
+    let email = fresh_email();
+    let google = fake_google(IdToken::Genuine, profile(&email, true)).await;
+    let faulty = faulty_app_with_google(&pool, google.endpoints.clone()).await;
+    register(&faulty.app, &pool, &email, false).await;
+
+    for route_limit_then_network_limit in [0, 1] {
+        faulty.redis.cut_at("INCR", route_limit_then_network_limit);
+        let starting = send(faulty.app.clone(), "GET", "/oauth/google").await;
+        assert_eq!(starting.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+        let started = start(&faulty.app, &google).await;
+        faulty.redis.cut_at("INCR", route_limit_then_network_limit);
+        let finishing = callback(&faulty.app, &started.state, Some(&started.cookies)).await;
+        assert_eq!(finishing.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    for (command, skip) in [
+        ("DELETE FROM accounts", 0),
+        ("UPDATE verifications", 0),
+        ("UPDATE users SET email_verified", 0),
+        ("SELECT user_id FROM accounts", 0),
+        ("BEGIN", 0),
+        ("INSERT INTO users", 0),
+        ("INSERT INTO accounts", 0),
+        ("SELECT exists(", 0),
+        ("COMMIT", 0),
+        ("BEGIN", 1),
+    ] {
+        let started = start(&faulty.app, &google).await;
+        faulty.database.cut_at(command, skip);
+        let response = callback(&faulty.app, &started.state, Some(&started.cookies)).await;
+        assert_eq!(
+            response.status(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "{command}"
+        );
+    }
+
+    let response = sign_in_with_google(&faulty.app, &google).await;
+    assert_eq!(response.headers()["location"], "http://localhost:3000/app");
 }

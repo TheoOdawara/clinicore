@@ -5,6 +5,7 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use super::{Session, Transport, lifetime_matches, session_exists, sign_in};
+use crate::faults::faulty_app;
 use crate::support::{
     MOBILE, PASSWORD, app_with, config_with, cookie_value, count, fresh_client, fresh_email,
     json_body, queued_mail, register, request, request_from, set_cookie, state,
@@ -332,4 +333,115 @@ async fn ten_failures_lock_the_account_whatever_the_address(pool: PgPool) {
         json!({"type": "tag:clinicore.com.br,2026:rate-limited", "title": "Too many requests", "status": 429})
     );
     assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_failure_at_any_step_of_the_sign_in_answers_500_or_503_and_opens_nothing(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
+    let faulty = faulty_app(&pool).await;
+    register(&faulty.app, &pool, email, true).await;
+
+    for (fault, command, status) in [
+        (
+            &faulty.database,
+            "JOIN accounts",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (&faulty.redis, "EVALSHA", StatusCode::SERVICE_UNAVAILABLE),
+        (&faulty.database, "BEGIN", StatusCode::INTERNAL_SERVER_ERROR),
+        (
+            &faulty.database,
+            "FOR UPDATE",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (
+            &faulty.database,
+            "INSERT INTO sessions",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (
+            &faulty.database,
+            "DELETE FROM sessions",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (
+            &faulty.database,
+            "COMMIT",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+    ] {
+        fault.cut_at(command, 0);
+        let response = sign_in(&faulty.app, email, PASSWORD, &[]).await;
+        assert_eq!(response.status(), status, "{command}");
+        assert_eq!(
+            count(&pool, "SELECT count(*) FROM sessions").await,
+            0,
+            "{command}"
+        );
+    }
+
+    for _ in 0..5 {
+        Transport::Mobile.sign_in(&faulty.app, email).await;
+    }
+    faulty.redis.cut_at("SETEX", 0);
+    let evicting = sign_in(&faulty.app, email, PASSWORD, &[]).await;
+    assert_eq!(evicting.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(count(&pool, "SELECT count(*) FROM sessions").await, 5);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_failure_sending_the_new_link_to_an_unverified_email_answers_500(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
+    let faulty = faulty_app(&pool).await;
+    register(&faulty.app, &pool, email, false).await;
+
+    faulty.database.cut_at("pg_advisory_xact_lock", 0);
+    let response = sign_in(&faulty.app, email, PASSWORD, &[]).await;
+
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_request_with_no_client_address_counts_in_the_unknown_bucket(pool: PgPool) {
+    let config = config_with(&[("CLIENT_IP_SOURCE", Some("RightmostXForwardedFor"))]);
+    let app = clinicore_app::app(&config, state(&config, pool.clone()));
+    let mut redis = redis::Client::open(
+        std::env::var("REDIS_URL").expect("REDIS_URL, injected by infisical run"),
+    )
+    .expect("a redis url")
+    .get_multiplexed_async_connection()
+    .await
+    .expect("a redis connection");
+    let unknown_buckets = || redis::cmd("KEYS").arg("rate:*:unknown").clone();
+    let stale: Vec<String> = unknown_buckets()
+        .query_async(&mut redis)
+        .await
+        .expect("the unknown buckets");
+    for key in stale {
+        redis::cmd("DEL")
+            .arg(key)
+            .query_async::<()>(&mut redis)
+            .await
+            .expect("a cleared bucket");
+    }
+
+    let signed_in = sign_in(&app, &fresh_email(), "Errada#2026", &[]).await;
+    let confirmed = request(
+        app,
+        "POST",
+        "/email-verifications/confirmation",
+        &[MOBILE],
+        Some(&json!({"token": "c".repeat(43)})),
+    )
+    .await;
+
+    assert_eq!(signed_in.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(confirmed.status(), StatusCode::BAD_REQUEST);
+    let buckets: Vec<String> = unknown_buckets()
+        .query_async(&mut redis)
+        .await
+        .expect("the unknown buckets");
+    assert!(buckets.len() >= 2, "{buckets:?}");
 }

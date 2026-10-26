@@ -16,9 +16,9 @@ pub async fn sign_up(
     password: &str,
 ) -> Result<(), UserError> {
     let address = email.to_lowercase();
-    let password_hash = password::hash(password.to_string()).await?;
-    let issued = secret::issue()?;
-    let message = emails::verification(name, &verification_link(state, &issued.secret))?;
+    let password_hash = password::hash(password.to_string()).await;
+    let issued = secret::issue();
+    let message = emails::verification(name, &verification_link(state, &issued.secret));
 
     queries::create_user(
         &state.pool,
@@ -51,6 +51,6 @@ pub async fn change_password(
     };
     rate_limit::refund(&state.redis, PASSWORD_FAILURES, &identity).await?;
 
-    let new_hash = password::hash(new_password.to_string()).await?;
+    let new_hash = password::hash(new_password.to_string()).await;
     queries::change_password(&state.pool, &state.redis, session, &current_hash, &new_hash).await
 }

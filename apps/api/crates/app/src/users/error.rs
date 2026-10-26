@@ -15,8 +15,6 @@ pub enum UserError {
     #[error(transparent)]
     Redis(#[from] RedisError),
     #[error(transparent)]
-    Template(#[from] askama::Error),
-    #[error(transparent)]
     Credential(#[from] CredentialError),
 }
 

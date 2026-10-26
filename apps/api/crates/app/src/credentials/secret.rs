@@ -6,7 +6,6 @@ use regex::Regex;
 use sha2::{Digest, Sha256};
 use utoipa::openapi::schema::Object;
 
-use super::error::CredentialError;
 use crate::http::openapi;
 
 pub const PATTERN: &str = "[A-Za-z0-9_-]{43}";
@@ -23,14 +22,14 @@ pub struct IssuedSecret {
     pub hash: String,
 }
 
-pub fn issue() -> Result<IssuedSecret, CredentialError> {
+pub fn issue() -> IssuedSecret {
     let mut bytes = [0u8; 32];
-    getrandom::fill(&mut bytes)?;
+    getrandom::fill(&mut bytes).expect("the operating system provides randomness");
     let secret = URL_SAFE_NO_PAD.encode(bytes);
-    Ok(IssuedSecret {
+    IssuedSecret {
         hash: hash(&secret),
         secret,
-    })
+    }
 }
 
 pub fn hash(secret: &str) -> String {

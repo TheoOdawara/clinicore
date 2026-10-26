@@ -8,7 +8,6 @@ use axum_extra::extract::cookie::CookieJar;
 use uuid::Uuid;
 
 use super::SESSION_REQUESTS;
-use super::error::SessionError;
 use super::tokens::{access, cookies};
 use crate::AppState;
 use crate::http::client::{ClientAddress, SessionClient};
@@ -26,7 +25,9 @@ impl FromRequestParts<AppState> for CurrentSession {
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, AppError> {
-        let client = SessionClient::from_request_parts(parts, state).await?;
+        let client = SessionClient::from_request_parts(parts, state)
+            .await
+            .expect("the client guard already accepted the header");
         let token = match client {
             SessionClient::Web => CookieJar::from_headers(&parts.headers)
                 .get(cookies::ACCESS)
@@ -43,7 +44,6 @@ impl FromRequestParts<AppState> for CurrentSession {
             return Err(AppError::InvalidSession);
         };
         let claims = access::verify(&state.access_keys, &token)
-            .map_err(SessionError::from)?
             .filter(|claims| claims.client == client)
             .ok_or(AppError::InvalidSession)?;
         if access::is_revoked(&state.redis, claims.session_id).await? {
@@ -75,7 +75,7 @@ impl<State: Send + Sync> FromRequestParts<State> for Device {
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, state: &State) -> Result<Self, Infallible> {
-        let ClientAddress(ip_address) = ClientAddress::from_request_parts(parts, state).await?;
+        let Ok(ClientAddress(ip_address)) = ClientAddress::from_request_parts(parts, state).await;
         let user_agent = parts
             .headers
             .get(USER_AGENT)

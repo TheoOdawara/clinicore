@@ -2,6 +2,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
+use crate::faults::faulty_app;
 use crate::support::{
     MOBILE, app_with, count, fresh_email, json_body, register, request, request_from,
 };
@@ -145,5 +146,56 @@ async fn confirmations_stop_at_the_network_ceiling_and_spare_every_other_network
     assert_eq!(
         statuses,
         [StatusCode::TOO_MANY_REQUESTS, StatusCode::BAD_REQUEST]
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_database_failure_at_any_step_answers_500_and_verifies_nothing(pool: PgPool) {
+    let email = fresh_email();
+    let faulty = faulty_app(&pool).await;
+    register(&faulty.app, &pool, &email, false).await;
+    let secret = "c".repeat(43);
+    pending_link(&pool, &email, &secret, "1 hour").await;
+    let verified = "SELECT count(*) FROM users WHERE email_verified";
+
+    for command in [
+        "BEGIN",
+        "SELECT email FROM verifications",
+        "pg_advisory_xact_lock",
+        r#"AS "live!""#,
+        "UPDATE users SET email_verified",
+        "UPDATE verifications SET consumed_at",
+        "COMMIT",
+    ] {
+        faulty.database.cut_at(command, 0);
+        let response = confirm(&faulty.app, &secret).await;
+
+        assert_eq!(
+            response.status(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "{command}"
+        );
+        assert_eq!(count(&pool, verified).await, 0, "{command}");
+    }
+
+    assert_eq!(
+        confirm(&faulty.app, &secret).await.status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(count(&pool, verified).await, 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_link_whose_account_is_gone_is_an_invalid_token(pool: PgPool) {
+    let app = app_with(&pool);
+    let secret = "d".repeat(43);
+    pending_link(&pool, &fresh_email(), &secret, "1 hour").await;
+
+    let response = confirm(&app, &secret).await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        json_body(response).await["type"],
+        "tag:clinicore.com.br,2026:invalid-token"
     );
 }

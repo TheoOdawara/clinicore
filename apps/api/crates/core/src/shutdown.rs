@@ -3,21 +3,18 @@ use tokio::signal;
 pub async fn requested() {
     #[cfg(unix)]
     let terminate = async {
-        match signal::unix::signal(signal::unix::SignalKind::terminate()) {
-            Ok(mut terminate) => {
-                terminate.recv().await;
-            }
-            Err(error) => {
-                tracing::error!(error = %error, "could not listen for SIGTERM");
-                std::future::pending::<()>().await;
-            }
-        }
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("the runtime has a signal driver and SIGTERM can be handled")
+            .recv()
+            .await;
     };
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = signal::ctrl_c() => {}
-        _ = terminate => {}
+        interrupted = signal::ctrl_c() => {
+            interrupted.expect("the runtime has a signal driver and SIGINT can be handled");
+        }
+        () = terminate => {}
     }
 }

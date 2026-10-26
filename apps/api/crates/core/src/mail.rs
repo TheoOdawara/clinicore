@@ -25,10 +25,14 @@ struct TextBody<'a> {
     content: &'a MailContent<'a>,
 }
 
-pub fn compose(subject: &'static str, content: &MailContent) -> Result<MailMessage, askama::Error> {
-    Ok(MailMessage {
+pub fn compose(subject: &'static str, content: &MailContent) -> MailMessage {
+    MailMessage {
         subject,
-        html: HtmlBody { content }.render()?,
-        text: TextBody { content }.render()?,
-    })
+        html: HtmlBody { content }
+            .render()
+            .expect("the HTML template only prints strings"),
+        text: TextBody { content }
+            .render()
+            .expect("the text template only prints strings"),
+    }
 }

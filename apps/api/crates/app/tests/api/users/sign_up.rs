@@ -1,10 +1,12 @@
+use crate::faults::faulty_app;
 use crate::support::{
-    MOBILE, app, app_with, config_with, content_type, count, json_body, post_json, queued_mail,
-    request, text_body,
+    MOBILE, app, app_with, config_with, content_type, count, fresh_client, json_body, post_json,
+    queued_mail, request, text_body,
 };
 use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
+use tower::ServiceExt;
 
 const EMAIL: &str = "ana@exemplo.com";
 
@@ -120,5 +122,99 @@ async fn an_invalid_body_answers_400_pointing_at_each_field() {
             }),
             "{body}"
         );
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_database_failure_at_any_step_answers_500_and_keeps_nothing(pool: PgPool) {
+    let faulty = faulty_app(&pool).await;
+
+    for command in [
+        "BEGIN",
+        "INSERT INTO users",
+        "pg_advisory_xact_lock",
+        "FROM email_dispatches",
+        "INSERT INTO email_dispatches",
+        "INSERT INTO verifications",
+        "COMMIT",
+    ] {
+        faulty.database.cut_at(command, 0);
+        let response = post_json(faulty.app.clone(), "/users", &sign_up_body(EMAIL)).await;
+
+        assert_eq!(
+            response.status(),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "{command}"
+        );
+        assert_eq!(
+            count(&pool, "SELECT count(*) FROM users").await,
+            0,
+            "{command}"
+        );
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_sign_up_right_after_a_link_request_creates_the_user_without_a_second_mail(pool: PgPool) {
+    let faulty = faulty_app(&pool).await;
+    let requested = post_json(
+        faulty.app.clone(),
+        "/email-verifications",
+        &json!({"email": EMAIL}),
+    )
+    .await;
+    assert_eq!(requested.status(), StatusCode::ACCEPTED);
+
+    faulty.database.cut_at("COMMIT", 0);
+    let failed = post_json(faulty.app.clone(), "/users", &sign_up_body(EMAIL)).await;
+    assert_eq!(failed.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(count(&pool, "SELECT count(*) FROM users").await, 0);
+
+    assert_accepted(post_json(faulty.app.clone(), "/users", &sign_up_body(EMAIL)).await).await;
+    assert_eq!(count(&pool, "SELECT count(*) FROM users").await, 1);
+    assert!(queued_mail(&pool, EMAIL).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_body_that_is_not_the_expected_json_object_is_refused() {
+    let oversized = format!(
+        r#"{{"name": "{}", "email": "{EMAIL}", "password": "Clinica#2026"}}"#,
+        "a".repeat(200 * 1024)
+    );
+    for (content_type, body, status) in [
+        (
+            "text/plain",
+            "{}".to_string(),
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        ),
+        (
+            "application/json",
+            r#"{"name": "Ana", "email":"#.to_string(),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            "application/json",
+            "[]".to_string(),
+            StatusCode::BAD_REQUEST,
+        ),
+        (
+            "application/json",
+            r#""Ana""#.to_string(),
+            StatusCode::BAD_REQUEST,
+        ),
+        ("application/json", oversized, StatusCode::PAYLOAD_TOO_LARGE),
+    ] {
+        let request = axum::http::Request::post("/users")
+            .header("content-type", content_type)
+            .extension(axum::extract::ConnectInfo(fresh_client()))
+            .body(axum::body::Body::from(body))
+            .expect("a valid request");
+
+        let response = app(&config_with(&[]))
+            .oneshot(request)
+            .await
+            .expect("an infallible router");
+
+        assert_eq!(response.status(), status);
     }
 }

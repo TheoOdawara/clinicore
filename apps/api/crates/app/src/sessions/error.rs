@@ -25,8 +25,6 @@ pub enum SessionError {
     Redis(#[from] RedisError),
     #[error(transparent)]
     Credential(#[from] CredentialError),
-    #[error(transparent)]
-    AccessToken(#[from] jsonwebtoken::errors::Error),
 }
 
 impl From<SessionError> for AppError {

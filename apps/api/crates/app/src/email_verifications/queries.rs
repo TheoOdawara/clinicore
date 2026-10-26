@@ -9,7 +9,7 @@ pub async fn request_verification(
     pool: &PgPool,
     email: &str,
     token_hash: &str,
-    render: impl FnOnce(&str) -> Result<MailMessage, askama::Error>,
+    render: impl FnOnce(&str) -> MailMessage,
 ) -> Result<(), EmailVerificationError> {
     let mut transaction = pool.begin().await?;
     if !claim_dispatch(
@@ -35,7 +35,7 @@ pub async fn request_verification(
             email,
             VerificationPurpose::EmailVerification,
             token_hash,
-            &render(&name)?,
+            &render(&name),
         )
         .await?;
     }

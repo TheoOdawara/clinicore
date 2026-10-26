@@ -16,6 +16,7 @@ use clinicore_core::config::Config;
 use clinicore_core::db;
 use clinicore_core::redis::Redis;
 use http_body_util::BodyExt;
+use redis::IntoConnectionInfo;
 use serde_json::json;
 use sqlx::PgPool;
 use tower::ServiceExt;
@@ -65,10 +66,7 @@ pub fn config_with(overrides: &[(&str, Option<&str>)]) -> Config {
 }
 
 pub fn lazy_state(config: &Config) -> AppState {
-    state(
-        config,
-        db::connect_lazy(&config.database_url).expect("a lazy database"),
-    )
+    state(config, db::connect_lazy(&config.database_url))
 }
 
 pub fn state(config: &Config, pool: PgPool) -> AppState {
@@ -96,12 +94,14 @@ fn state_with_google(
     google: GoogleEndpoints,
 ) -> AppState {
     let mut config = config.clone();
-    config.redis_url = redis_url.to_string();
+    config.redis_url = redis_url
+        .into_connection_info()
+        .expect("a Redis connection string");
     AppState::new(
         &config,
         pool,
-        Redis::connect_lazy(&config).expect("a lazy redis"),
-        GoogleClient::new(&config, google).expect("a google client"),
+        Redis::connect_lazy(&config),
+        GoogleClient::new(&config, google),
     )
 }
 

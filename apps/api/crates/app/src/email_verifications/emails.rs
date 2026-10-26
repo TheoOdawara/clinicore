@@ -1,6 +1,6 @@
 use clinicore_core::mail::{MailContent, MailMessage, compose};
 
-pub fn verification(name: &str, link: &str) -> Result<MailMessage, askama::Error> {
+pub fn verification(name: &str, link: &str) -> MailMessage {
     let greeting = first_name(name);
     compose(
         "Confirme seu e-mail no Clinicore",

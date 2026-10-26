@@ -11,7 +11,7 @@ pub async fn reserve_password_reset(
     pool: &PgPool,
     email: &str,
     token_hash: &str,
-    render: impl FnOnce(&str) -> Result<MailMessage, askama::Error>,
+    render: impl FnOnce(&str) -> MailMessage,
 ) -> Result<(), PasswordResetError> {
     let mut transaction = pool.begin().await?;
     if !claim_dispatch(&mut transaction, email, EmailDispatchKind::PasswordReset).await? {
@@ -28,7 +28,7 @@ pub async fn reserve_password_reset(
             email,
             VerificationPurpose::PasswordReset,
             token_hash,
-            &render(&name)?,
+            &render(&name),
         )
         .await?;
     }

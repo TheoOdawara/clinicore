@@ -79,7 +79,6 @@ async fn trace_logs_the_session_requests_without_any_secret(pool: PgPool) {
         &rotated.access,
         &rotated.refresh,
         &database_url,
-        config.database_url.as_str(),
     ] {
         assert!(!written.contains(secret), "a secret reached the log");
     }

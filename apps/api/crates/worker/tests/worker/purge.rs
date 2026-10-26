@@ -1,8 +1,8 @@
-use clinicore_worker::purge::{Purged, purge_expired};
+use clinicore_worker::purge::{Purged, purge_and_log, purge_expired};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::support::count;
+use crate::support::{capture_log, count};
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_purge_deletes_only_what_expired_and_a_second_run_deletes_nothing(pool: PgPool) {
@@ -75,5 +75,59 @@ async fn the_purge_deletes_only_what_expired_and_a_second_run_deletes_nothing(po
             email_dispatches: 0,
             email_outbox: 0
         }
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_table_that_cannot_be_purged_stops_the_purge_and_is_logged(pool: PgPool) {
+    let tables = [
+        (
+            "ALTER TABLE sessions RENAME TO sessions_away",
+            "ALTER TABLE sessions_away RENAME TO sessions",
+        ),
+        (
+            "ALTER TABLE verifications RENAME TO verifications_away",
+            "ALTER TABLE verifications_away RENAME TO verifications",
+        ),
+        (
+            "ALTER TABLE email_dispatches RENAME TO email_dispatches_away",
+            "ALTER TABLE email_dispatches_away RENAME TO email_dispatches",
+        ),
+        (
+            "ALTER TABLE email_outbox RENAME TO email_outbox_away",
+            "ALTER TABLE email_outbox_away RENAME TO email_outbox",
+        ),
+    ];
+    for (away, back) in tables {
+        sqlx::query(away)
+            .execute(&pool)
+            .await
+            .expect("a missing table");
+        assert!(purge_expired(&pool).await.is_err(), "{away}");
+        sqlx::query(back)
+            .execute(&pool)
+            .await
+            .expect("the table back");
+    }
+
+    let (log, _guard) = capture_log();
+    let (away, back) = tables[0];
+    sqlx::query(away)
+        .execute(&pool)
+        .await
+        .expect("a missing table");
+    purge_and_log(&pool).await;
+    sqlx::query(back)
+        .execute(&pool)
+        .await
+        .expect("the table back");
+
+    assert!(
+        log.lines().iter().any(|line| {
+            line["level"] == "ERROR"
+                && line["message"] == "could not purge the expired authentication records"
+        }),
+        "{:?}",
+        log.lines()
     );
 }

@@ -8,6 +8,10 @@ async fn panicking() -> &'static str {
     panic!("the panicking cause")
 }
 
+async fn panicking_with_no_message() -> &'static str {
+    std::panic::panic_any(7_u8)
+}
+
 async fn failing() -> Result<&'static str, AppError> {
     Err(AppError::Internal("the internal cause".into()))
 }
@@ -19,12 +23,14 @@ async fn an_unhandled_error_answers_500_without_detail_through_cors_and_logs_the
     let app = clinicore_app::with_layers(
         clinicore_app::routes(&config, crate::support::lazy_state(&config))
             .route("/boom", get(panicking))
+            .route("/boom-opaque", get(panicking_with_no_message))
             .route("/boom-internal", get(failing)),
         &config,
     );
 
     for (path, cause) in [
         ("/boom", "the panicking cause"),
+        ("/boom-opaque", "a panic with no message"),
         ("/boom-internal", "the internal cause"),
     ] {
         let response = request(

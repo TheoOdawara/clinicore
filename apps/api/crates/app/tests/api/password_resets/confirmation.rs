@@ -4,6 +4,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 use sqlx::PgPool;
 
+use crate::faults::faulty_app;
 use crate::sessions::{Transport, revoked_ttl, sign_in};
 use crate::support::{
     MOBILE, PASSWORD, app_with, count, fresh_email, json_body, post_json, register, request,
@@ -182,4 +183,52 @@ async fn confirmations_stop_at_the_network_ceiling_and_spare_every_other_network
         statuses,
         [StatusCode::TOO_MANY_REQUESTS, StatusCode::BAD_REQUEST]
     );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_failure_at_any_step_answers_500_or_503_and_keeps_the_old_password(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
+    let faulty = faulty_app(&pool).await;
+    register(&faulty.app, &pool, email, true).await;
+    Transport::Mobile.sign_in(&faulty.app, email).await;
+    let secret = "e".repeat(43);
+    pending_reset(&pool, email, &secret, "1 hour").await;
+
+    for (fault, command, status) in [
+        (&faulty.database, "BEGIN", StatusCode::INTERNAL_SERVER_ERROR),
+        (
+            &faulty.database,
+            "JOIN users ON",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (
+            &faulty.database,
+            "INSERT INTO accounts",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (
+            &faulty.database,
+            "UPDATE verifications",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (
+            &faulty.database,
+            "DELETE FROM sessions",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (&faulty.redis, "SETEX", StatusCode::SERVICE_UNAVAILABLE),
+        (
+            &faulty.database,
+            "COMMIT",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+    ] {
+        fault.cut_at(command, 0);
+        let response = confirm(&faulty.app, &secret, NEW_PASSWORD).await;
+        assert_eq!(response.status(), status, "{command}");
+    }
+
+    let with_the_old = sign_in(&faulty.app, email, PASSWORD, &[]).await;
+    assert_eq!(with_the_old.status(), StatusCode::CREATED);
 }

@@ -20,6 +20,9 @@ pub enum IdToken {
     ForAnotherClient,
     WithAnotherNonce,
     Forged,
+    Refused,
+    Absent,
+    KeysDown,
 }
 
 pub const OAUTH_COOKIES: [&str; 3] = [
@@ -40,7 +43,10 @@ pub async fn fake_google(id_token: IdToken, profile: serde_json::Value) -> FakeG
     let address = listener.local_addr().expect("a bound address");
     let endpoints = GoogleEndpoints {
         token: format!("http://{address}/token"),
-        keys: format!("http://{address}/keys"),
+        keys: match id_token {
+            IdToken::KeysDown => format!("http://{address}/missing-keys"),
+            _ => format!("http://{address}/keys"),
+        },
         ..GoogleEndpoints::production()
     };
     let nonce = Arc::new(Mutex::new(String::new()));
@@ -50,6 +56,23 @@ pub async fn fake_google(id_token: IdToken, profile: serde_json::Value) -> FakeG
     let token = move |Form(form): Form<HashMap<String, String>>| async move {
         if !form.contains_key("code_verifier") {
             return StatusCode::BAD_REQUEST.into_response();
+        }
+        match id_token {
+            IdToken::Refused => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error": "invalid_grant"})),
+                )
+                    .into_response();
+            }
+            IdToken::Absent => {
+                return Json(json!({
+                    "access_token": "google-access-token",
+                    "token_type": "Bearer",
+                }))
+                .into_response();
+            }
+            _ => {}
         }
         let now = jsonwebtoken::get_current_timestamp();
         let mut claims = profile;

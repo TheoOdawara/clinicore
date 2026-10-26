@@ -66,7 +66,7 @@ pub async fn refresh(
     if access::is_revoked(&state.redis, session_id).await? {
         return Err(SessionError::InvalidSession);
     }
-    let issued = secret::issue()?;
+    let issued = secret::issue();
     let user_id = queries::rotate_session(
         &state.pool,
         &state.redis,
@@ -76,7 +76,13 @@ pub async fn refresh(
         &issued.hash,
     )
     .await?;
-    sign_tokens(state, user_id, session_id, client, &issued.secret)
+    Ok(sign_tokens(
+        state,
+        user_id,
+        session_id,
+        client,
+        &issued.secret,
+    ))
 }
 
 pub(crate) async fn open_session(
@@ -85,7 +91,7 @@ pub(crate) async fn open_session(
     client: SessionClient,
     device: Device,
 ) -> Result<SessionTokens, SessionError> {
-    let issued = secret::issue()?;
+    let issued = secret::issue();
     let session_id = queries::open_session(
         &state.pool,
         &state.redis,
@@ -95,7 +101,13 @@ pub(crate) async fn open_session(
         device,
     )
     .await?;
-    sign_tokens(state, user_id, session_id, client, &issued.secret)
+    Ok(sign_tokens(
+        state,
+        user_id,
+        session_id,
+        client,
+        &issued.secret,
+    ))
 }
 
 fn sign_tokens(
@@ -104,10 +116,10 @@ fn sign_tokens(
     session_id: Uuid,
     client: SessionClient,
     secret: &str,
-) -> Result<SessionTokens, SessionError> {
-    Ok(SessionTokens {
-        access_token: access::sign(&state.access_keys, user_id, session_id, client)?,
+) -> SessionTokens {
+    SessionTokens {
+        access_token: access::sign(&state.access_keys, user_id, session_id, client),
         refresh_token: refresh::compose(session_id, secret),
         access_token_expires_in: access::LIFETIME.as_secs(),
-    })
+    }
 }

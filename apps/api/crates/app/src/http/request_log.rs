@@ -26,11 +26,9 @@ impl<Body> OnResponse<Body> for RequestLine {
         if span.is_disabled() {
             return;
         }
-        tracing::info!(
-            status = response.status().as_u16(),
-            duration_ms = latency.as_secs_f64() * 1000.0,
-            "request"
-        );
+        let status = response.status().as_u16();
+        let duration_ms = latency.as_secs_f64() * 1000.0;
+        tracing::info!(status, duration_ms, "request");
     }
 }
 

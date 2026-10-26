@@ -13,21 +13,21 @@ static HASHING_SLOTS: LazyLock<Semaphore> = LazyLock::new(|| {
     Semaphore::new(std::thread::available_parallelism().map_or(1, NonZeroUsize::get))
 });
 
-pub async fn hash(password: String) -> Result<String, CredentialError> {
-    let hashed = on_a_hashing_slot(move || {
+pub async fn hash(password: String) -> String {
+    on_a_hashing_slot(move || {
         Argon2::default()
             .hash_password(password.as_bytes())
-            .map(|hash| hash.to_string())
+            .expect("Argon2 with its default parameters hashes any password")
+            .to_string()
     })
-    .await?;
-    Ok(hashed?)
+    .await
 }
 
 pub async fn verify(hash: String, password: String) -> Result<bool, CredentialError> {
     let outcome = on_a_hashing_slot(move || {
         Argon2::default().verify_password(password.as_bytes(), hash.as_str())
     })
-    .await?;
+    .await;
     match outcome {
         Ok(()) => Ok(true),
         Err(Error::PasswordInvalid) => Ok(false),
@@ -39,14 +39,17 @@ pub const UNMATCHABLE_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$ggfuwG4ACktlF
 
 async fn on_a_hashing_slot<Output: Send + 'static>(
     work: impl FnOnce() -> Output + Send + 'static,
-) -> Result<Output, CredentialError> {
-    let slot = HASHING_SLOTS.acquire().await?;
-    let output = tokio::task::spawn_blocking(move || {
+) -> Output {
+    let slot = HASHING_SLOTS
+        .acquire()
+        .await
+        .expect("the hashing semaphore is never closed");
+    tokio::task::spawn_blocking(move || {
         let _held = slot;
         work()
     })
-    .await?;
-    Ok(output)
+    .await
+    .expect("hashing never panics and the runtime outlives the request")
 }
 
 pub fn strong_password(password: &str) -> Result<(), ValidationError> {

@@ -5,7 +5,7 @@ use std::time::Duration;
 use clinicore_worker::mail::{Mailer, Transport};
 use clinicore_worker::outbox::{self, claim, deliver};
 use lettre::transport::stub::AsyncStubTransport;
-use lettre::{AsyncSmtpTransport, Tokio1Executor};
+use lettre::{Address, AsyncSmtpTransport, Tokio1Executor};
 use sqlx::PgPool;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
@@ -16,6 +16,15 @@ use uuid::Uuid;
 use crate::support::{capture_log, count};
 
 const EMAIL: &str = "ana@exemplo.com";
+
+const REFUSE_DELETES: &str = "CREATE FUNCTION refuse() RETURNS trigger LANGUAGE plpgsql
+    AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$;
+    CREATE TRIGGER refuse BEFORE DELETE ON email_outbox
+    FOR EACH STATEMENT EXECUTE FUNCTION refuse()";
+const REFUSE_UPDATES: &str = "CREATE FUNCTION refuse() RETURNS trigger LANGUAGE plpgsql
+    AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$;
+    CREATE TRIGGER refuse BEFORE UPDATE ON email_outbox
+    FOR EACH STATEMENT EXECUTE FUNCTION refuse()";
 
 async fn enqueue(pool: &PgPool, email: &str, attempts: i32, expires_in_seconds: f64) -> Uuid {
     sqlx::query_scalar(
@@ -32,8 +41,12 @@ async fn enqueue(pool: &PgPool, email: &str, attempts: i32, expires_in_seconds: 
     .expect("a queued mail")
 }
 
+fn sender() -> Address {
+    "clinicore@example.com".parse().expect("a valid sender")
+}
+
 fn stub_mailer(stub: &AsyncStubTransport) -> Mailer {
-    Mailer::new("clinicore@example.com", Transport::Stub(stub.clone())).expect("a valid sender")
+    Mailer::new(sender(), Transport::Stub(stub.clone()))
 }
 
 async fn process(pool: &PgPool, mailer: &Mailer) {
@@ -177,8 +190,7 @@ async fn a_stop_finishes_the_mail_in_flight_and_claims_nothing_else(pool: PgPool
     let transport = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous("127.0.0.1")
         .port(port)
         .build();
-    let mailer =
-        Mailer::new("clinicore@example.com", Transport::Smtp(transport)).expect("a valid sender");
+    let mailer = Mailer::new(sender(), Transport::Smtp(transport));
     let stop = CancellationToken::new();
     let worker = tokio::spawn(outbox::run(pool.clone(), mailer, stop.clone()));
 
@@ -197,6 +209,151 @@ async fn a_stop_finishes_the_mail_in_flight_and_claims_nothing_else(pool: PgPool
     let unclaimed =
         "SELECT count(*) FROM email_outbox WHERE email = 'bia@exemplo.com' AND attempts = 0";
     assert_eq!(count(&pool, unclaimed).await, 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_stop_leaves_the_rest_of_the_claimed_batch_for_the_next_run(pool: PgPool) {
+    let (port, received, in_flight) = slow_smtp().await;
+    enqueue(&pool, EMAIL, 0, 3600.0).await;
+    enqueue(&pool, "bia@exemplo.com", 0, 3600.0).await;
+    let transport = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous("127.0.0.1")
+        .port(port)
+        .build();
+    let stop = CancellationToken::new();
+    let worker = tokio::spawn(outbox::run(
+        pool.clone(),
+        Mailer::new(sender(), Transport::Smtp(transport)),
+        stop.clone(),
+    ));
+
+    in_flight.await.expect("the mail in flight");
+    stop.cancel();
+    tokio::time::timeout(Duration::from_secs(5), worker)
+        .await
+        .expect("a stopped worker")
+        .expect("a worker that did not panic");
+
+    let data = received.lock().expect("an unpoisoned message").clone();
+    assert_eq!(
+        data.matches("Subject: Confirm your email").count(),
+        1,
+        "{data}"
+    );
+    let claimed_and_kept =
+        "SELECT count(*) FROM email_outbox WHERE status = 'pending' AND attempts = 1";
+    assert_eq!(count(&pool, claimed_and_kept).await, 1);
+    assert_eq!(count(&pool, "SELECT count(*) FROM email_outbox").await, 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_delivery_that_cannot_be_recorded_is_logged_and_the_loop_goes_on(pool: PgPool) {
+    let (log, _guard) = capture_log();
+    enqueue(&pool, EMAIL, 0, 3600.0).await;
+    sqlx::raw_sql(REFUSE_DELETES)
+        .execute(&pool)
+        .await
+        .expect("a refused delete");
+    let stub = AsyncStubTransport::new_ok();
+    let stop = CancellationToken::new();
+
+    let worker = tokio::spawn(outbox::run(pool.clone(), stub_mailer(&stub), stop.clone()));
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while !log
+        .lines()
+        .iter()
+        .any(|line| line["message"] == "could not record the mail delivery")
+    {
+        assert!(std::time::Instant::now() < deadline, "{:?}", log.lines());
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    stop.cancel();
+    tokio::time::timeout(Duration::from_secs(5), worker)
+        .await
+        .expect("a stopped worker")
+        .expect("a worker that did not panic");
+
+    assert_eq!(stub.messages().await.len(), 1);
+    assert_eq!(count(&pool, "SELECT count(*) FROM email_outbox").await, 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_loop_looks_at_the_queue_again_after_five_seconds(pool: PgPool) {
+    let stub = AsyncStubTransport::new_ok();
+    let stop = CancellationToken::new();
+    let worker = tokio::spawn(outbox::run(pool.clone(), stub_mailer(&stub), stop.clone()));
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let queued_at = std::time::Instant::now();
+
+    enqueue(&pool, EMAIL, 0, 3600.0).await;
+    let deadline = queued_at + Duration::from_secs(8);
+    while count(&pool, "SELECT count(*) FROM email_outbox").await > 0 {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the queue was never read again"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    stop.cancel();
+    tokio::time::timeout(Duration::from_secs(5), worker)
+        .await
+        .expect("a stopped worker")
+        .expect("a worker that did not panic");
+
+    assert!(
+        queued_at.elapsed() >= Duration::from_secs(4),
+        "{:?}",
+        queued_at.elapsed()
+    );
+    assert_eq!(stub.messages().await.len(), 1);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_retry_or_a_give_up_that_cannot_be_recorded_is_an_error(pool: PgPool) {
+    let mailer = stub_mailer(&AsyncStubTransport::new_error());
+    enqueue(&pool, EMAIL, 0, 3600.0).await;
+    enqueue(&pool, "bia@exemplo.com", 4, 3600.0).await;
+    let claimed = claim(&pool).await.expect("a claim");
+    sqlx::raw_sql(REFUSE_UPDATES)
+        .execute(&pool)
+        .await
+        .expect("a refused update");
+
+    for mail in claimed {
+        let attempts = mail.attempts;
+        assert!(
+            deliver(&pool, &mailer, mail).await.is_err(),
+            "attempt {attempts}"
+        );
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_invalid_recipient_or_an_unreachable_server_backs_off_like_any_failure(pool: PgPool) {
+    let (log, _guard) = capture_log();
+    let unreachable = TcpListener::bind("127.0.0.1:0").await.expect("a free port");
+    let closed_port = unreachable.local_addr().expect("a bound address").port();
+    drop(unreachable);
+    let stub = AsyncStubTransport::new_ok();
+    let smtp = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous("127.0.0.1")
+        .port(closed_port)
+        .build();
+
+    enqueue(&pool, "not-an-address", 0, 3600.0).await;
+    process(&pool, &stub_mailer(&stub)).await;
+    enqueue(&pool, EMAIL, 0, 3600.0).await;
+    process(&pool, &Mailer::new(sender(), Transport::Smtp(smtp))).await;
+
+    assert!(stub.messages().await.is_empty());
+    let retrying = "SELECT count(*) FROM email_outbox
+        WHERE status = 'pending' AND attempts = 1 AND next_attempt_at > now()";
+    assert_eq!(count(&pool, retrying).await, 2);
+    let retried: Vec<serde_json::Value> = log
+        .lines()
+        .into_iter()
+        .filter(|line| line["message"] == "mail delivery failed, retrying")
+        .map(|line| line["email"].clone())
+        .collect();
+    assert_eq!(retried, ["***", "a***@exemplo.com"]);
 }
 
 async fn slow_smtp() -> (u16, Arc<Mutex<String>>, oneshot::Receiver<()>) {

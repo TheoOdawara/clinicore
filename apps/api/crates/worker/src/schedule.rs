@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use croner::Cron;
-use jiff::Zoned;
+use jiff::{Timestamp, Zoned};
 use sqlx::PgPool;
 use tokio_util::sync::CancellationToken;
 
@@ -17,9 +17,9 @@ pub fn next_run(after: &Zoned) -> Zoned {
         .expect("a daily schedule always has a next run")
 }
 
-pub async fn run(pool: PgPool, shutdown: CancellationToken) {
+pub async fn run(pool: PgPool, shutdown: CancellationToken, clock: impl Fn() -> Timestamp) {
     loop {
-        let now = Zoned::now()
+        let now = clock()
             .in_tz(TIME_ZONE)
             .expect("the bundled time zone database has America/Sao_Paulo");
         let next = next_run(&now);

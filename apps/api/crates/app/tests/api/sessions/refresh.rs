@@ -5,7 +5,8 @@ use sqlx::PgPool;
 use super::{
     Transport, WEB_ORIGIN, lifetime_matches, revoke_without_deleting, revoked_ttl, session_exists,
 };
-use crate::support::{app_with, fresh_email, json_body, register, request, set_cookie};
+use crate::faults::faulty_app;
+use crate::support::{MOBILE, app_with, fresh_email, json_body, register, request, set_cookie};
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_refresh_rotates_the_tokens_on_each_transport(pool: PgPool) {
@@ -196,4 +197,88 @@ async fn a_session_refreshes_at_most_thirty_times_a_minute_whatever_the_address(
 
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
     assert!(session_exists(&pool, session.id()).await);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_failure_at_any_step_of_the_refresh_keeps_the_session(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
+    let faulty = faulty_app(&pool).await;
+    register(&faulty.app, &pool, email, true).await;
+    let session = Transport::Mobile.sign_in(&faulty.app, email).await;
+
+    for (fault, command, status) in [
+        (&faulty.redis, "EXISTS", StatusCode::SERVICE_UNAVAILABLE),
+        (&faulty.database, "BEGIN", StatusCode::INTERNAL_SERVER_ERROR),
+        (
+            &faulty.database,
+            "FOR UPDATE",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (
+            &faulty.database,
+            "UPDATE sessions",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (
+            &faulty.database,
+            "COMMIT",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+    ] {
+        fault.cut_at(command, 0);
+        let response = Transport::Mobile
+            .refresh(&faulty.app, &session.refresh)
+            .await;
+        assert_eq!(response.status(), status, "{command}");
+    }
+
+    let rotated = Transport::Mobile
+        .refresh(&faulty.app, &session.refresh)
+        .await;
+    assert_eq!(rotated.status(), StatusCode::OK);
+    for (fault, command, status) in [
+        (
+            &faulty.database,
+            "ROLLBACK",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (&faulty.redis, "SETEX", StatusCode::SERVICE_UNAVAILABLE),
+    ] {
+        fault.cut_at(command, 0);
+        let reused = Transport::Mobile
+            .refresh(&faulty.app, &session.refresh)
+            .await;
+        assert_eq!(reused.status(), status, "{command}");
+        assert!(session_exists(&pool, session.id()).await, "{command}");
+    }
+    let reused = Transport::Mobile
+        .refresh(&faulty.app, &session.refresh)
+        .await;
+    assert_eq!(reused.status(), StatusCode::UNAUTHORIZED);
+    assert!(!session_exists(&pool, session.id()).await);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_missing_or_malformed_refresh_token_is_refused(pool: PgPool) {
+    let app = app_with(&pool);
+    let path = "/sessions/current/tokens";
+
+    let mobile_without_body = request(app.clone(), "POST", path, &[MOBILE], None).await;
+    assert_eq!(
+        mobile_without_body.status(),
+        StatusCode::UNSUPPORTED_MEDIA_TYPE
+    );
+
+    for cookie in [None, Some("clinicore_refresh=not-a-refresh-token")] {
+        let headers: Vec<(&str, &str)> = [WEB_ORIGIN]
+            .into_iter()
+            .chain(cookie.map(|cookie| ("cookie", cookie)))
+            .collect();
+        let response = request(app.clone(), "POST", path, &headers, None).await;
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "{cookie:?}");
+        let cleared = set_cookie(&response, "clinicore_refresh").expect("a cleared cookie");
+        assert!(cleared.contains("Max-Age=0"), "{cleared}");
+    }
 }

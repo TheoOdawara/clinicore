@@ -69,6 +69,7 @@ pub async fn deliver(pool: &PgPool, mailer: &Mailer, mail: Claimed) -> Result<()
             .await?;
         return Ok(());
     };
+    let email = masked(&mail.email);
     if mail.attempts < MAX_ATTEMPTS {
         sqlx::query!(
             "UPDATE email_outbox SET next_attempt_at = now() + make_interval(mins => 1 << (attempts - 1))
@@ -78,7 +79,7 @@ pub async fn deliver(pool: &PgPool, mailer: &Mailer, mail: Claimed) -> Result<()
         .execute(pool)
         .await?;
         tracing::warn!(
-            email = %masked(&mail.email),
+            %email,
             attempt = mail.attempts,
             reason = %reason,
             "mail delivery failed, retrying"
@@ -92,7 +93,7 @@ pub async fn deliver(pool: &PgPool, mailer: &Mailer, mail: Claimed) -> Result<()
         .execute(pool)
         .await?;
         tracing::error!(
-            email = %masked(&mail.email),
+            %email,
             attempts = mail.attempts,
             reason = %reason,
             "mail delivery gave up"

@@ -3,6 +3,7 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use super::{Transport, revoked_ttl, session_exists, sign_in};
+use crate::faults::faulty_app;
 use crate::support::{
     MOBILE, PASSWORD, app_with, config_with, fresh_email, json_body, register, request, send,
     set_cookie, state_on_redis,
@@ -181,4 +182,77 @@ async fn a_session_answers_at_most_a_hundred_requests_in_ten_seconds_whatever_th
         .call(&app, "DELETE", "/sessions/current", &session.access)
         .await;
     assert_eq!(sign_out.status(), StatusCode::NO_CONTENT);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_failure_reading_or_closing_the_session_answers_500_or_503(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
+    let faulty = faulty_app(&pool).await;
+    register(&faulty.app, &pool, email, true).await;
+    let web = Transport::Web.sign_in(&faulty.app, email).await;
+    let mobile = Transport::Mobile.sign_in(&faulty.app, email).await;
+
+    for (fault, command, method, status) in [
+        (
+            &faulty.redis,
+            "EXISTS",
+            "GET",
+            StatusCode::SERVICE_UNAVAILABLE,
+        ),
+        (
+            &faulty.database,
+            "SELECT id, name, email",
+            "GET",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ),
+        (
+            &faulty.redis,
+            "SETEX",
+            "DELETE",
+            StatusCode::SERVICE_UNAVAILABLE,
+        ),
+    ] {
+        fault.cut_at(command, 0);
+        let response = Transport::Web
+            .call(&faulty.app, method, "/sessions/current", &web.access)
+            .await;
+        assert_eq!(response.status(), status, "{command}");
+        assert!(
+            set_cookie(&response, "clinicore_access").is_none(),
+            "{command}"
+        );
+    }
+    assert!(session_exists(&pool, web.id()).await);
+
+    faulty.database.cut_at("DELETE FROM sessions", 0);
+    let response = Transport::Mobile
+        .call(&faulty.app, "DELETE", "/sessions/current", &mobile.access)
+        .await;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(session_exists(&pool, mobile.id()).await);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn signing_out_a_session_that_is_already_gone_answers_401(pool: PgPool) {
+    let email = fresh_email();
+    let email = email.as_str();
+    let app = app_with(&pool);
+    register(&app, &pool, email, true).await;
+    let session = Transport::Mobile.sign_in(&app, email).await;
+    sqlx::query("DELETE FROM sessions WHERE id = $1")
+        .bind(session.id())
+        .execute(&pool)
+        .await
+        .expect("a session purged under a live access token");
+
+    let response = Transport::Mobile
+        .call(&app, "DELETE", "/sessions/current", &session.access)
+        .await;
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        json_body(response).await["type"],
+        "tag:clinicore.com.br,2026:invalid-session"
+    );
 }

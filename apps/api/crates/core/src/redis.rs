@@ -12,14 +12,16 @@ pub struct Redis {
 }
 
 impl Redis {
-    pub fn connect_lazy(config: &Config) -> RedisResult<Self> {
-        let client = redis::Client::open(config.redis_url.as_str())?;
+    pub fn connect_lazy(config: &Config) -> Self {
+        let client = redis::Client::open(config.redis_url.clone())
+            .expect("Config already parsed REDIS_URL into connection info");
         let settings = ConnectionManagerConfig::new()
             .set_connection_timeout(Some(Duration::from_secs(1)))
             .set_response_timeout(Some(Duration::from_secs(1)))
             .set_number_of_retries(1);
-        let connection = ConnectionManager::new_lazy_with_config(client, settings)?;
-        Ok(Self { connection })
+        let connection = ConnectionManager::new_lazy_with_config(client, settings)
+            .expect("the settings leave resubscription off, the only combination it rejects");
+        Self { connection }
     }
 
     pub async fn hit(&self, key: &str, window: Duration) -> RedisResult<u64> {

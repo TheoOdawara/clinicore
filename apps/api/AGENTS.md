@@ -114,7 +114,7 @@ crates/
     │       └── tokens/                              o que a sessão entrega ao cliente
     │           └── mod.rs  access.rs  refresh.rs  cookies.rs
     └── tests/api/
-        ├── main.rs  support.rs
+        ├── main.rs  support.rs  faults.rs
         ├── boot.rs  cors.rs  errors.rs  health.rs  openapi.rs  request_log.rs
         ├── users/  mod.rs  sign_up.rs  change_password.rs
         ├── email_verifications/  mod.rs  request.rs  confirmation.rs
@@ -212,14 +212,22 @@ migrations/  .sqlx/
   - Cada variante com código leva status, slug e `title`; o `type` é
     `tag:clinicore.com.br,2026:<slug>`. `Rejected(status)` é o `about:blank` do protocolo: 404, 415,
     JSON malformado e corpo grande.
-  - O `core` é biblioteca e não conhece HTTP: cada módulo devolve o erro tipado dele (`askama::Error`,
-    `RedisError`, `sqlx::Error`, `InvalidEnvironment`), nunca `Box<dyn Error>`.
+  - O `core` é biblioteca e não conhece HTTP: cada módulo devolve o erro tipado dele (`RedisError`,
+    `sqlx::Error`, `InvalidEnvironment`), nunca `Box<dyn Error>`.
   - A feature tem o próprio `enum` em `<feature>/error.rs` e o `impl From<ErroDaFeature> for
     AppError`. Service e helpers da feature devolvem o erro dela, e o handler converte com `?`.
   - O `sqlx::Error` vira `AppError::Database` e o `RedisError` vira `AppError::Unavailable` pelo
     `#[from]`, para o handler que chama o `core` direto.
   - `Database`, `Internal` e panic viram `500` sem detalhe, e `Unavailable` vira `503`; a causa é
     logada em `error` só no `error.rs`.
+- **`Result` é para falha que o ambiente causa; `expect` é para invariante do próprio programa.** Rede,
+  banco, Redis, SMTP e dado que vem de fora (um endereço lido do banco, um corpo, um token) voltam por
+  `?`. Uma operação que só falha se o código estiver errado usa `expect` com a invariante na mensagem:
+  assinar HS256, renderizar um template que compila, sortear do `getrandom`, o semáforo do hash que
+  ninguém fecha, o `spawn_blocking` sem cancelamento, o registro do SIGTERM. Valor que pode vir
+  malformado vira tipo na fronteira (`PgConnectOptions`, `ConnectionInfo`, `lettre::Address` no
+  `config.rs`), e daí para dentro a conversão não falha mais. Variante de erro que nenhum caminho
+  produz não existe.
 
 ## Segredos
 
@@ -277,6 +285,14 @@ migrations/  .sqlx/
   consultas dos `queries.rs`.
 - **Teste unitário de lógica pura fica no próprio arquivo**, num `#[cfg(test)] mod tests` no fim, como
   o do `crates/core/src/config.rs`.
+- **A falha do Postgres e do Redis no meio de uma requisição é provada pelo `tests/api/faults.rs`.** O
+  `faulty_app` põe um proxy TCP entre o app e cada um, e `cut_at(comando, pular)` derruba a conexão
+  quando o cliente manda o próximo trecho com aquele texto: um SQL (`"INSERT INTO sessions"`,
+  `"COMMIT"`) ou um comando do Redis (`"EVALSHA"`, `"SETEX"`). O pool do proxy usa
+  `statement_cache_capacity(0)`, para todo `query!` mandar o SQL de novo, e `PgSslMode::Disable`, para o
+  texto passar legível. O worker não sobe proxy: renomeia a tabela ou cria um trigger que levanta erro.
+- **O teste de boot sobe o binário de verdade e manda o sinal com `kill -s`**, para o SIGTERM e o
+  SIGINT saírem com 0. A API está pronta quando responde `404` numa rota que não existe.
 - **O comportamento que o cliente observa é teste de integração em `crates/app/tests/api/`.** É um binário
   só, `tests/api/main.rs`, com um módulo por feature e o `support.rs` com os helpers. Arquivo solto em
   `tests/` vira outro binário e é proibido. O worker segue a mesma forma, em `crates/worker/tests/worker/`.
@@ -334,3 +350,12 @@ migrations/  .sqlx/
   rota limitada responde `503` enquanto o `/health` continua `200`.
 - **O teste de boot roda o binário com `env_clear()`**, para não enxergar o ambiente de quem roda a
   suíte.
+- **O `sqlx` liga a feature `log` do `tracing`, e com ela cada campo calculado dentro de um
+  `tracing::info!` vira uma região que nunca roda**: a do fallback para o `log`, que só existe quando
+  nenhum subscriber está ligado. O valor é calculado numa variável antes da macro, e a macro recebe só
+  o nome (`tracing::info!(status, duration_ms, "request")`).
+- **O `llvm-cov report` conta uma função genérica pela instanciação mais coberta**, e não pela união
+  delas. Um `ValidJson<SignUpRequest>` que só vê o `415` noutro tipo de corpo deixa a região aberta, então
+  cada caminho da função genérica precisa rodar na mesma instanciação.
+- **Perfil velho do `llvm-cov` distorce a medida.** Antes de medir de novo, `cargo llvm-cov clean
+  --workspace`.

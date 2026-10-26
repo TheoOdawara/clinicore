@@ -10,7 +10,7 @@ pub async fn request_email_verification(
     email: &str,
 ) -> Result<(), EmailVerificationError> {
     let address = email.to_lowercase();
-    let issued = secret::issue()?;
+    let issued = secret::issue();
     let link = verification_link(state, &issued.secret);
     queries::request_verification(&state.pool, &address, &issued.hash, |name| {
         emails::verification(name, &link)

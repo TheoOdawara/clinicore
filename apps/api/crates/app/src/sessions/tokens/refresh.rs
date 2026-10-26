@@ -40,6 +40,6 @@ pub fn parse(raw: &str) -> Option<(Uuid, &str)> {
     if !FORMAT.is_match(raw) {
         return None;
     }
-    let (session_id, secret) = raw.split_once('.')?;
+    let (session_id, secret) = raw.split_once('.').expect("FORMAT requires the dot");
     Uuid::try_parse(session_id).ok().map(|id| (id, secret))
 }

@@ -5,6 +5,7 @@ use clinicore_core::config::WorkerConfig;
 use clinicore_core::{db, shutdown, telemetry};
 use clinicore_worker::mail::Mailer;
 use clinicore_worker::{outbox, schedule};
+use jiff::Timestamp;
 use tokio_util::sync::CancellationToken;
 
 #[tokio::main]
@@ -24,20 +25,8 @@ async fn main() -> ExitCode {
     ))
     .expect("the only global subscriber");
 
-    let pool = match db::connect_lazy(&config.database_url) {
-        Ok(pool) => pool,
-        Err(error) => {
-            tracing::error!(error = %error, "could not set up the database pool");
-            return ExitCode::FAILURE;
-        }
-    };
-    let mailer = match Mailer::smtp(&config) {
-        Ok(mailer) => mailer,
-        Err(error) => {
-            tracing::error!(error = %error, "could not set up the mail transport");
-            return ExitCode::FAILURE;
-        }
-    };
+    let pool = db::connect_lazy(&config.database_url);
+    let mailer = Mailer::smtp(&config);
 
     let stop = CancellationToken::new();
     tokio::join!(
@@ -46,7 +35,7 @@ async fn main() -> ExitCode {
             stop.cancel();
         },
         outbox::run(pool.clone(), mailer, stop.clone()),
-        schedule::run(pool, stop.clone()),
+        schedule::run(pool, stop.clone(), Timestamp::now),
     );
     ExitCode::SUCCESS
 }
