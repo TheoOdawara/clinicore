@@ -14,6 +14,7 @@ fn an_incomplete_environment_stops_the_boot_and_names_every_rejected_variable() 
             ("SMTP_PORT", "587"),
             ("SMTP_USER", "test@example.com"),
         ])
+        .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|file| ("LLVM_PROFILE_FILE", file)))
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()

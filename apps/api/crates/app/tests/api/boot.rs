@@ -13,6 +13,7 @@ fn boot(overrides: &[(&str, Option<&str>)]) -> Exit {
     let mut child = Command::new(env!("CARGO_BIN_EXE_api"))
         .env_clear()
         .envs(environment_with(overrides))
+        .envs(std::env::var_os("LLVM_PROFILE_FILE").map(|file| ("LLVM_PROFILE_FILE", file)))
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()

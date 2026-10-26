@@ -19,7 +19,7 @@ axum-extra = { version = "0.12.6", features = ["cookie"] }
 axum-client-ip = { version = "1.3.1", default-features = false, features = ["connect-info"] }
 base64 = "0.23.1"
 cookie = "0.18.2"
-croner = { version = "4.0.1", default-features = false, features = ["jiff"] }
+croner = { version = "4.0.2", default-features = false, features = ["jiff"] }
 email_address = "0.2.9"
 getrandom = "0.4.3"
 hex = "0.4.3"
@@ -29,25 +29,25 @@ jiff = { version = "0.2.38", features = ["tzdb-bundle-always"] }
 jsonwebtoken = { version = "11.1.0", default-features = false, features = ["rust_crypto"] }
 lettre = { version = "0.11.23", default-features = false, features = ["tokio1-rustls", "builder", "smtp-transport", "pool", "ring", "rustls-native-certs"] }
 openidconnect = "4.0.1"
-redis = { version = "1.7.1", features = ["tokio-comp", "connection-manager"] }
+redis = { version = "1.8.0", features = ["tokio-comp", "connection-manager"] }
 regex = "1.13.1"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+serde_json = "1.0.154"
 serde_path_to_error = "0.1.20"
-sha2 = "0.11.0"
+sha2 = "0.11.1"
 sqlx = { version = "0.9.0", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls", "macros", "migrate", "uuid", "ipnet"] }
 thiserror = "2.0.21"
-tokio = "1.53.1"
+tokio = "1.54.1"
 tokio-util = "0.7.20"
 tower = { version = "0.5.3", features = ["util"] }
 tower-http = { version = "0.7.1", features = ["trace", "cors", "catch-panic", "set-header"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json"] }
 url = "2.5.8"
-uuid = { version = "1.26.1", features = ["serde"] }
+uuid = { version = "1.29.0", features = ["serde"] }
 utoipa = { version = "6.0.0", features = ["uuid"] }
 utoipa-axum = "0.3.0"
-utoipa-swagger-ui = { version = "10.0.1", features = ["axum", "vendored"] }
+utoipa-swagger-ui = { version = "10.0.2", features = ["axum", "vendored"] }
 validator = { version = "0.21.0", features = ["derive"] }
 
 [profile.dev.package.argon2]

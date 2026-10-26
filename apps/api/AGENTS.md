@@ -15,32 +15,39 @@ guardado na tag `api-nestjs-final`, não é referência de implementação.
 
 ## Comandos
 
-Cada comando roda de dentro do `apps/api`. A toolchain é a do `rust-toolchain.toml` (Rust 1.98.1,
+Cada comando roda de dentro do `apps/api`. A toolchain é a do `rust-toolchain.toml` (Rust 1.99.1,
 edition 2024).
 
-| Gate             | Comando                                                                                                                 |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Formato          | `cargo fmt --check`                                                                                                     |
-| Análise estática | `cargo clippy --all-targets -- -D warnings`                                                                             |
-| Build            | `cargo build`                                                                                                           |
-| Schema           | `infisical run --path=/api -- sqlx migrate run` · `infisical run --path=/api -- cargo sqlx prepare --workspace --check` |
-| Dependências     | `cargo audit`                                                                                                           |
-| Testes           | `infisical run --path=/api -- cargo test`                                                                               |
+| Gate | Comando |
+| --- | --- |
+| Formato | `cargo fmt --check` |
+| Análise estática | `cargo clippy --all-targets -- -D warnings` |
+| Build | `cargo build` |
+| Schema | `infisical run --path=/api -- sqlx migrate run` · `infisical run --path=/api -- cargo sqlx prepare --workspace --check` |
+| Dependências | `cargo deny check` |
+| Testes e cobertura | `infisical run --path=/api -- cargo llvm-cov nextest --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100` |
 
 O `sqlx-cli` é instalado com
-`cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls`,
-a mesma versão do job `api` do CI, e o `cargo-audit` com
-`cargo install cargo-audit --version 0.22.2 --locked`. **As advisories ignoradas ficam no
-`.cargo/audit.toml`**, e cada uma tem o motivo aqui:
+`cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls`, e
+o `cargo-nextest`, o `cargo-llvm-cov` e o `cargo-deny` com `cargo install --locked`, nas versões do job
+`api` do CI. O `llvm-tools-preview` que o `cargo-llvm-cov` usa vem do `rust-toolchain.toml`.
 
-- **RUSTSEC-2023-0071**: o ataque de tempo dela alcança operação com chave privada RSA, e a API não tem
-  nenhuma. O `rsa` vem do `jsonwebtoken`, que só assina e confere HS256, e do `openidconnect`, que só
+**As advisories ignoradas ficam no `deny.toml`**, cada uma com o motivo no campo `reason`:
+
+- **RUSTSEC-2023-0071**: o ataque de tempo do `rsa` alcança operação com chave privada RSA, e a API não
+  tem nenhuma. O `rsa` vem do `jsonwebtoken`, que só assina e confere HS256, e do `openidconnect`, que só
   confere a assinatura RS256 do `id_token` com a chave pública do Google.
-- **RUSTSEC-2026-0367 a 0369**: o `zip` 8.6 é build-dependency do `utoipa-swagger-ui` 10.0.1 e só
-  extrai, no `build.rs`, o zip do Swagger UI que vem dentro do próprio crate, nunca um arquivo de fora;
-  ele não entra no binário. O ignore sai quando o `utoipa-swagger-ui` aceitar o `zip` 9.
+- **RUSTSEC-2026-0387**: o `crypto-bigint` 0.5 vem pelo `p256` 0.13, que o `jsonwebtoken` 11.1.0 e o
+  `openidconnect` 4.0.1 trazem, os dois na última versão. Nenhum caminho usa ES256. O ignore sai quando
+  os dois subirem o `p256`.
+- **RUSTSEC-2026-0374**: o `basic-toml` está sem manutenção, mas só o `askama_derive` o usa, na
+  compilação, para ler o `askama.toml`. Nada chega ao binário.
 
-O `compose.yaml` sobe o Postgres 18 e o Redis 8 de
+**A cobertura é 100% em linhas, funções e regiões.** O Rust stable não mede branch: o `--branch` do
+`llvm-cov` exige nightly, e região é o mais perto disso. O nextest não roda doctest, e o repo não tem
+nenhum, porque o contrato só aceita comentário `shortcut:`.
+
+O `compose.yaml` sobe o Postgres 18.6 e o Redis 8.10.2 de
 desenvolvimento com `infisical run --path=/api -- docker compose up -d --wait`, e as portas e as credenciais vêm do
 Infisical.
 
@@ -254,7 +261,7 @@ migrations/  .sqlx/
 
 ## Testes
 
-- **O `cargo test` precisa do Postgres e do Redis de pé e roda dentro do `infisical run`.** O
+- **O `cargo nextest` precisa do Postgres e do Redis de pé e roda dentro do `infisical run`.** O
   `#[sqlx::test(migrations = "../../migrations")]` cria um banco por teste a partir da `DATABASE_URL`.
 - **A suíte só lê `DATABASE_URL` e `REDIS_URL` do ambiente**; o resto vem do mapa do `support.rs`. Com
   as portas de dev ocupadas por outro projeto, o gate roda contra um `postgres:18` e um `redis:8`

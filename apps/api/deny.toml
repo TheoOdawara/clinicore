@@ -1,0 +1,39 @@
+[graph]
+all-features = true
+
+[advisories]
+ignore = [
+  { id = "RUSTSEC-2023-0071", reason = "rsa timing attack needs a private RSA key; the API holds none and only verifies Google's RS256 id_token with its public key" },
+  { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5 comes through p256 0.13 in jsonwebtoken 11.1.0 and openidconnect 4.0.1, both latest; no ES256 path runs: access tokens are HS256 and Google signs RS256" },
+  { id = "RUSTSEC-2026-0374", reason = "basic-toml is unmaintained but only askama_derive reads askama.toml at compile time; nothing reaches the binaries" },
+]
+
+[licenses]
+allow = [
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-1-Clause",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CDLA-Permissive-2.0",
+  "ISC",
+  "MIT",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+]
+confidence-threshold = 0.9
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
