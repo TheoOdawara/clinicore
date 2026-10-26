@@ -7,7 +7,7 @@ aceita não é reescrita; outra a emenda ou a substitui.
 | --- | --- | --- |
 | [0001](0001-api-em-nestjs-typeorm-e-redis.md) | API em NestJS, TypeORM e Redis | substituída pela 0009 |
 | [0002](0002-web-e-site-em-vite.md) | Web e site em Vite, com prerender no site | aceita, emendada pela 0004 e pela 0007 |
-| [0003](0003-design-system-com-shadcn-ui-e-react-bits.md) | Design system com shadcn/ui, e React Bits com escopo por categoria | substituída pela 0016 no estilo; o React Bits continua valendo |
+| [0003](0003-design-system-com-shadcn-ui-e-react-bits.md) | Design system com shadcn/ui, e React Bits com escopo por categoria | aceita; voltou a valer inteira pela 0018 |
 | [0004](0004-lint-do-front-em-eslint.md) | Lint do front em ESLint, com TypeScript 6 | aceita |
 | [0005](0005-front-em-npm-sobre-node.md) | Front em npm sobre Node 26 | substituída pela 0015 |
 | [0006](0006-api-rest-e-problem-details.md) | API em REST orientado a recurso, com erro em Problem Details | aceita |
@@ -20,5 +20,6 @@ aceita não é reescrita; outra a emenda ou a substitui.
 | [0013](0013-assinatura-digital-em-duas-camadas.md) | Assinatura digital em duas camadas, por provedor existente | aceita |
 | [0014](0014-deploy-por-dockerfile-no-coolify.md) | Deploy de cada app pelo próprio Dockerfile no Coolify | aceita |
 | [0015](0015-front-em-bun.md) | Front em Bun, como gerenciador de pacotes e runtime | aceita |
-| [0016](0016-front-em-css-modules.md) | Front em CSS puro, com CSS Modules | aceita |
+| [0016](0016-front-em-css-modules.md) | Front em CSS puro, com CSS Modules | substituída pela 0018 |
 | [0017](0017-fila-de-email-no-postgres-e-worker-com-cron.md) | Fila de e-mail numa tabela do Postgres e worker com cron | aceita |
+| [0018](0018-front-volta-ao-shadcn-ui.md) | Front volta ao Tailwind e ao shadcn/ui | aceita |

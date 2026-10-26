@@ -13,7 +13,7 @@ ter regra de negócio que a API não tenha.
 | --- | --- | --- | --- |
 | Rotas | `src/routes/` | caminho, `loader` e composição das features | existe, com a rota raiz |
 | Configuração | `src/shared/env/` | lê e valida as variáveis do build | existe |
-| Estilo | `src/styles/` | Tailwind e os tokens | existe; CSS Modules na #77 |
+| Estilo | `src/styles/` | Tailwind e os tokens | existe |
 | Cliente HTTP | `src/shared/http/` | a instância única do axios, com o refresh da sessão no interceptor | M1 · #78, com o refresh na #79 |
 | UI base | `src/shared/` | os componentes base, sem regra de negócio, a começar pelo campo de formulário acessível | M1 · #78 |
 | Features | `src/features/<feature>/` | chamada à API, schema Zod da resposta, componentes e hooks de uma feature | M1, a começar pela autenticação (#78) |

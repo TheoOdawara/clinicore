@@ -1,6 +1,6 @@
 # 0016. Front em CSS puro, com CSS Modules
 
-- Status: accepted
+- Status: superseded by 0018
 - Date: 2026-10-19
 - Substitui: 0003 na parte de estilo e de componentes base; a parte do React Bits continua valendo
 

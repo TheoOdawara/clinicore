@@ -9,7 +9,7 @@ A meta é a da [Sprint 1](sprint-01.md), que não chegou nela. Nenhuma `requirem
 a #151, que leva o SRS à v2.0.0, já está no #155.
 
 **Itens:** #151, #152, #153, #156, #119, #120, #150, #146, #148, #149, #147, #130, #133, #71, #161, #131, #127,
-#135, #128, #126, #137, #136, #154, #77, #78, #79, #80
+#135, #128, #126, #137, #136, #154, #78, #79, #80
 
 ## Ordem
 
@@ -28,13 +28,12 @@ a #151, que leva o SRS à v2.0.0, já está no #155.
 | 11 | #128, #126 e #137 — testes, limites no OpenAPI com o gate do client Dart, e arrumação | — |
 | 12 | #136 — a cota por endereço conta só o e-mail que sai | #133, #161 |
 | 13 | #154 — web e site sobre Bun | — |
-| 14 | #77 — CSS Modules no lugar do Tailwind, no web e no site | #154 |
-| 15 | #78 — telas de entrar e de criar conta | #77 |
-| 16 | #79 — área protegida, renovação da sessão e sair | #78 |
-| 17 | #80 — recuperar, redefinir e trocar a senha no web | #119, #79 |
+| 14 | #78 — telas de entrar e de criar conta | #154 |
+| 15 | #79 — área protegida, renovação da sessão e sair | #78 |
+| 16 | #80 — recuperar, redefinir e trocar a senha no web | #119, #79 |
 
 A #146, a #148 e a #149 corrigem o que a #119 e a #120 construíram, então entram na mesma branch antes do
-pull request. A #154 vem antes da #77 e da #78 para que os primeiros testes de componente já nasçam em
+pull request. A #154 vem antes da #78 para que os primeiros testes de componente já nasçam em
 `bun test`.
 
 O restante da auditoria do cadastro (#124) entrou na sprint em 2026-10-20, antes do web. São problemas
@@ -49,7 +48,8 @@ e antes da #136 porque a cota passa a contar a linha da fila.
 
 - **#154:** a [ADR 0015](../../decisions/0015-front-em-bun.md) decide o que ela faz. Não há spec de
   feature, porque nada muda para quem usa.
-- **#77:** a [ADR 0016](../../decisions/0016-front-em-css-modules.md).
+- **#77:** saiu da sprint em 2026-10-25. A [ADR 0018](../../decisions/0018-front-volta-ao-shadcn-ui.md)
+  manteve o Tailwind e trouxe o shadcn/ui de volta, e a issue foi fechada sem ser feita.
 - **#71:** [006 · worker e fila de e-mail](../../specs/autenticacao/006-worker-e-fila-de-email-api.md).
 - **As demais:** fechadas em [003 · API](../../specs/autenticacao/003-autenticacao-api.md),
   [003 · web](../../specs/autenticacao/003-autenticacao-web.md) e

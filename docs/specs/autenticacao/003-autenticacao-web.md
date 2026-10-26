@@ -17,9 +17,9 @@
 ### Referência visual
 
 `N/A` — sem protótipo. O layout é definido pelas regras abaixo, e o tema visual da aplicação não é
-esta issue. As telas são HTML nativo estilizado por CSS Modules, um `.module.css` por componente, sobre
-as camadas do `globals.css` que a #77 cria (ADR 0016). **Tema, tipografia e cores continuam fora**: as
-telas usam os tokens da camada `tokens` sem decidir o valor de nenhum.
+esta issue. As telas são montadas com os componentes do shadcn/ui, sobre o Tailwind (ADR 0003, de volta
+pela ADR 0018). **Tema, tipografia e cores continuam fora**: as telas usam os tokens do tema sem decidir
+o valor de nenhum.
 
 ### Especificação das telas
 
@@ -245,7 +245,8 @@ falsa nesse caso.
   ordem visual.
 - **Um componente de campo em `shared/` faz as três primeiras de uma vez**: recebe o rótulo e a
   mensagem de erro, gera o `id` com `useId` e liga o `label`, o `aria-describedby` e o `role="alert"`.
-  Toda tela desta spec monta os campos com ele, sem biblioteca de componentes (ADR 0016).
+  Toda tela desta spec monta os campos com ele. Ele parte do campo do shadcn/ui (ADR 0018), e o
+  `role="alert"` do erro é conferido na cópia.
 
 ### 9. O web é um PWA instalável
 
@@ -316,9 +317,8 @@ inteira no interceptor de resposta da instância de `shared/http/`.
 
 Os testes rodam no `bun test`, com o happy-dom pré-carregado pelo `bunfig.toml` (ADR 0015), e cobrem
 lógica pura e componente que decide algo, com `features/auth/api` substituído pelo `mock.module` do
-`bun:test`, no padrão do `apps/web/AGENTS.md`. Nenhum teste afirma sobre classe CSS: no `bun test`, o
-import de um `.module.css` chega como objeto vazio. Os cenários 6 e 12 são verificados no navegador,
-não em suíte.
+`bun:test`, no padrão do `apps/web/AGENTS.md`. Nenhum teste afirma sobre classe CSS. Os cenários 6 e 12
+são verificados no navegador, não em suíte.
 
 ### Cenário 1 — Entrar leva para a área logada (caminho feliz, regra 1)
 
@@ -717,10 +717,7 @@ Nenhum bloco novo, e nenhuma mudança no deploy.
 ## Fora de Escopo
 
 - **Tema visual, tipografia, ícones e cores do PWA** — pertencem à fase de design system. As telas desta
-  spec usam os tokens da camada `tokens` da ADR 0016, e nenhuma decisão de cor ou de tipografia é tomada
-  aqui.
-- **Base UI e React Aria Components** — nenhuma tela desta spec precisa deles: tudo é campo, botão e
-  link nativos (ADR 0016).
+  spec usam os tokens do tema do shadcn/ui, e nenhuma decisão de cor ou de tipografia é tomada aqui.
 - **Animação e componente do React Bits** — a ADR 0003 define em quais categorias ele pode entrar no
   `apps/web`; nenhuma tela desta spec usa nenhuma delas.
 - **Página offline e aviso de nova versão** — não pedidos; a regra 9 define o comportamento sem conexão
@@ -741,7 +738,7 @@ A numeração continua a da spec irmã, `docs/specs/autenticacao/003-autenticaca
 
 | # | Título | Escopo | Critério de aceite | Depende de |
 | --- | --- | --- | --- | --- |
-| 8 | Create the sign-in and sign-up screens on apps/web | `@tanstack/react-query`, `@tanstack/react-form`, `axios`, `@testing-library/react` e `@testing-library/dom` instalados, o componente de campo da regra 8 em `shared/`, `QueryClientProvider` e o contexto do router em `main.tsx`, `shared/http/` com a instância de axios, `features/auth/api/` com schemas Zod e `messages.ts`, `features/auth/password-policy.ts`, rotas `/login`, `/signup` e `/verify-email`, `<meta name="referrer" content="no-referrer">` no `index.html` | Cenários 1, 2, 3, 4, 5, 11, 13, 16, 17, 18, 19 e 25 (em `/verify-email`) verdes; os quatro gates do web saem com código 0 | #77, #154 |
+| 8 | Create the sign-in and sign-up screens on apps/web | `@tanstack/react-query`, `@tanstack/react-form`, `axios`, `@testing-library/react` e `@testing-library/dom` instalados, o shadcn/ui iniciado no app (`components.json`, alias `@/` e `tw-animate-css`), o componente de campo da regra 8 em `shared/`, `QueryClientProvider` e o contexto do router em `main.tsx`, `shared/http/` com a instância de axios, `features/auth/api/` com schemas Zod e `messages.ts`, `features/auth/password-policy.ts`, rotas `/login`, `/signup` e `/verify-email`, `<meta name="referrer" content="no-referrer">` no `index.html` | Cenários 1, 2, 3, 4, 5, 11, 13, 16, 17, 18, 19 e 25 (em `/verify-email`) verdes; os quatro gates do web saem com código 0 | #154 |
 | 9 | Protect the application area, refresh the session and sign out | `routes/(app)/route.tsx` com a guarda, `pendingComponent` e `errorComponent`, rota `/app`, ação `Sair`, o interceptor de renovação da regra 11 em `shared/http/`, `VITE_API_URL` no job `web` do CI | Cenários 7, 8, 9, 12, 22, 23, 24 e 27 verdes | 8 |
 | 10 | Recover, reset and change the password on apps/web | Rotas `/forgot-password`, `/reset-password` e `/app/account/password` | Cenários 10, 14, 15, 25 (em `/reset-password`) e 26 verdes | 9, #119 |
 | 11 | Make apps/web an installable PWA | `vite-plugin-pwa` em `vite.config.ts`, manifesto da regra 9, ícones em `apps/web/public/` | Cenários 20 e 21 verdes | — |
