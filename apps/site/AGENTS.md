@@ -20,9 +20,10 @@ isto: `next/image` otimizando a mídia da landing, e rota dinâmica sem trocar o
   obsoleto no 16.3.
 - **Fonte entra por `next/font`**, servida do próprio domínio.
 - **Vídeo não passa por build nenhum.** Encode, poster e `preload` são decisão de quem escreve a seção.
-- **Aqui não há restrição de categoria do React Bits**, e animação de rolagem que atravessa várias
-  seções é escrita com o GSAP direto no DOM, num efeito de um único componente cliente, não repartida
-  entre componentes.
+- **Animação é CSS nativo e, quando não basta, Motion**, que entra com a primeira seção animada. GSAP e
+  three.js só entram se uma seção desenhada pedir uma timeline fixada ou uma cena 3D, cada um com a sua
+  linha aqui. **Aqui não há restrição de categoria do React Bits**; o componente copiado traz a dependência
+  dele, e a variante em Motion é a preferida.
 - **Sem CMS e sem banco.** O conteúdo mora no repo e muda por commit.
 - **Nada de sessão nem de segredo.** O servidor do site não lê cookie, não chama rota autenticada e
   nunca é destino de redirecionamento de autenticação. O código do app não lê variável de ambiente; o
@@ -32,9 +33,18 @@ isto: `next/image` otimizando a mídia da landing, e rota dinâmica sem trocar o
   `src/app/` é a URL, este é o único lugar do repo onde nome de pasta não é inglês — componente, prop,
   variável e os arquivos de convenção do Next (`page.tsx`, `layout.tsx`) continuam sendo.
 
+## Runtime e testes
+
+- **O Node 26 roda o Next; o Bun só instala e roda as ferramentas.** `bun run dev` e `bun run build`
+  sobem o `next` pelo shebang dele, que é Node. O oxlint, o `bun fmt`, o `bun check` e o Vitest são
+  ferramentas, e o servidor de produção é o `server.js` do standalone em `node:26.12.1-slim`.
+- **A cobertura é 100% sobre `src/` fora de `src/app/`.** Página e layout são Server Components, que o
+  Vitest não renderiza quando são `async`; quem garante o conteúdo deles é o gate de prerender. Componente
+  cliente e lógica em `components/` e `sections/` têm teste em `__tests__/` ao lado.
+
 ## Pegadinhas da stack
 
-Verificadas em 2026-09-24, contra `next@16.3.6`.
+Verificadas em 2026-09-24 contra `next@16.3.6` e reconfirmadas em 2026-10-25 contra `next@16.4.3`.
 
 - **Build verde não garante página com conteúdo.** O `next build` falha quando uma página lança erro no
   prerender, mas não quando um componente cliente renderiza vazio no servidor. Por isso o gate do site
@@ -42,13 +52,14 @@ Verificadas em 2026-09-24, contra `next@16.3.6`.
 - **O standalone não copia os arquivos estáticos.** `.next/standalone/` sai sem `.next/static/` e sem
   `public/`; quem monta a imagem de container copia os dois, senão a página sobe sem CSS e sem
   JavaScript.
-- **O `sharp` vem como dependência opcional do `next`** e é empacotado no standalone. Um `npm ci` com
-  `--omit=optional` tira ele, e o `next/image` deixa de otimizar.
-- **O `eslint-config-next` não substitui o `typescript-eslint`.** Os dois entram juntos, para manter o
-  `@typescript-eslint/no-deprecated` que a ADR 0004 exige nos três apps. O bloco do Next vem primeiro
-  no `eslint.config.mjs`: depois dos presets do `typescript-eslint`, o parser próprio dele assume os
-  arquivos `.mjs` e o lint type-aware aborta.
-- **O `no-deprecated` não pega prop obsoleta em JSX.** Medido: `"abc".substr(1)` reprova, e
-  `<Image priority />` passa verde. Prop obsoleta de componente é conferida no review.
+- **O `sharp` vem como dependência opcional do `next`** e é empacotado no standalone. Um `bun install`
+  com `--omit=optional` tira ele, e o `next/image` deixa de otimizar.
+- **O `typescript/no-deprecated` do oxlint não pega prop obsoleta em JSX.** Medido com o oxlint 1.89.0:
+  `"abc".substr(1)` reprova, e `<Image priority />` passa verde. Prop obsoleta de componente é conferida no
+  review.
+- **Nenhum script do `package.json` se chama `check` nem `fmt`.** O `bun check` e o `bun fmt` rodam o
+  script de mesmo nome quando ele existe, e o gate deixaria de ser o type checker e o formatador.
+- **O `bun check` só vê os tipos de rota depois de um `next build`**, porque o `next-env.d.ts` e o
+  `.next/types/` são gerados por ele e ficam fora do git.
 - **O `next dev` escreve regras de agente no `CLAUDE.md` e no `AGENTS.md` do app** a cada subida, em inglês e dentro
   de um comentário HTML. O `agentRules: false` do `next.config.ts` desliga isso e não sai.
