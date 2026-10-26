@@ -1,5 +1,5 @@
 class Configuration {
-  const Configuration({
+  const new({
     required this.apiUrl,
     required this.googleServerClientId,
     required this.googleIosClientId,
@@ -11,17 +11,17 @@ class Configuration {
 }
 
 sealed class ConfigurationResult {
-  const ConfigurationResult();
+  const new();
 }
 
 class ValidConfiguration extends ConfigurationResult {
-  const ValidConfiguration(this.configuration);
+  const new(this.configuration);
 
   final Configuration configuration;
 }
 
 class MissingConfiguration extends ConfigurationResult {
-  const MissingConfiguration(this.names);
+  const new(this.names);
 
   final List<String> names;
 }

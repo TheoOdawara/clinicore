@@ -30,4 +30,3 @@ app.*.map.json
 .widget_preview/
 config/*.json
 !config/example.json
-/api-json

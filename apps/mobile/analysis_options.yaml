@@ -1,12 +1,15 @@
-include: package:flutter_lints/flutter.yaml
+include: package:very_good_analysis/analysis_options.yaml
 
 analyzer:
   exclude:
     - build/**
     - android/**
     - ios/**
-    - lib/shared/api/**
   language:
     strict-casts: true
     strict-inference: true
     strict-raw-types: true
+
+linter:
+  rules:
+    public_member_api_docs: false

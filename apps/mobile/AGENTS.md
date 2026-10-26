@@ -16,8 +16,15 @@ arquitetura, as branches e o idioma.
   numa tela que só mostra "Missing configuration: <nomes>" e nenhum `Dio` é criado.
 - **`lib/shared/http/http_client.dart` cria a instância única de `Dio`**, com `baseUrl` igual a `API_URL`
   e `Clinicore-Client: mobile` em toda requisição.
-- **`lib/shared/api/` é o cliente gerado** do `/api-json` da API. Ele nunca é editado à mão e fica fora
-  do `flutter analyze`.
+- **Nada é gerado do OpenAPI da API.** A chamada é o `Dio` direto, dentro de `features/<feature>/api/`,
+  e o modelo da resposta é escrito à mão, com um `fromJson` que usa pattern matching e lança
+  `FormatException` quando o payload foge do formato. É o papel do `.parse()` do Zod no web, e o DTO é
+  replicado à mão do mesmo jeito.
+- **O estado é Riverpod com o `riverpod_generator`**, que entra com a primeira tela; o `build_runner`
+  entra junto, e o código que ele gera (`*.g.dart`) fica fora da cobertura.
+- **Testes cobrem 100% de `lib/`**, fora o código gerado, com o `flutter_test`, o `mocktail` e o HTTP do
+  `Dio` interceptado pelo `http_mock_adapter`. O e2e é o Patrol, em emulador Android e simulador iOS,
+  contra a API real.
 - **A URL é a da rota do `go_router`** e repete o caminho do web: `/login`, `/app/account/password`.
 
 ## Configuração
@@ -27,33 +34,18 @@ commitado com o nome e o formato de cada valor, e o resto de `config/*.json` fic
 emulador Android, a API local é `http://10.0.2.2:3333`, e o `AndroidManifest.xml` de `src/debug/`
 libera HTTP sem TLS só no build de debug.
 
-## Regerar o cliente
-
-Com a API de pé em `:3333`, de dentro do `apps/mobile`:
-
-```
-rm -rf lib/shared/api
-dart run swagger_parser
-dart run build_runner build
-dart format lib/shared/api
-```
-
-O `swagger_parser` é configurado no próprio `pubspec.yaml`, com `merge_outputs`: o cliente inteiro sai em
-`lib/shared/api/api.dart`, e o `json_serializable` escreve o `api.g.dart` ao lado. Rota nova na API só
-chega ao app por essa regeração, e o diff do `lib/shared/api/` vai no mesmo pull request que a usa.
-
 ## Pegadinhas da stack
 
-Verificadas em 2026-09-24, contra Flutter 3.47.5 e `swagger_parser` 1.44.3.
+Verificadas em 2026-09-24 contra Flutter 3.47.5 e reconfirmadas em 2026-10-25 contra Flutter 3.47.8.
 
-- **O `swagger_parser` não apaga o que deixou de existir.** Um schema renomeado na API deixa o arquivo
-  antigo para trás, e é por isso que a receita começa apagando a pasta.
-- **O código gerado não sai formatado.** Nem o `swagger_parser` nem o `build_runner` passam o
-  `dart format`, e o gate `dart format --set-exit-if-changed .` reprova o cliente recém-gerado. Por
-  isso o `dart format lib/shared/api` é o último passo da regeração.
-- **O cliente gerado declara `Clinicore-Client` como parâmetro opcional em toda rota.** Omitido, o
-  Retrofit não manda nada, e vale o header da instância de `Dio`. Um teste prova que a chamada gerada
-  sai com o header uma vez só.
+- **O `very_good_analysis` liga o `public_member_api_docs`**, que pede comentário de documentação em
+  todo membro público. O contrato só aceita comentário `shortcut:`, então essa regra é a única desligada
+  no `analysis_options.yaml`.
+- **O `flutter test --coverage` não reprova abaixo de um limite.** Quem reprova é o `very_good_cli`,
+  instalado com `dart pub global activate very_good_cli 1.5.0`, com `very_good test --coverage --min-coverage 100 --collect-coverage-from=all --test-randomize-ordering-seed random`.
+- **Sem `--collect-coverage-from=all`, a cobertura só conta arquivo que algum teste importa.** Um arquivo
+  de `lib/` sem teste nenhum some do relatório, e os 100% passam. Medido: o `main.dart` não aparecia no
+  `lcov.info` até ganhar o próprio teste.
 - **O primeiro `flutter build apk` baixa o NDK 28.2** pelo Gradle. No Windows, o `sdkmanager.bat` que o
   Flutter chama pode morrer com `0xC0000409`. Rodar `android/gradlew.bat :app:assembleDebug` uma vez
   instala o NDK pelo próprio Android Gradle Plugin, e o `flutter build` volta a passar.

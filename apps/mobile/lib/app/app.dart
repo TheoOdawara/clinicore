@@ -1,6 +1,7 @@
 import 'package:clinicore/app/router.dart';
 import 'package:clinicore/shared/env/env.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 Widget appFor(ConfigurationResult result) {
   return switch (result) {
@@ -10,9 +11,9 @@ Widget appFor(ConfigurationResult result) {
 }
 
 class ClinicoreApp extends StatelessWidget {
-  ClinicoreApp({super.key});
+  new({super.key});
 
-  final _router = createRouter();
+  final GoRouter _router = createRouter();
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +22,7 @@ class ClinicoreApp extends StatelessWidget {
 }
 
 class MissingConfigurationApp extends StatelessWidget {
-  const MissingConfigurationApp({super.key, required this.names});
+  const new({required this.names, super.key});
 
   final List<String> names;
 
