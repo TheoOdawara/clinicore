@@ -11,15 +11,39 @@
     {
       "label": "gates: api",
       "type": "shell",
-      "command": "cargo fmt --check && infisical run --path=/api -- cargo clippy --all-targets -- -D warnings && infisical run --path=/api -- cargo build && infisical run --path=/api -- cargo sqlx prepare --workspace --check && cargo audit && infisical run --path=/api -- cargo test",
-      "options": { "cwd": "${workspaceFolder}/apps/api" },
-      "problemMatcher": ["$rustc"]
+      "command": "cargo fmt --check && infisical run --path=/api -- cargo clippy --all-targets -- -D warnings && infisical run --path=/api -- cargo build && infisical run --path=/api -- cargo sqlx prepare --workspace --check && cargo deny check && infisical run --path=/api -- cargo llvm-cov nextest --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100",
+      "options": {
+        "cwd": "${workspaceFolder}/apps/api"
+      },
+      "problemMatcher": [
+        "$rustc"
+      ]
+    },
+    {
+      "label": "gates: site",
+      "type": "shell",
+      "command": "bun audit && bun run lint && bun run format:check && bun run build && bun check && bun run test",
+      "options": {
+        "cwd": "${workspaceFolder}/apps/site"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "gates: web",
+      "type": "shell",
+      "command": "bun audit && bun run lint && bun run format:check && bun run build && bun check && bun run test",
+      "options": {
+        "cwd": "${workspaceFolder}/apps/web"
+      },
+      "problemMatcher": []
     },
     {
       "label": "gates: mobile",
       "type": "shell",
-      "command": "flutter analyze --fatal-infos && dart format --output=none --set-exit-if-changed . && flutter test",
-      "options": { "cwd": "${workspaceFolder}/apps/mobile" },
+      "command": "flutter analyze --fatal-infos && dart format --output=none --set-exit-if-changed . && very_good test --coverage --min-coverage 100 --collect-coverage-from=all --test-randomize-ordering-seed random",
+      "options": {
+        "cwd": "${workspaceFolder}/apps/mobile"
+      },
       "problemMatcher": []
     }
   ]
