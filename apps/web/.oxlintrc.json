@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "jsx-a11y",
+    "vitest"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error",
+    "pedantic": "error"
+  },
+  "options": {
+    "typeAware": true,
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/only-export-components": "error",
+    "typescript/prefer-readonly-parameter-types": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/routes/**/*.tsx"],
+      "rules": { "react/only-export-components": "off" }
+    }
+  ],
+  "ignorePatterns": ["dist", "coverage", "src/routeTree.gen.ts"]
+}

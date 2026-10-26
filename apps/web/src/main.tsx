@@ -12,7 +12,7 @@ declare module "@tanstack/react-router" {
   }
 }
 
-const container = document.getElementById("root");
+const container = document.querySelector("#root");
 
 if (container === null) {
   throw new Error("The #root container is missing from index.html");
