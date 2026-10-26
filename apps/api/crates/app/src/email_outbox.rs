@@ -1,3 +1,4 @@
+use clinicore_core::lifetimes::VERIFICATION_LIFETIME;
 use clinicore_core::mail::MailMessage;
 use sqlx::PgConnection;
 
@@ -18,7 +19,7 @@ pub async fn enqueue_with_token(
     sqlx::query!(
         "WITH token AS (
             INSERT INTO verifications (email, purpose, token_hash, expires_at)
-            VALUES ($1, $2, $3, now() + interval '1 hour')
+            VALUES ($1, $2, $3, now() + make_interval(secs => $7))
             RETURNING expires_at
         )
         INSERT INTO email_outbox (email, subject, html_body, text_body, expires_at)
@@ -28,7 +29,8 @@ pub async fn enqueue_with_token(
         token_hash,
         message.subject,
         message.html,
-        message.text
+        message.text,
+        VERIFICATION_LIFETIME.as_secs_f64()
     )
     .execute(connection)
     .await?;

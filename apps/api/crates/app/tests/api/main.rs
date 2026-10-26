@@ -1,5 +1,6 @@
 mod boot;
 mod cors;
+mod database;
 mod email_verifications;
 mod errors;
 mod faults;

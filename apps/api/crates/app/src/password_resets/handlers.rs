@@ -4,6 +4,7 @@ use axum::http::StatusCode;
 use super::requests::{PasswordResetConfirmationRequest, PasswordResetRequest};
 use super::service;
 use crate::AppState;
+use crate::email_dispatches::dispatch_limits_text;
 use crate::http::client::ClientAddress;
 use crate::http::error::{AppError, Problem};
 use crate::http::validation::ValidJson;
@@ -13,7 +14,7 @@ use crate::http::validation::ValidJson;
     path = "/password-resets",
     tag = "Auth",
     summary = "Send a password reset link",
-    description = "Always answers 202 with an empty body, whether the email has an account or not. At most one link per address every 60 seconds and five every 24 hours.",
+    description = format!("Always answers 202 with an empty body, whether the email has an account or not. {}", dispatch_limits_text()),
     request_body = PasswordResetRequest,
     responses((status = 202, description = "Accepted, with no body"))
 )]

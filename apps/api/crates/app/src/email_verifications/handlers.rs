@@ -4,6 +4,7 @@ use axum::http::StatusCode;
 use super::requests::{EmailConfirmationRequest, EmailVerificationRequest};
 use super::service;
 use crate::AppState;
+use crate::email_dispatches::dispatch_limits_text;
 use crate::http::client::ClientAddress;
 use crate::http::error::{AppError, Problem};
 use crate::http::validation::ValidJson;
@@ -13,7 +14,7 @@ use crate::http::validation::ValidJson;
     path = "/email-verifications",
     tag = "Auth",
     summary = "Send a new email verification link",
-    description = "Always answers 202 with an empty body. At most one link per address every 60 seconds and five every 24 hours.",
+    description = format!("Always answers 202 with an empty body. {}", dispatch_limits_text()),
     request_body = EmailVerificationRequest,
     responses((status = 202, description = "Accepted, with no body"))
 )]

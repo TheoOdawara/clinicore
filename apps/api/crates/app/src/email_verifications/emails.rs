@@ -1,3 +1,4 @@
+use clinicore_core::lifetimes::{VERIFICATION_LIFETIME, hours_text};
 use clinicore_core::mail::{MailContent, MailMessage, compose};
 
 pub fn verification(name: &str, link: &str) -> MailMessage {
@@ -8,7 +9,7 @@ pub fn verification(name: &str, link: &str) -> MailMessage {
             name: &greeting,
             paragraphs: &[
                 "Confirme seu e-mail para começar a usar o Clinicore.",
-                "O link expira em 1 hora.",
+                &format!("O link expira em {}.", hours_text(VERIFICATION_LIFETIME)),
             ],
             action: "Confirmar e-mail",
             link,

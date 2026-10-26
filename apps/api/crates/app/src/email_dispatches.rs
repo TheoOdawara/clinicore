@@ -1,4 +1,4 @@
-use clinicore_core::lifetimes::DISPATCH_WINDOW;
+use clinicore_core::lifetimes::{DISPATCH_COOLDOWN, DISPATCH_LIMIT, DISPATCH_WINDOW};
 use sqlx::PgConnection;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, sqlx::Type)]
@@ -6,6 +6,14 @@ use sqlx::PgConnection;
 pub enum EmailDispatchKind {
     EmailVerification,
     PasswordReset,
+}
+
+pub fn dispatch_limits_text() -> String {
+    format!(
+        "At most one link per address every {} seconds and {DISPATCH_LIMIT} every {} hours.",
+        DISPATCH_COOLDOWN.as_secs(),
+        DISPATCH_WINDOW.as_secs() / 3600
+    )
 }
 
 pub async fn claim_dispatch(
@@ -22,17 +30,18 @@ pub async fn claim_dispatch(
 
     let window = sqlx::query!(
         r#"SELECT count(*) AS "total!",
-            coalesce(max(created_at) > now() - interval '60 seconds', false) AS "recent!"
+            coalesce(max(created_at) > now() - make_interval(secs => $4), false) AS "recent!"
         FROM email_dispatches
         WHERE email = $1 AND kind = $2 AND created_at > now() - make_interval(secs => $3)"#,
         email,
         kind as EmailDispatchKind,
-        DISPATCH_WINDOW.as_secs_f64()
+        DISPATCH_WINDOW.as_secs_f64(),
+        DISPATCH_COOLDOWN.as_secs_f64()
     )
     .fetch_one(&mut *connection)
     .await?;
 
-    if window.total >= 5 || window.recent {
+    if window.total >= DISPATCH_LIMIT || window.recent {
         return Ok(false);
     }
 

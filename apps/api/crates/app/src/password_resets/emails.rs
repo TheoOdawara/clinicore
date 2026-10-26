@@ -1,3 +1,4 @@
+use clinicore_core::lifetimes::{VERIFICATION_LIFETIME, hours_text};
 use clinicore_core::mail::{MailContent, MailMessage, compose};
 
 use crate::email_verifications::emails::first_name;
@@ -10,7 +11,10 @@ pub fn password_reset(name: &str, link: &str) -> MailMessage {
             name: &greeting,
             paragraphs: &[
                 "Recebemos um pedido para redefinir a sua senha do Clinicore.",
-                "O link expira em 1 hora. Se não foi você, ignore este e-mail.",
+                &format!(
+                    "O link expira em {}. Se não foi você, ignore este e-mail.",
+                    hours_text(VERIFICATION_LIFETIME)
+                ),
             ],
             action: "Redefinir senha",
             link,

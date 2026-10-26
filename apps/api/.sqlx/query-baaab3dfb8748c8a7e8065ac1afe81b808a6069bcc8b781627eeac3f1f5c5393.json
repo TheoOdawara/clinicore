@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH token AS (\n            INSERT INTO verifications (email, purpose, token_hash, expires_at)\n            VALUES ($1, $2, $3, now() + make_interval(secs => $7))\n            RETURNING expires_at\n        )\n        INSERT INTO email_outbox (email, subject, html_body, text_body, expires_at)\n        SELECT $1, $4, $5, $6, expires_at FROM token",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        {
+          "Custom": {
+            "name": "verification_purpose",
+            "kind": {
+              "Enum": [
+                "email_verification",
+                "password_reset"
+              ]
+            }
+          }
+        },
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "baaab3dfb8748c8a7e8065ac1afe81b808a6069bcc8b781627eeac3f1f5c5393"
+}
