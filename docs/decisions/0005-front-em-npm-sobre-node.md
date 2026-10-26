@@ -1,6 +1,6 @@
 # 0005. Front em npm sobre Node 26
 
-- Status: superseded by 0015
+- Status: superseded by 0015, e a 0015 pela 0019
 - Date: 2026-09-20
 - Emenda a: 0002 (gerenciador de pacotes do front) e 0001 (a nota dos dois gerenciadores)
 

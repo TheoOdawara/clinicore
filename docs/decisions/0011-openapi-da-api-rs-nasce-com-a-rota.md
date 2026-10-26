@@ -1,6 +1,6 @@
 # 0011. OpenAPI da `api-rs` nasce com a rota
 
-- Status: accepted
+- Status: accepted, emendada pela 0019: o documento só alimenta o Swagger UI, e nenhum app gera código dele
 - Date: 2026-09-29
 - Complementa: `0009-api-em-rust-com-axum-e-sqlx.md` e `0010-api-rs-com-crate-por-processo.md`, no
   documento servido em `/api-json`.

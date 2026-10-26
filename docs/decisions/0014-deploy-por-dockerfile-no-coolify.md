@@ -1,6 +1,6 @@
 # 0014. Deploy de cada app pelo próprio Dockerfile no Coolify
 
-- Status: accepted
+- Status: accepted, emendada pela 0019 nas imagens base de cada Dockerfile
 - Date: 2026-10-15
 - Emenda a: 0008 (o `compose.yaml` da raiz com seis serviços), issue #4 (o ambiente de homolog) e
   `AGENTS.md` da raiz (Arquitetura)

@@ -60,8 +60,9 @@ As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0011-openapi-da-api-rs-nasce-com-a-rota.md`,
 `docs/decisions/0012-revogacao-de-sessao-antes-de-apagar.md`,
 `docs/decisions/0013-assinatura-digital-em-duas-camadas.md`,
-`docs/decisions/0014-deploy-por-dockerfile-no-coolify.md` e
-`docs/decisions/0018-front-volta-ao-shadcn-ui.md`, que substitui a 0016.
+`docs/decisions/0014-deploy-por-dockerfile-no-coolify.md`,
+`docs/decisions/0018-front-volta-ao-shadcn-ui.md`, que substitui a 0016, e
+`docs/decisions/0019-revisao-da-stack-dos-quatro-apps.md`, que substitui a 0004, a 0005 e a 0015.
 
 ## Linguagem e scripts
 

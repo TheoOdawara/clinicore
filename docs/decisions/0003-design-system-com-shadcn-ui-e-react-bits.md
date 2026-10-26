@@ -1,6 +1,6 @@
 # 0003. Design system com shadcn/ui, e React Bits com escopo por categoria
 
-- Status: accepted; substituída pela 0016 na parte de estilo e de componentes base, e restaurada inteira pela 0018
+- Status: accepted; substituída pela 0016 na parte de estilo e de componentes base, e restaurada inteira pela 0018; emendada pela 0019 na biblioteca de animação (Motion)
 - Date: 2026-09-20
 
 ## Context

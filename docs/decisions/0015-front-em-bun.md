@@ -1,6 +1,6 @@
 # 0015. Front em Bun
 
-- Status: accepted
+- Status: superseded by 0019
 - Date: 2026-10-19
 - Substitui: 0005
 

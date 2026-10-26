@@ -1,6 +1,6 @@
 # 0004. Lint do front em ESLint, com TypeScript 6
 
-- Status: accepted
+- Status: superseded by 0019
 - Date: 2026-09-20
 - Emenda a: 0002 (ferramental de lint e versão do TypeScript do front)
 

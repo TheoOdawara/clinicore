@@ -1,7 +1,8 @@
 # 0007. App nativo em Flutter, com offline completo
 
 - Status: accepted, emendada em 2026-09-21 pela spec `004-sessao-por-token-api.md` nos itens 7 e 8, e
-  em 2026-10-19 pelo SRS v2.0.0 (`NFR-SEC-06`) no item 7
+  em 2026-10-19 pelo SRS v2.0.0 (`NFR-SEC-06`) no item 7, e em 2026-10-25 pela 0019 no cliente HTTP
+  (sem geração do OpenAPI), no estado, nos gates e nos testes
 - Date: 2026-09-21
 - Emenda a: 0002 (o web deixa de ser o único front do sistema e não guarda dado clínico offline),
   `docs/requirements/` (a plataforma, hoje `NFR-FLEX-01`, e o offline, hoje `NFR-REL-02`, `NFR-REL-03` e
