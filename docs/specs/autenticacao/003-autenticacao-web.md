@@ -315,10 +315,10 @@ inteira no interceptor de resposta da instância de `shared/http/`.
 
 ## Cenários de Aceite (Gherkin)
 
-Os testes rodam no `bun test`, com o happy-dom pré-carregado pelo `bunfig.toml` (ADR 0015), e cobrem
-lógica pura e componente que decide algo, com `features/auth/api` substituído pelo `mock.module` do
-`bun:test`, no padrão do `apps/web/AGENTS.md`. Nenhum teste afirma sobre classe CSS. Os cenários 6 e 12
-são verificados no navegador, não em suíte.
+Os testes rodam no Vitest com o happy-dom (ADR 0019) e cobrem 100% de `src/`: lógica pura em teste
+unitário, e cada tela em teste de integração que renderiza a rota de verdade, com o HTTP interceptado
+pelo MSW, no padrão do `apps/web/AGENTS.md`. Os cenários 6 e 12 são verificados pelo Playwright contra a
+API real.
 
 ### Cenário 1 — Entrar leva para a área logada (caminho feliz, regra 1)
 

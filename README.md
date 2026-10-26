@@ -17,10 +17,10 @@ cliente independente, e é contra a rotina real delas que cada módulo é valida
 
 | App | Papel | Tecnologia |
 |---|---|---|
-| `apps/api` | contrato HTTP | Rust com axum e sqlx · PostgreSQL 18 · Redis 8 |
-| `apps/web` | sistema da clínica (PWA) | React 19 · Vite · TanStack Router · Zod · Tailwind |
-| `apps/site` | landing pública | Next.js 16 standalone · React 19 |
-| `apps/mobile` | app iOS e Android | Flutter · Dio · cliente HTTP gerado do OpenAPI da API |
+| `apps/api` | contrato HTTP | Rust 1.99 com axum e sqlx · PostgreSQL 18 · Redis 8 |
+| `apps/web` | sistema da clínica (PWA) | Bun · React 19 · Vite · TanStack Router · Zod · Tailwind · Motion |
+| `apps/site` | landing pública | Next.js 16 standalone sobre Node 26 · React 19 · Tailwind |
+| `apps/mobile` | app iOS e Android | Flutter · Dio · go_router |
 
 Os apps são independentes: cada um tem o próprio manifesto e lockfile, e a fronteira entre eles é o contrato HTTP.
 
@@ -52,9 +52,10 @@ Documentação OpenAPI em `http://localhost:3333/api` fora de produção.
 
 ## Qualidade
 
-Cada app tem o seu job de CI em todo pull request, com lint, formatação, tipos, build e testes. A API
-tem testes de integração (`cargo test`) contra Postgres e Redis reais, além de um gate que reprova o
-build quando uma consulta diverge do schema das migrations.
+Cada app tem o seu job de CI em todo pull request, com lint, formatação, tipos, auditoria de CVE, build
+e testes, e cada um exige 100% de cobertura. A API tem testes de integração (`cargo nextest`) contra
+Postgres e Redis reais, além de um gate que reprova o build quando uma consulta diverge do schema das
+migrations.
 
 ## Documentação
 

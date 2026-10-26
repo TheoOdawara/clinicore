@@ -79,11 +79,11 @@
 
 O usuário chega abrindo o app, pelo redirecionamento da guarda, ou pelos links entre as telas.
 
-### 2. O app fala com a API por um cliente gerado do OpenAPI
+### 2. O app fala com a API pelo `dio`, com o modelo escrito à mão
 
-- O cliente HTTP é gerado com `swagger_parser` 1.44.3 a partir de `/api-json` da API local, em Retrofit
-  sobre `dio` 5.11.1, e **o código gerado é commitado**. Regenerar é um comando do `apps/mobile`,
-  rodado com a API de pé; o arquivo de configuração do gerador aponta para `http://localhost:3333/api-json`.
+- Nada é gerado do OpenAPI (ADR 0019). Cada chamada é o `dio` direto, em `lib/features/<feature>/api/`,
+  e cada resposta tem um modelo escrito à mão, com `fromJson` por pattern matching, que replica o DTO da
+  API como o schema Zod do web.
 - **Uma instância de `dio` só**, em `lib/shared/http/`, com `baseUrl` igual a `API_URL` e o header
   `Clinicore-Client: mobile` em toda requisição (regra 1 da spec irmã). Nenhuma feature cria a sua.
 - As rotas são as da tabela da regra 2 da 003-web, mais: `POST /oauth/google/sessions`,
@@ -108,7 +108,7 @@ O usuário chega abrindo o app, pelo redirecionamento da guarda, ou pelos links 
 
 - `lib/features/auth/password_policy.dart` exporta `isStrongPassword`, função pura e testada, com a
   regra 4 da 003-web.
-- Toda resposta é validada pelo modelo gerado; resposta que não desserializa cai na mensagem genérica.
+- Toda resposta passa pelo `fromJson` do modelo; resposta que foge do formato cai na mensagem genérica.
 - **As mensagens são as da regra 5 da 003-web, palavra por palavra**, traduzidas do `type` do Problem
   Details em `lib/features/auth/api/messages.dart`. Somam-se as da tabela abaixo, que valem para o app
   **e** para o web.
@@ -215,8 +215,9 @@ O usuário chega abrindo o app, pelo redirecionamento da guarda, ou pelos links 
 
 ## Cenários de Aceite (Gherkin)
 
-Testes de widget no app com `flutter_test` e o cliente da API substituído por um duplo; no web, o padrão
-da 003-web, com `features/auth/api` em `jest.fn`. Os cenários 12 e 13 são verificados no aparelho.
+Testes de widget no app com `flutter_test` e o HTTP do `dio` interceptado pelo `http_mock_adapter`; no
+web, o padrão da 003-web. Os cenários 12 e 13 são verificados pelo Patrol, em emulador Android e simulador
+iOS.
 
 ### Cenário 1 — Entrar no app leva para o Início e guarda os tokens (caminho feliz, regras 1 e 3)
 

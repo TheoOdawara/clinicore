@@ -70,7 +70,7 @@ OpenAPI da API.
 | Toolchain | Rust 1.99.1 |
 | Testes | `cargo nextest run` · `cargo llvm-cov nextest` com 100 em linhas, funções e regiões |
 | Auditoria | `cargo-deny`, com advisories, licenças, crates duplicados e origens |
-| Banco e cache | `postgres:18.6-alpine` · `redis:8.8.3-alpine`, com a tag exata |
+| Banco e cache | `postgres:18.6-alpine` · `redis:8.10.2-alpine`, com a tag exata |
 | Build sem banco | `SQLX_OFFLINE=true`, com o `.sqlx/` commitado |
 | Imagem | build em `rust:1.99.1-slim` e runtime em `debian:trixie-slim` com tag datada e `ca-certificates`, com os binários `api` e `worker` |
 

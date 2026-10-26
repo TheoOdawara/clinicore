@@ -14,13 +14,14 @@ Quatro apps **independentes** em `apps/`, cada um com o próprio manifesto e o p
 manifest na raiz, sem workspaces, sem código ou tipo compartilhado por import. A fronteira entre eles é
 o contrato HTTP.
 
-**`apps/web` e `apps/site` usam npm sobre Node 26.** É estado decidido, não transitório.
+**`apps/web` e `apps/site` instalam com Bun 1.4.4.** O web roda inteiro no Bun; o site roda o Next no
+Node 26, e o Bun só instala e roda as ferramentas. A revisão da stack está na ADR 0019.
 
 **`apps/api` é a API em Rust, com axum e sqlx.** O NestJS que ela foi está na tag `api-nestjs-final`.
 As camadas, os gates completos e as pegadinhas estão no `apps/api/AGENTS.md`.
 
 **`apps/mobile` é o app nativo iOS e Android em Flutter**, com paridade de telas com o web, offline com
-fila de escrita e cliente HTTP gerado do OpenAPI da API — gerar do contrato não é importar código.
+fila de escrita e cliente HTTP escrito à mão sobre o `dio`: nenhum app gera código do OpenAPI da API.
 Decisão em `docs/decisions/0007-app-nativo-em-flutter-com-offline.md`.
 
 Cada app tem o seu domínio: `clinicore.com.br` é a landing pública, `app.clinicore.com.br` é o sistema e
@@ -30,21 +31,22 @@ cookie de sessão em `SameSite=Lax`.
 | | `apps/api` | `apps/web` | `apps/site` | `apps/mobile` |
 |---|---|---|---|---|
 | Papel | o contrato HTTP | sistema da clínica, PWA instalável, só usuário autenticado | landing pública e indexável | app nativo iOS e Android, só usuário autenticado |
-| Runtime e pacotes | Rust 1.98.1, edition 2024 · cargo | Node 26 · npm | Node 26 · npm | Flutter 3.47 · pub |
-| Tipos | Rust, com `unsafe_code = "forbid"` | TypeScript 6.0 | TypeScript 6.0 | Dart 3.13, com `strict-casts`, `strict-inference` e `strict-raw-types` |
-| Lint e formato | `cargo clippy` com `-D warnings` · `cargo fmt` | ESLint 9 · `typescript-eslint` 8, com regras type-aware · Prettier 3 | ESLint 9 · `typescript-eslint` 8, com regras type-aware · `eslint-config-next` 16.3 · Prettier 3 | `flutter_lints` 6 · `dart format` |
-| Framework | axum 0.8 sobre tokio e tower, validação por `validator`, OpenAPI por `utoipa` | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) | React 19.3 · Next.js 16.3 com App Router e `output: "standalone"` · `next/image` e `next/font` | Flutter 3.47 · `go_router` 18.0 |
-| Dados | PostgreSQL 18 · sqlx 0.9, com as consultas conferidas contra o schema na compilação | Zod 4.6; TanStack Query 5 e axios 1 entram com a primeira feature (#78) | — | cliente Retrofit sobre `dio` 5.11, gerado por `swagger_parser` 1.44 com `json_serializable` |
+| Runtime e pacotes | Rust 1.99.1, edition 2024 · cargo | Bun 1.4.4 | Node 26.12 · Bun 1.4.4 para instalar e para as ferramentas | Flutter 3.47.8 · pub |
+| Tipos | Rust, com `unsafe_code = "forbid"` | TypeScript 7.0 · `bun check` | TypeScript 7.0 · `bun check` | Dart 3.13, com `strict-casts`, `strict-inference` e `strict-raw-types` |
+| Lint e formato | `cargo clippy` com `-D warnings` · `cargo fmt` | oxlint 1.89 type-aware · `bun fmt` | oxlint 1.89 type-aware, com o plugin `nextjs` · `bun fmt` | `very_good_analysis` 11 · `dart format` |
+| Framework | axum 0.8 sobre tokio e tower, validação por `validator`, OpenAPI por `utoipa`, só para o Swagger UI | React 19.3 · Vite 8.3 · TanStack Router 1.170 (file-based) · Motion 14 | React 19.3 · Next.js 16.4 com App Router e `output: "standalone"` · `next/image` e `next/font` | Flutter 3.47 · `go_router` 18.1 · Riverpod 3, que entra com a primeira tela |
+| Dados | PostgreSQL 18.6 · sqlx 0.9, com as consultas conferidas contra o schema na compilação | Zod 4.6; TanStack Query 5 e axios 1 entram com a primeira feature (#78) | — | `dio` 5.11 com modelo escrito à mão; drift sobre SQLite cifrado entra com o offline |
 | Formulário | — | TanStack Form com schema Zod, que entra com o primeiro formulário (#78) | — | — |
 | Estilo | — | Tailwind 4.3 · shadcn/ui, que entra com o primeiro componente (#78) | Tailwind 4.3 · shadcn/ui | — |
 | Auth | `jsonwebtoken` e `argon2`; access token curto e refresh na tabela `sessions`; login com Google por `openidconnect`, com PKCE e `id_token` verificado | axios contra `/users` e `/sessions` da API, com o refresh no interceptor, a partir da #78 | — | `dio` com `Clinicore-Client: mobile` e o token no `Authorization` |
 | Fila e agendamento | o binário `worker`, com a fila de e-mail na tabela `email_outbox` do Postgres e a purga às 03:00 de `America/Sao_Paulo` por `croner` sobre `jiff` | — | — | — |
-| Redis 8 | contagem do limite por IP e denylist de revogação de sessão | — | — | — |
+| Redis 8.10 | contagem do limite por IP e denylist de revogação de sessão | — | — | — |
 | HTTP de saída | `openidconnect` 4.0 sobre `reqwest` 0.12, só para o Google | — | — | — |
 | Configuração | variáveis de ambiente tipadas e validadas no boot, em `crates/core` | `VITE_API_URL`, validada por Zod em `src/shared/env/` | — | `--dart-define-from-file`, lida e validada em `lib/shared/env/env.dart` |
 | E-mail | `lettre` por SMTP, só no worker, com o layout em `askama` | — | — | — |
 | Log | `tracing` com `tracing-subscriber`, JSON em stdout | — | — | — |
-| Testes | `cargo test`, com os testes de integração em `crates/app/tests/` e `crates/worker/tests/` | Jest 30 · `@swc/jest` · jsdom; Testing Library entra com o primeiro componente testado | — | `flutter_test` |
+| Testes | `cargo nextest`, com os testes de integração em `crates/app/tests/` e `crates/worker/tests/` · `cargo llvm-cov` | Vitest 5 · happy-dom · Testing Library; MSW e Playwright entram com a #78 | Vitest 5 · happy-dom | `flutter_test` · `mocktail` · `http_mock_adapter` · `very_good_cli`; Patrol entra com a primeira tela |
+| Cobertura e CVE | 100% em linhas, funções e regiões · `cargo-deny` | 100% · `bun audit` | 100% fora de `src/app/` · `bun audit` | 100% · `osv-scanner` |
 
 As decisões que trouxeram esta stack, o que foi descartado e por quê:
 `docs/decisions/0001-api-em-nestjs-typeorm-e-redis.md`,
@@ -76,21 +78,22 @@ Cada comando roda de dentro do diretório do seu app.
 
 | Gate | `apps/api` | `apps/web` | `apps/site` | `apps/mobile` |
 |---|---|---|---|---|
-| Análise estática e formato | `cargo clippy --all-targets -- -D warnings` · `cargo fmt --check` | `npm run lint` · `npm run format:check` | `npm run lint` · `npm run format:check` | `flutter analyze --fatal-infos` · `dart format --output=none --set-exit-if-changed .` |
-| Tipos | dentro do `cargo clippy` | `npm run typecheck` | `npm run typecheck` | dentro do `flutter analyze` |
-| Build | `cargo build` | `npm run build` | `npm run build` | — fora do CI até a publicação |
-| Testes | `cargo test` | `npm run test` | — enquanto não houver lógica a testar | `flutter test` |
-| Testes e2e | — dentro do `cargo test` | — | — | — |
+| Análise estática e formato | `cargo clippy --all-targets -- -D warnings` · `cargo fmt --check` | `bun run lint` · `bun run format:check` | `bun run lint` · `bun run format:check` | `flutter analyze --fatal-infos` · `dart format --output=none --set-exit-if-changed .` |
+| Tipos | dentro do `cargo clippy` | `bun check` | `bun check`, depois do build | dentro do `flutter analyze` |
+| CVE | `cargo deny check` | `bun audit` | `bun audit` | `osv-scanner scan source --lockfile=pubspec.lock` |
+| Build | `cargo build` | `bun run build` | `bun run build` | — fora do CI até a publicação |
+| Testes e cobertura | `cargo llvm-cov nextest --fail-under-lines 100 --fail-under-functions 100 --fail-under-regions 100` | `bun run test` | `bun run test` | `very_good test --coverage --min-coverage 100 --collect-coverage-from=all --test-randomize-ordering-seed random` |
+| Testes e2e | — dentro do `cargo nextest` | Playwright, a partir da #78 | — | Patrol, a partir da primeira tela |
 
-Instalação: `npm ci` nos dois apps Node e `flutter pub get --enforce-lockfile` no `apps/mobile`; o
+Instalação: `bun install --frozen-lockfile` no web e no site e `flutter pub get --enforce-lockfile` no `apps/mobile`; o
 `apps/api` não tem passo de instalação, o `cargo` baixa as dependências no primeiro build. Os comandos
 da API que tocam o banco rodam sob `infisical run --path=/api --`, como diz o `apps/api/AGENTS.md`.
 
 O gate de tipos do web exige o `src/routeTree.gen.ts`, gerado pelo plugin do TanStack Router.
 Ele é commitado, então só um `src/routes/` alterado sem `vite build` ou `vite dev` desde a alteração
-deixa o `tsc` olhando para uma árvore velha.
+deixa o `bun check` olhando para uma árvore velha.
 
-**O build do site tem um passo a mais que o `npm run build`:** o job confere que o
+**O build do site tem um passo a mais que o `bun run build`:** o job confere que o
 `.next/server/app/index.html` tem conteúdo. É o que denuncia uma página que o prerender gerou vazia.
 
 ## Arquitetura
@@ -130,7 +133,7 @@ apps/
         ├── main.dart        só boot
         ├── app/             MaterialApp e o GoRouter
         ├── features/<feature>/
-        └── shared/          env, http e api — o cliente gerado, nunca editado à mão
+        └── shared/          env e http — sem regra de negócio
 docs/
 ```
 

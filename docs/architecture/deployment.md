@@ -22,8 +22,8 @@ próprio `apps/<app>/Dockerfile`, por rolling update, como decide a
 | Bloco | Como roda | Porta |
 | --- | --- | --- |
 | `apps/api` | `cargo run`, dentro do `infisical run --path=/api --` | 3333 |
-| `apps/web` | `npm run dev` | 3000 |
-| `apps/site` | `npm run dev` | 4321 |
+| `apps/web` | `bun run dev` | 3000 |
+| `apps/site` | `bun run dev` | 4321 |
 | `apps/mobile` | `flutter run --dart-define-from-file=config/<ambiente>.json`, no emulador ou no aparelho | — |
 | PostgreSQL 18 e Redis 8 | `docker compose up`, pelo `apps/api/compose.yaml` | as do Infisical |
 
