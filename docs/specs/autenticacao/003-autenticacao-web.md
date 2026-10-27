@@ -9,17 +9,18 @@
 > **Sprint:** 2
 > **Spec irmã:** `docs/specs/autenticacao/003-autenticacao-api.md` (perfil API)
 > **Decisões:** `docs/decisions/0002-web-e-site-em-vite.md` ·
-> `docs/decisions/0006-api-rest-e-problem-details.md` · `docs/decisions/0015-front-em-bun.md` ·
-> `docs/decisions/0016-front-em-css-modules.md`
+> `docs/decisions/0006-api-rest-e-problem-details.md` · `docs/decisions/0018-front-volta-ao-shadcn-ui.md` ·
+> `docs/decisions/0019-revisao-da-stack-dos-quatro-apps.md`
 
 ## Acceptance Criteria
 
 ### Referência visual
 
-`N/A` — sem protótipo. O layout é definido pelas regras abaixo, e o tema visual da aplicação não é
-esta issue. As telas são montadas com os componentes do shadcn/ui, sobre o Tailwind (ADR 0003, de volta
-pela ADR 0018). **Tema, tipografia e cores continuam fora**: as telas usam os tokens do tema sem decidir
-o valor de nenhum.
+Os protótipos de `/login`, `/signup` e `/verify-email` estão em
+[`docs/design/pages/auth/`](../../design/pages/auth/login.md), e os valores do tema em
+[`docs/design/tokens.md`](../../design/tokens.md). As telas são montadas com os componentes do shadcn/ui,
+sobre o Tailwind (ADR 0003, de volta pela ADR 0018), e leem só os tokens, nunca uma cor solta. As telas
+das tasks 9 e 10 seguem o mesmo cartão e os mesmos tokens.
 
 ### Especificação das telas
 
@@ -716,8 +717,8 @@ Nenhum bloco novo, e nenhuma mudança no deploy.
 
 ## Fora de Escopo
 
-- **Tema visual, tipografia, ícones e cores do PWA** — pertencem à fase de design system. As telas desta
-  spec usam os tokens do tema do shadcn/ui, e nenhuma decisão de cor ou de tipografia é tomada aqui.
+- **Marca, logo, ícones e cores do PWA** — esperam o produto ganhar nome. O tema, provisório até lá,
+  está em [`docs/design/tokens.md`](../../design/tokens.md).
 - **Animação e componente do React Bits** — a ADR 0003 define em quais categorias ele pode entrar no
   `apps/web`; nenhuma tela desta spec usa nenhuma delas.
 - **Página offline e aviso de nova versão** — não pedidos; a regra 9 define o comportamento sem conexão

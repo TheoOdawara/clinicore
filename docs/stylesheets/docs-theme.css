@@ -1,3 +1,18 @@
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #0e7490;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #0e7490;
+  --md-typeset-a-color: #0e7490;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #22b8cf;
+  --md-primary-bg-color: #04232a;
+  --md-accent-fg-color: #22b8cf;
+  --md-typeset-a-color: #22b8cf;
+  --md-default-bg-color: #0b1a1f;
+}
+
 [data-md-color-scheme="slate"] .md-content img[src$=".drawio.svg"] {
   padding: 12px;
   border: 1px solid var(--md-default-fg-color--lightest);

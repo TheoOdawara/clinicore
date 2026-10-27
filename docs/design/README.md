@@ -9,12 +9,19 @@ renderizado no Chromium headless e convertido para WebP, e fica ao lado da pági
 
 ## O que existe
 
-A marca ainda não foi definida, e nenhuma tela foi desenhada. Por isso esta pasta ainda não tem:
+- [`tokens.md`](tokens.md), com os valores em [`tokens.css`](tokens.css): cor em claro e escuro, tipo,
+  raio e espaço. Os mesmos valores de cor entram no `docs/stylesheets/docs-theme.css` do site local.
+- `pages/auth/`, com as telas de [entrar](pages/auth/login.md), [criar conta](pages/auth/signup.md) e
+  [confirmar o e-mail](pages/auth/verify-email.md).
 
-- `brand/`, com a descrição da marca, o brand book, o logo e o banner, que nascem com a marca
-- `tokens.md`, com os tokens de cor, tipo, espaço, raio e sombra em claro e escuro; os mesmos valores
-  entram no `docs/stylesheets/docs-theme.css` do site local
-- `pages/<feature>/<página>.md`, uma por tela, que nascem com a spec de cada feature: a imagem em
-  390px e depois no desktop, as áreas, os estados e os tokens que ela usa
+**Esses protótipos nasceram fora do canvas**, em HTML estático no próprio repositório
+(`pages/<feature>/<página>.html`, com `pages/prototype.css` e `pages/prototype.js`). A conta do Claude
+Design não estava disponível. Eles serão levados para o canvas quando ela estiver, e a partir daí o canvas
+volta a ser a origem. Para gerar as imagens de novo, abra o HTML no Chrome headless em
+`--window-size=<largura>,1000` e converta com `cwebp`. Com `?dark`, o HTML mostra o tema escuro, e com
+`?desktop` mostra só o primeiro estado, na tela inteira.
+
+Ainda não existe `brand/`, com a descrição da marca, o brand book, o logo e o banner. Ela nasce quando o
+produto ganhar nome, porque "Clinicore" é codinome.
 
 O estilo do `apps/web` e do `apps/site` é Tailwind 4.3, com o shadcn/ui como design system (ADR 0003).
