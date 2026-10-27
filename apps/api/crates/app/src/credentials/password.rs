@@ -69,3 +69,27 @@ pub fn strong_password(password: &str) -> Result<(), ValidationError> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::strong_password;
+
+    #[test]
+    fn a_strong_password_has_8_to_128_characters_with_an_uppercase_a_digit_and_a_symbol() {
+        let padded = |length: usize| format!("Aa#1{}", "a".repeat(length - 4));
+
+        for strong in [padded(8), padded(128), "Ção#2026".to_string()] {
+            assert!(strong_password(&strong).is_ok(), "{strong}");
+        }
+        for weak in [
+            padded(7),
+            padded(129),
+            "sem_maiuscula#1".to_string(),
+            "SEM_DIGITO#a".to_string(),
+            "SemEspecial1".to_string(),
+        ] {
+            let error = strong_password(&weak).expect_err(&weak);
+            assert_eq!(error.code, "weak_password", "{weak}");
+        }
+    }
+}
