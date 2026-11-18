@@ -1,0 +1,11 @@
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+}
+
+main {
+  padding: var(--space-gutter);
+}

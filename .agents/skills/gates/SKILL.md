@@ -89,12 +89,20 @@ CVE: o osv-scanner não lê o `Package.resolved`, e o alerta vem do Dependabot (
 
 ## `apps/site`
 
-O `apps/site` ainda não tem código. Os gates dele entram nesta skill com o scaffold, como comandos que o
-scaffold faz passar, e ele ganha o seu `ci-site.yml`.
+De `apps/site/`, depois do `bun install`. O CI roda os mesmos, no `ci-site.yml`.
 
-| App | Gates | Ferramentas decididas |
-| --- | --- | --- |
-| `apps/site` | n/a: sem código | ESLint com `eslint-plugin-svelte` e `eslint-plugin-boundaries`, Prettier, `svelte-check`, `vite build`, Vitest (ADRs 0021, 0026) |
+| Gate | Comando |
+| --- | --- |
+| Vulnerabilidades conhecidas | `bun run audit` |
+| Formato | `bunx prettier --check .` |
+| Lint e fronteiras | `bun run lint` |
+| Tipos | `bun run check` |
+| Teste das fronteiras | `bun run test:boundaries` |
+| Build | `bun run build` |
+| Conteúdo prerenderizado | `bun run test:prerender` |
+| Testes e cobertura | `bun run test -- --coverage` |
+| E2E, a 320 px, no escuro e com o axe | `bun run e2e` |
+| Linhas novas | da raiz: `uvx diff-cover==11.0.3 apps/site/coverage/lcov.info --compare-branch origin/staging --include-untracked --fail-under 90`; o site não tem caminho crítico |
 
 Em todo app, a cobertura das linhas novas é conferida pelo `diff-cover` contra a `origin/staging`, como a
 skill `testing` descreve (ADR 0023).

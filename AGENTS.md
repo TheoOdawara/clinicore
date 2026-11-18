@@ -17,7 +17,7 @@ Nenhum código é compartilhado: a fronteira é o contrato HTTP.
 | `apps/ios` | Swift · SwiftUI · SwiftData · SwiftPM | loja |
 
 As versões estão nas ADRs, e depois nos manifestos. Cada app nasce no scaffold dele, já na forma do seu
-`AGENTS.md`; o `apps/site` ainda não tem código.
+`AGENTS.md`.
 
 ## Linguagens e scripts
 

@@ -38,6 +38,12 @@ arquivos.** Se um dia o site tiver conteúdo dinâmico, ele troca para o `adapte
 
 O gate do build confere que o `build/index.html` prerenderizado tem o conteúdo da landing.
 
+No scaffold (#5), o Svelte passou para a 5.58.0, a última. O TypeScript ficou no 6.0.3, porque o
+SvelteKit 3.3.1 aceita só o `^6.0.0`. O SvelteKit 3 recebe a config no plugin do `vite.config.ts`, sem
+`svelte.config.js`, e troca o `$lib` pelo `#lib` do `imports` do `package.json`. Para o
+`eslint-plugin-boundaries` resolver esse `#lib`, entrou o `eslint-import-resolver-typescript` 4.4.5. O
+`bits-ui`, o `enhanced-img`, o JSON-LD e o `og.png` entram com a primeira seção que precisar deles.
+
 ## Consequences
 
 - **O site deixa de ter servidor em produção.** A imagem do Dockerfile passa a ser nginx com os arquivos
