@@ -1,5 +1,6 @@
 import com.diffplug.gradle.spotless.SpotlessExtension
 import dev.detekt.gradle.extensions.DetektExtension
+import kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
@@ -37,6 +38,9 @@ internal fun Project.configureQuality() {
     dependencies { add("detektPlugins", libs.findLibrary("compose-rules-detekt").get()) }
 
     pluginManager.apply("org.jetbrains.kotlinx.kover")
+    extensions.configure<KoverProjectExtension> {
+        currentProject { createVariant("unit") { add("debug", "jvm", optional = true) } }
+    }
     rootProject.dependencies.add("kover", rootProject.dependencies.project(path))
 
     dependencyLocking { lockAllConfigurations() }

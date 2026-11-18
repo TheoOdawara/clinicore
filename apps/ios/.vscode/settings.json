@@ -1,0 +1,12 @@
+{
+  "[swift]": {
+    "editor.defaultFormatter": "swiftlang.swift-vscode",
+    "editor.formatOnSave": true
+  },
+  "files.associations": {
+    "*.plist": "xml",
+    "*.xcscheme": "xml",
+    "*.xctestplan": "json",
+    "*.entitlements": "xml"
+  }
+}

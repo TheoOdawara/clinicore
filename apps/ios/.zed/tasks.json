@@ -1,0 +1,12 @@
+[
+  {
+    "label": "gates: ios",
+    "command": "xcrun swift-format lint --strict --recursive Clinicore ClinicoreUITests ArchitectureFixtures Packages/Package.swift Packages/Sources Packages/Tests && swift package --package-path Packages plugin --allow-writing-to-package-directory swiftlint lint --strict --quiet --config \"$PWD/.swiftlint.yml\" \"$PWD/Clinicore\" \"$PWD/ClinicoreUITests\" \"$PWD/Packages/Package.swift\" \"$PWD/Packages/Sources\" \"$PWD/Packages/Tests\" && xcodebuild test -project Clinicore.xcodeproj -scheme Clinicore -destination 'platform=iOS Simulator,name=iPhone 17e,OS=27.2' -enableCodeCoverage YES -derivedDataPath build && xcrun llvm-cov export -format=lcov -instr-profile \"$(find build/Build/ProfileData -name Coverage.profdata)\" -object build/Build/Products/Debug-iphonesimulator/Clinicore.app/Clinicore.debug.dylib $(for bundle in build/Build/Products/Debug-iphonesimulator/*.xctest; do printf -- '-object %s ' \"$bundle/$(basename \"$bundle\" .xctest)\"; done) > build/coverage.lcov && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/ios/build/coverage.lcov --compare-branch=origin/staging --include-untracked --fail-under=90 && uvx diff-cover==11.0.3 apps/ios/build/coverage.lcov --compare-branch=origin/staging --include-untracked --fail-under=100 --include 'apps/ios/Packages/Sources/Security/**' 'apps/ios/Packages/Sources/Networking/**' 'apps/ios/Packages/Sources/Sync/**' '**/Outbox*.swift'",
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "ios: build server",
+    "command": "xcode-build-server config -project Clinicore.xcodeproj -scheme Clinicore --build_root \"$PWD/build\"",
+    "cwd": "$ZED_WORKTREE_ROOT"
+  }
+]

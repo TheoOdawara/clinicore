@@ -73,7 +73,7 @@ jobs:
       - name: Unit tests (Robolectric and Konsist)
         run: ./gradlew testDebugUnitTest
       - name: Coverage report (kover)
-        run: ./gradlew koverXmlReport
+        run: ./gradlew koverXmlReportUnit
       - name: Build
         run: ./gradlew assembleDebug assembleDebugAndroidTest
       - name: Coverage of new lines (90%, and 100% on critical paths)
@@ -83,7 +83,7 @@ jobs:
           BASE: origin/${{ github.base_ref }}
         run: |
           mapfile -t roots < <(find apps/android -path '*/src/main/kotlin' -not -path '*/build/*' -not -path '*/build-logic/*')
-          report=apps/android/build/reports/kover/report.xml
+          report=apps/android/build/reports/kover/reportUnit.xml
           uvx diff-cover==11.0.3 "$report" --compare-branch "$BASE" --src-roots "${roots[@]}" \
             --fail-under 90
           uvx diff-cover==11.0.3 "$report" --compare-branch "$BASE" --src-roots "${roots[@]}" \

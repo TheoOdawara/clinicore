@@ -69,6 +69,13 @@ propósito.
   dependência.
 - **Nada do app sai do aparelho por backup**: `allowBackup="false"`, e o `dataExtractionRules` e o
   `fullBackupContent` excluem todos os domínios.
+- **Toda variante tem teste unitário** (`android.onlyEnableUnitTestForTheTestedBuildType=false`): sem
+  isso, o sync de IDE do AGP 9.5 falha ao criar o `generateReleaseComposePreviewRunfiles`. A cobertura
+  lê só a variante `unit` do Kover, que junta o `debug` e o `jvm`, então o gate não roda os testes do
+  `release`.
+- **O `verification-metadata.xml` confia nos `-sources.jar` e `-javadoc.jar`**, que a IDE baixa para
+  mostrar e nunca executa; todo outro artefato tem SHA-256. Sem isso, o sync do Android Studio e do
+  `kotlin-lsp` falha na verificação.
 
 ## Nomes
 

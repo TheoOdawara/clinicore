@@ -1,0 +1,7 @@
+[
+  {
+    "label": "gates: site",
+    "command": "bun run audit && bunx prettier --check . && bun run lint && bun run check && bun run test:boundaries && bun run build && bun run test:prerender && bun run test -- --coverage && bun run e2e && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/site/coverage/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=90",
+    "cwd": "$ZED_WORKTREE_ROOT"
+  }
+]

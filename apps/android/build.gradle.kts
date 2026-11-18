@@ -7,6 +7,7 @@ plugins {
 }
 
 kover {
+    currentProject { createVariant("unit") {} }
     reports {
         filters { excludes { annotatedBy("androidx.compose.ui.tooling.preview.Preview") } }
     }

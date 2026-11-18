@@ -62,9 +62,9 @@ artefato no `gradle/verification-metadata.xml` e as versões nos `gradle.lockfil
 | Lint | `./gradlew lintDebug` |
 | Fronteiras de módulo | `./gradlew :build-logic:convention:test` |
 | Testes na JVM (Robolectric e Konsist) | `./gradlew testDebugUnitTest` |
-| Cobertura | `./gradlew koverXmlReport` |
+| Cobertura | `./gradlew koverXmlReportUnit` |
 | Build | `./gradlew assembleDebug assembleDebugAndroidTest` |
-| Linhas novas | da raiz: `uvx diff-cover==11.0.3 apps/android/build/reports/kover/report.xml --compare-branch origin/staging --include-untracked --src-roots <cada src/main/kotlin> --fail-under 90`, e a mesma chamada com `--fail-under 100` e o `--include` dos caminhos críticos do `ci-android.yml` |
+| Linhas novas | da raiz: `uvx diff-cover==11.0.3 apps/android/build/reports/kover/reportUnit.xml --compare-branch origin/staging --include-untracked --src-roots <cada src/main/kotlin> --fail-under 90`, e a mesma chamada com `--fail-under 100` e o `--include` dos caminhos críticos do `ci-android.yml` |
 | Acessibilidade, no emulador | `./gradlew connectedDebugAndroidTest` |
 | E2E, no emulador | `./gradlew installDebug` e `maestro test e2e/` |
 

@@ -1,0 +1,7 @@
+[
+  {
+    "label": "gates: api",
+    "command": "cargo fmt --all --check && cargo deny check && cargo clippy --workspace --all-targets --locked -- -D warnings && infisical run --path=/api -- cargo sqlx prepare --workspace --check && infisical run --path=/api -- cargo llvm-cov nextest --workspace --locked --lcov --output-path target/lcov.info --ignore-filename-regex 'main\\.rs' && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/api/target/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=90 && uvx diff-cover==11.0.3 apps/api/target/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=100 --include 'apps/api/crates/app/src/sessions/**' 'apps/api/crates/app/src/credentials/**' 'apps/api/crates/app/src/oauth/**' 'apps/api/crates/app/src/password_resets/**' 'apps/api/crates/app/src/email_verifications/**' 'apps/api/crates/app/src/http/rate_limit.rs' 'apps/api/crates/app/src/http/origin.rs' 'apps/api/crates/app/src/http/client.rs' 'apps/api/crates/app/src/tenancy/**' 'apps/api/crates/app/src/authorization/**' 'apps/api/crates/app/src/audit/**' 'apps/api/crates/app/src/idempotency/**' 'apps/api/crates/worker/src/purge.rs' 'apps/api/crates/worker/src/outbox.rs'",
+    "cwd": "$ZED_WORKTREE_ROOT"
+  }
+]
