@@ -1,0 +1,22 @@
+{
+  "lsp": {
+    "rust-analyzer": {
+      "initialization_options": {
+        "linkedProjects": ["apps/api/Cargo.toml"],
+        "check": { "command": "clippy" }
+      }
+    }
+  },
+  "languages": {
+    "Rust": { "formatter": "language_server", "format_on_save": "on" },
+    "TypeScript": { "formatter": "prettier", "format_on_save": "on" },
+    "TSX": { "formatter": "prettier", "format_on_save": "on" },
+    "HTML": { "formatter": "prettier", "format_on_save": "on" },
+    "CSS": { "formatter": "prettier", "format_on_save": "on" },
+    "SCSS": { "formatter": "prettier", "format_on_save": "on" },
+    "Svelte": { "formatter": "prettier", "format_on_save": "on" }
+  },
+  "file_types": {
+    "XML": ["plist", "xcscheme", "xcworkspacedata", "entitlements"]
+  }
+}
