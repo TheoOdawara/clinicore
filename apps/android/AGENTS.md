@@ -75,7 +75,9 @@ propósito.
   `release`.
 - **O `verification-metadata.xml` confia nos `-sources.jar` e `-javadoc.jar`**, que a IDE baixa para
   mostrar e nunca executa; todo outro artefato tem SHA-256. Sem isso, o sync do Android Studio e do
-  `kotlin-lsp` falha na verificação.
+  `kotlin-lsp` falha na verificação. O `aapt2` tem um jar por sistema, e o Gradle só registra o da
+  máquina que gerou o arquivo: o de Linux, o de macOS e o de Windows entram à mão, com o SHA-256 do
+  `dl.google.com`, a cada versão nova do AGP.
 
 ## Nomes
 
