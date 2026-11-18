@@ -7,8 +7,8 @@ description: Como o backlog do Clinicore funciona no GitHub Project, com labels,
 
 - **O GitHub Project `Clinicore`**, em `https://github.com/users/TheoOdawara/projects/3`, **tem só a
   sprint atual**, no campo `Sprint`, com os pontos no campo `Estimate`. O roadmap mora no
-  `docs/roadmap/README.md` e nos milestones; uma issue entra no Project quando uma sprint a planeja, e o
-  épico sem issue ganha uma nesse momento.
+  `docs/work/roadmap/README.md` e nos milestones. Uma issue entra no Project quando uma sprint a
+  planeja, e o épico sem issue ganha uma nesse momento.
 - **A branch padrão do GitHub é a `main`**, então a palavra de fechamento só fecha a issue quando o
   release chega nela. O PR para a `staging` não liga a issue nem move o item.
 - **`In Review` e `Staging` são marcados à mão**, com `gh project item-edit`: `In Review` ao abrir o PR,

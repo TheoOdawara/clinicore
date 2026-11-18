@@ -10,7 +10,7 @@
 Homolog e produção vão rodar numa VPS com Coolify self-hosted. O plano registrado até aqui era um
 `compose.yaml` na raiz com a stack inteira, publicado no Coolify como um recurso só.
 
-O [`NFR-REL-04`](../requirements/non-functional/reliability.md#nfr-rel-04--publicação-sem-indisponibilidade)
+O [`NFR-REL-04`](../product/requirements/non-functional/reliability.md#nfr-rel-04--publicação-sem-indisponibilidade)
 pede que uma versão nova da API, do web e da landing seja publicada sem recusar requisição. O Coolify
 só troca um container sem derrubar o anterior, por rolling update, em aplicação de Dockerfile,
 Nixpacks, Railpack, Static ou imagem Docker. Num recurso Docker Compose, quem reconcilia é o
@@ -31,7 +31,7 @@ rota afetada responde erro e o processo fica de pé.
   sendo só o Postgres e o Redis de desenvolvimento.
 - **O Postgres e o Redis são recursos Database do Coolify**, na mesma VPS, na rede interna, sem porta
   publicada no host. O backup agendado do Coolify é o caminho para a
-  [OQ-11](../requirements/open-questions.md#oq-11--backup-e-recuperação), que continua em aberto.
+  [OQ-11](../product/requirements/open-questions.md#oq-11--backup-e-recuperação), que continua em aberto.
 - **Nenhuma aplicação publica porta no host nem fixa nome de container.** O tráfego entra pelo proxy do
   Coolify, que é o único caminho até a API.
 - **A API aplica as migrations pendentes no boot, antes de abrir a porta.** Com o Postgres fora, ela

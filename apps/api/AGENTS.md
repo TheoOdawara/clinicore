@@ -1,6 +1,7 @@
 # `apps/api` — forma e regras
 
-Aditivo ao `AGENTS.md` da raiz. Stack nas ADRs 0009 e 0019, crates na 0010, OpenAPI na 0011, revogação
+Aditivo ao `AGENTS.md` da raiz. **O app ainda não existe**: nasce na issue de scaffold da API, já na
+forma abaixo. Stack nas ADRs 0009 e 0019, crates na 0010, OpenAPI na 0011, revogação
 na 0012, forma na 0026. O contrato é o HTTP (URL, status, cookie, limite, Problem Details); o resto
 segue o idioma do Rust, do axum e do Postgres.
 
@@ -49,11 +50,10 @@ O módulo tem o nome do recurso no plural, igual à URL (`password_resets` ↔ `
 - **O handler recebe `State<AppState>`; o service recebe `&AppState`; a consulta recebe o pool ou o
   Redis.**
 - **`Result` para falha do ambiente; `expect` com a invariante na mensagem** para o que só falha com o
-  código errado. Valor de fora vira tipo na fronteira.
-
-Pendente na issue de refactor da ADR 0026: IDs com tipo próprio (`UserId`, `ClinicId`), `Email`
-normalizado, os `queries` ainda `pub(crate)` e o `tests/api/architecture.rs`, que reprova SQL fora do
-lugar, `IntoResponse` fora do `http/error.rs` e `.route(`.
+  código errado. Valor de fora vira tipo na fronteira: ID com tipo próprio (`UserId`) e `Email`
+  normalizado.
+- **O `tests/api/architecture.rs` reprova** SQL fora do lugar, `IntoResponse` fora do `http/error.rs` e
+  `.route(`.
 
 ## Nomes
 

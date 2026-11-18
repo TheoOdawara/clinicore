@@ -2,13 +2,12 @@
 
 | Pasta | O que tem |
 | --- | --- |
-| [`requirements/`](requirements/README.md) | o SRS: problema, escopo e cada requisito com ID e critérios de aceite |
-| [`architecture/`](architecture/README.md) | o mapa do sistema: blocos, cenários de runtime, implantação, conceitos e riscos |
-| [`data-model/`](data-model/README.md) | as entidades, as relações e o armazenamento |
-| [`design/`](design/README.md) | a ferramenta de design, a marca, os tokens e cada tela por feature |
-| [`roadmap/`](roadmap/README.md) | os marcos divididos em épicos, a cobertura dos requisitos e o plano de cada sprint |
+| [`product/`](product/README.md) | o que o produto precisa ser: o SRS e o design |
+| [`system/`](system/README.md) | como o sistema é construído: arquitetura e modelo de dados |
 | [`decisions/`](decisions/README.md) | as ADRs: por que cada decisão transversal foi tomada |
-| [`specs/`](specs/README.md) | uma entrega em profundidade |
+| [`work/`](work/README.md) | o que o trabalho planejou e fez: roadmap, sprints e specs |
+
+Não há `guides/`: o produto ainda não tem usuário que siga um guia. A pasta nasce com o primeiro.
 
 As regras de como o código é construído não ficam aqui: estão no [`AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/AGENTS.md) da raiz e
 no de cada app.
@@ -18,7 +17,7 @@ no de cada app.
 A mesma pasta vira um site local, com menu e busca:
 
 ```sh
-uvx zensical@0.0.71 serve --open
+uvx zensical==0.1.2 serve --open
 ```
 
 Ele abre em `http://localhost:8000`. No Zed, é a task `docs: serve`. O site não é publicado em lugar

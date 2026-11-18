@@ -1,16 +1,27 @@
 [project]
 site_name = "Clinicore — documentação interna"
 docs_dir = "docs"
-extra_css = ["stylesheets/docs-theme.css", "stylesheets/image-viewer.css"]
-extra_javascript = [{ path = "javascripts/image-viewer.js", type = "module" }]
+extra_css = [
+  "assets/stylesheets/docs-theme.css",
+  "assets/stylesheets/image-viewer.css",
+  "assets/stylesheets/pdf-export.css",
+]
+extra_javascript = [
+  { path = "assets/javascripts/image-viewer.js", type = "module" },
+  { path = "assets/javascripts/pdf-export.js", type = "module" },
+]
 
 [[project.theme.palette]]
 scheme = "default"
+primary = "custom"
+accent = "custom"
 toggle.icon = "lucide/sun"
 toggle.name = "Mudar para o tema escuro"
 
 [[project.theme.palette]]
 scheme = "slate"
+primary = "custom"
+accent = "custom"
 toggle.icon = "lucide/moon"
 toggle.name = "Mudar para o tema claro"
 

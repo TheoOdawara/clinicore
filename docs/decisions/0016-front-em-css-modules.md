@@ -47,7 +47,7 @@ uma regra CSS resolve".
   haver BEM, e entra como pegadinha no `AGENTS.md` de cada app na #77.
 - **Nenhuma dependência de estilo em runtime**, e nenhuma classe utilitária no JSX.
 - **O tema, as cores e a tipografia ficam nos tokens da camada `tokens`.** Eles nascem na fase de design
-  system, e o `docs/design/tokens.md` documenta os mesmos valores.
+  system, e o `docs/product/design/tokens.md` documenta os mesmos valores.
 - **O teste não vê classe CSS:** no `bun test` da ADR 0015, o import de um `.module.css` chega vazio.
 
 ## Alternatives considered

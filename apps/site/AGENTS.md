@@ -4,8 +4,7 @@ Aditivo ao `AGENTS.md` da raiz. Stack na ADR 0021, forma na 0026. É a landing p
 `clinicore.com.br`: SvelteKit com `adapter-static`, tudo prerenderizado e servido pelo nginx. Não tem
 servidor, sessão nem segredo.
 
-**Hoje o app ainda é o scaffold em Next.** A troca para SvelteKit é a issue de scaffold do site; toda
-seção nova já nasce na forma abaixo.
+**O app ainda não existe.** Ele nasce na issue de scaffold do site, já na forma abaixo.
 
 ## Estrutura
 

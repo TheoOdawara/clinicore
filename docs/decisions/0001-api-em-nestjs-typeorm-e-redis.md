@@ -80,7 +80,7 @@ Fica mais difícil, e é aceito:
   O `apps/web` segue no 7.0; os apps são independentes.
 - **O repo passa a ter dois gerenciadores de pacote** — npm na API, Bun no web — até o web
   migrar. Estado transitório, declarado no `CLAUDE.md`.
-- **`docs/specs/autenticacao/003-autenticacao-web.md` segue descrevendo o cliente do Better
+- **`docs/work/specs/autenticacao/003-autenticacao-web.md` segue descrevendo o cliente do Better
   Auth.** É resolvida quando o front migrar, não aqui.
 - O Jest da API roda em CommonJS por causa do Nest 11, enquanto o do web roda em ESM.
 - **O `class-validator` não tem decorador de CIDR**, que o `TRUSTED_PROXIES` precisa. O
