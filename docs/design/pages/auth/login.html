@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Entrar · protótipo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="../../tokens.css" />
+    <link rel="stylesheet" href="../prototype.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+    <script src="../prototype.js" defer></script>
+    <style type="text/tailwindcss">
+      @custom-variant dark (&:is(.dark *));
+      @theme inline {
+        --font-sans: var(--font-sans);
+        --color-background: var(--background);
+        --color-foreground: var(--foreground);
+        --color-card: var(--card);
+        --color-card-foreground: var(--card-foreground);
+        --color-primary: var(--primary);
+        --color-primary-foreground: var(--primary-foreground);
+        --color-secondary: var(--secondary);
+        --color-muted: var(--muted);
+        --color-muted-foreground: var(--muted-foreground);
+        --color-accent: var(--accent);
+        --color-destructive: var(--destructive);
+        --color-border: var(--border);
+        --color-input: var(--input);
+        --color-ring: var(--ring);
+        --radius-md: calc(var(--radius) - 2px);
+        --radius-lg: var(--radius);
+        --radius-xl: calc(var(--radius) + 4px);
+      }
+    </style>
+  </head>
+  <body class="bg-background font-sans text-foreground antialiased">
+    <template id="icon-google">
+      <svg class="size-5" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+        <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.77.43 3.45 1.18 4.94l3.66-2.84z" />
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+      </svg>
+    </template>
+
+    <div class="artboards">
+      <!-- Padrão -->
+      <figure class="artboard" data-label="Padrão">
+        <main class="screen">
+          <p class="wordmark">Clinicore</p>
+          <section class="card">
+            <header class="space-y-1.5">
+              <h1 class="text-2xl font-semibold tracking-tight">Entrar</h1>
+              <p class="text-muted-foreground">Use o e-mail e a senha da sua conta.</p>
+            </header>
+            <form class="space-y-5" novalidate>
+              <div class="field">
+                <label for="d-email">E-mail</label>
+                <input id="d-email" type="email" autocomplete="email" />
+              </div>
+              <div class="field">
+                <div class="flex items-center justify-between">
+                  <label for="d-password">Senha</label>
+                  <a class="link text-sm" href="#">Esqueci minha senha</a>
+                </div>
+                <input id="d-password" type="password" autocomplete="current-password" />
+              </div>
+              <button class="button button-primary" type="submit">
+                Entrar
+              </button>
+            </form>
+            <div class="separator"><span>ou</span></div>
+            <button class="button button-outline" type="button"><span data-icon="google"></span>Entrar com Google</button>
+            <p class="text-center text-muted-foreground">
+              Ainda não tem conta? <a class="link" href="#">Criar conta</a>
+            </p>
+          </section>
+        </main>
+      </figure>
+
+      <!-- Campos inválidos -->
+      <figure class="artboard" data-label="Campos inválidos">
+        <main class="screen">
+          <p class="wordmark">Clinicore</p>
+          <section class="card">
+            <header class="space-y-1.5">
+              <h1 class="text-2xl font-semibold tracking-tight">Entrar</h1>
+              <p class="text-muted-foreground">Use o e-mail e a senha da sua conta.</p>
+            </header>
+            <form class="space-y-5" novalidate>
+              <div class="field">
+                <label for="f-email">E-mail</label>
+                <input id="f-email" type="email" value="ana@clinica" aria-invalid="true" aria-describedby="f-email-error" />
+                <p id="f-email-error" class="field-error" role="alert">Informe um e-mail válido.</p>
+              </div>
+              <div class="field">
+                <div class="flex items-center justify-between">
+                  <label for="f-password">Senha</label>
+                  <a class="link text-sm" href="#">Esqueci minha senha</a>
+                </div>
+                <input id="f-password" type="password" aria-invalid="true" aria-describedby="f-password-error" />
+                <p id="f-password-error" class="field-error" role="alert">Preencha este campo.</p>
+              </div>
+              <button class="button button-primary" type="submit">
+                Entrar
+              </button>
+            </form>
+            <div class="separator"><span>ou</span></div>
+            <button class="button button-outline" type="button"><span data-icon="google"></span>Entrar com Google</button>
+            <p class="text-center text-muted-foreground">
+              Ainda não tem conta? <a class="link" href="#">Criar conta</a>
+            </p>
+          </section>
+        </main>
+      </figure>
+
+      <!-- Erro da API -->
+      <figure class="artboard" data-label="E-mail ou senha incorretos">
+        <main class="screen">
+          <p class="wordmark">Clinicore</p>
+          <section class="card">
+            <header class="space-y-1.5">
+              <h1 class="text-2xl font-semibold tracking-tight">Entrar</h1>
+              <p class="text-muted-foreground">Use o e-mail e a senha da sua conta.</p>
+            </header>
+            <div aria-live="polite">
+              <div class="notice notice-error" role="alert">
+                <span class="notice-icon" data-icon="alert"></span>
+                <p>E-mail ou senha incorretos.</p>
+              </div>
+            </div>
+            <form class="space-y-5" novalidate>
+              <div class="field">
+                <label for="a-email">E-mail</label>
+                <input id="a-email" type="email" value="ana@clinicasorriso.com.br" />
+              </div>
+              <div class="field">
+                <div class="flex items-center justify-between">
+                  <label for="a-password">Senha</label>
+                  <a class="link text-sm" href="#">Esqueci minha senha</a>
+                </div>
+                <input id="a-password" type="password" value="••••••••••" />
+              </div>
+              <button class="button button-primary" type="submit">
+                Entrar
+              </button>
+            </form>
+            <div class="separator"><span>ou</span></div>
+            <button class="button button-outline" type="button"><span data-icon="google"></span>Entrar com Google</button>
+            <p class="text-center text-muted-foreground">
+              Ainda não tem conta? <a class="link" href="#">Criar conta</a>
+            </p>
+          </section>
+        </main>
+      </figure>
+
+      <!-- E-mail não confirmado -->
+      <figure class="artboard" data-label="E-mail não confirmado">
+        <main class="screen">
+          <p class="wordmark">Clinicore</p>
+          <section class="card">
+            <header class="space-y-1.5">
+              <h1 class="text-2xl font-semibold tracking-tight">Entrar</h1>
+              <p class="text-muted-foreground">Use o e-mail e a senha da sua conta.</p>
+            </header>
+            <div aria-live="polite">
+              <div class="notice notice-error" role="alert">
+                <span class="notice-icon" data-icon="alert"></span>
+                <p>
+                  Confirme seu e-mail antes de entrar. Confira sua caixa de entrada ou
+                  <a class="link" href="#">peça um novo link</a>.
+                </p>
+              </div>
+            </div>
+            <form class="space-y-5" novalidate>
+              <div class="field">
+                <label for="u-email">E-mail</label>
+                <input id="u-email" type="email" value="ana@clinicasorriso.com.br" />
+              </div>
+              <div class="field">
+                <div class="flex items-center justify-between">
+                  <label for="u-password">Senha</label>
+                  <a class="link text-sm" href="#">Esqueci minha senha</a>
+                </div>
+                <input id="u-password" type="password" value="••••••••••" />
+              </div>
+              <button class="button button-primary" type="submit">
+                Entrar
+              </button>
+            </form>
+            <div class="separator"><span>ou</span></div>
+            <button class="button button-outline" type="button"><span data-icon="google"></span>Entrar com Google</button>
+            <p class="text-center text-muted-foreground">
+              Ainda não tem conta? <a class="link" href="#">Criar conta</a>
+            </p>
+          </section>
+        </main>
+      </figure>
+
+      <!-- Enviando -->
+      <figure class="artboard" data-label="Enviando">
+        <main class="screen">
+          <p class="wordmark">Clinicore</p>
+          <section class="card">
+            <header class="space-y-1.5">
+              <h1 class="text-2xl font-semibold tracking-tight">Entrar</h1>
+              <p class="text-muted-foreground">Use o e-mail e a senha da sua conta.</p>
+            </header>
+            <form class="space-y-5" novalidate>
+              <div class="field">
+                <label for="s-email">E-mail</label>
+                <input id="s-email" type="email" value="ana@clinicasorriso.com.br" />
+              </div>
+              <div class="field">
+                <div class="flex items-center justify-between">
+                  <label for="s-password">Senha</label>
+                  <a class="link text-sm" href="#">Esqueci minha senha</a>
+                </div>
+                <input id="s-password" type="password" value="••••••••••" />
+              </div>
+              <button class="button button-primary" type="submit" disabled aria-busy="true">
+                <span class="spinner" data-icon="loader"></span>Entrando…
+              </button>
+            </form>
+            <div class="separator"><span>ou</span></div>
+            <button class="button button-outline" type="button"><span data-icon="google"></span>Entrar com Google</button>
+            <p class="text-center text-muted-foreground">
+              Ainda não tem conta? <a class="link" href="#">Criar conta</a>
+            </p>
+          </section>
+        </main>
+      </figure>
+
+      <!-- E-mail confirmado, vindo de /verify-email -->
+      <figure class="artboard" data-label="Vindo da confirmação do e-mail">
+        <main class="screen">
+          <p class="wordmark">Clinicore</p>
+          <section class="card">
+            <header class="space-y-1.5">
+              <h1 class="text-2xl font-semibold tracking-tight">Entrar</h1>
+              <p class="text-muted-foreground">Use o e-mail e a senha da sua conta.</p>
+            </header>
+            <div aria-live="polite">
+              <div class="notice notice-success" role="status">
+                <span class="notice-icon" data-icon="check"></span>
+                <p>E-mail confirmado. Entre com a sua senha.</p>
+              </div>
+            </div>
+            <form class="space-y-5" novalidate>
+              <div class="field">
+                <label for="c-email">E-mail</label>
+                <input id="c-email" type="email" value="ana@clinicasorriso.com.br" />
+              </div>
+              <div class="field">
+                <div class="flex items-center justify-between">
+                  <label for="c-password">Senha</label>
+                  <a class="link text-sm" href="#">Esqueci minha senha</a>
+                </div>
+                <input id="c-password" type="password" />
+              </div>
+              <button class="button button-primary" type="submit">
+                Entrar
+              </button>
+            </form>
+            <div class="separator"><span>ou</span></div>
+            <button class="button button-outline" type="button"><span data-icon="google"></span>Entrar com Google</button>
+            <p class="text-center text-muted-foreground">
+              Ainda não tem conta? <a class="link" href="#">Criar conta</a>
+            </p>
+          </section>
+        </main>
+      </figure>
+    </div>
+  </body>
+</html>

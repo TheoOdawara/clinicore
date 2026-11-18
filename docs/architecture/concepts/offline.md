@@ -1,0 +1,36 @@
+# Offline
+
+**Marco: M1. Nada disto existe ainda.** A decisão é a
+[ADR 0007](../../decisions/0007-app-nativo-em-flutter-com-offline.md), com a stack da
+[ADR 0022](../../decisions/0022-apps-nativos-em-kotlin-e-swift.md), e os requisitos são `NFR-REL-02`,
+`NFR-REL-03`, `NFR-SEC-04` e `NFR-SEC-06`.
+
+O offline é exclusivo do `apps/android` e do `apps/ios`. O `apps/web` exige conexão e não guarda dado
+clínico.
+
+## No app
+
+- **O app funciona igual sem conexão**, em leitura e em escrita.
+- **Toda escrita vai para uma fila local**, em ordem, e sobe sozinha quando a conexão volta.
+- **O dado no aparelho vem em duas camadas**: a ocupação da agenda, sem paciente, por um período longo;
+  e o dado clínico só dos pacientes de um período curto. Os dois períodos são números da spec da agenda.
+- **O banco local é cifrado**: no Android, por SQLCipher com a chave no Keystore; no iOS, pela Data
+  Protection, que só existe com código de desbloqueio no aparelho.
+- **Sem sincronizar há 72 horas, o app mostra 0 dados de saúde** e mantém a fila.
+- **No logout, o app envia a fila antes de sair**; sem conexão, só sai quando o usuário confirma o
+  descarte do que não subiu. **Na sessão revogada, apaga tudo**, inclusive a fila.
+
+## Na API
+
+Toda rota de escrita que o app chama passa a exigir três coisas:
+
+| O que | Para quê |
+| --- | --- |
+| Coluna de versão no registro | recusar uma escrita feita sobre versão velha |
+| UUID gerado no cliente | identificar um registro criado offline |
+| Chave de idempotência | aceitar o reenvio da fila sem duplicar |
+
+## Conflito
+
+**Nada é sobrescrito em silêncio.** Uma escrita da fila feita sobre versão velha, ou que ocupa um
+horário já ocupado, é recusada pela API, e o item vai para "Pendências" no app, para a pessoa refazer.

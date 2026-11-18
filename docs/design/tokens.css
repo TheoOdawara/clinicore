@@ -1,0 +1,44 @@
+:root {
+  --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
+  --radius: 0.5rem;
+
+  --background: #f7fafa;
+  --foreground: #0f2a33;
+  --card: #ffffff;
+  --card-foreground: #0f2a33;
+  --popover: #ffffff;
+  --popover-foreground: #0f2a33;
+  --primary: #0e7490;
+  --primary-foreground: #ffffff;
+  --secondary: #e6f0f2;
+  --secondary-foreground: #0f2a33;
+  --muted: #eef4f5;
+  --muted-foreground: #4b5f68;
+  --accent: #e6f0f2;
+  --accent-foreground: #0f2a33;
+  --destructive: #c81e1e;
+  --border: #d6e2e5;
+  --input: #778d95;
+  --ring: #0e7490;
+}
+
+.dark {
+  --background: #0b1a1f;
+  --foreground: #e6f1f3;
+  --card: #11242a;
+  --card-foreground: #e6f1f3;
+  --popover: #11242a;
+  --popover-foreground: #e6f1f3;
+  --primary: #22b8cf;
+  --primary-foreground: #04232a;
+  --secondary: #17303a;
+  --secondary-foreground: #e6f1f3;
+  --muted: #17303a;
+  --muted-foreground: #9db4bb;
+  --accent: #17303a;
+  --accent-foreground: #e6f1f3;
+  --destructive: #f87171;
+  --border: #23404a;
+  --input: #4e7380;
+  --ring: #22b8cf;
+}
