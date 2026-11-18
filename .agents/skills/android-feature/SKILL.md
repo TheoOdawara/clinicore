@@ -13,8 +13,9 @@ módulo que precisar de `clinicore.jvm.library`, `clinicore.android.feature`, Ro
 
 1. Criar `feature/<feature>/api` com o plugin `clinicore.jvm.library` e as chaves de navegação
    (`<Tela>NavKey`), e `feature/<feature>/impl` com o plugin `clinicore.android.feature`.
-2. Incluir os dois no `settings.gradle.kts`, o `impl` no `app` e o `kover(projects.feature.<feature>.impl)`
-   no `build.gradle.kts` da raiz, e regravar os lockfiles e o `verification-metadata.xml` (skill `gates`).
+2. Incluir os dois no `settings.gradle.kts` e o `impl` no `app`, e regravar os lockfiles e o
+   `verification-metadata.xml` (skill `gates`). O módulo entra sozinho no relatório do Kover da raiz,
+   porque a convenção o registra.
 3. Em `impl/navigation/`, o `<Feature>EntryProvider.kt` liga cada chave à tela.
 
 ## Dado novo

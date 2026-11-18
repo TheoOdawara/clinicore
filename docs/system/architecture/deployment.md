@@ -9,7 +9,7 @@ Onde cada bloco roda, em cada ambiente, e como ele chega lá.
 | Ambiente | Estado | Onde roda |
 | --- | --- | --- |
 | Desenvolvimento | existe | a máquina de quem desenvolve |
-| CI | existe para a API, o web, o Android e o iOS, pelo `ci-api.yml`, pelo `ci-web.yml`, pelo `ci-android.yml`, pelo `ci-ios.yml` e pelo `ci-security.yml`; o site ganha o seu workflow no scaffold dele | GitHub Actions |
+| CI | existe para os cinco apps, um workflow por app, mais o `ci-security.yml`, o `ci-repo.yml` e o `ci-audit.yml` | GitHub Actions |
 | Homolog (`staging`) | planejado | a VPS com Coolify |
 | Produção (`main`) | planejado | a VPS com Coolify |
 
@@ -57,8 +57,9 @@ Backup e recuperação estão em aberto, na
   para a `main`.
 - **O CI roda só onde houve mudança** ([ADR 0024](../../decisions/0024-ci-por-mudanca-em-repositorio-publico.md)):
   um workflow por app (`ci-api.yml`, com PostgreSQL e Redis de serviço, `ci-web.yml`, `ci-android.yml`, `ci-ios.yml` e `ci-site.yml`),
-  disparado pelo caminho do app, e o `ci-security.yml` com o gitleaks em todo pull request. O push na
-  `staging` roda o app inteiro. Os gates são os da skill `gates`.
+  disparado pelo caminho do app, e o `ci-security.yml` com o gitleaks em todo pull request. O
+  `ci-repo.yml` confere os workflows e o build da documentação, e o `ci-audit.yml` roda a auditoria de
+  CVE toda segunda-feira. O push na `staging` roda o app inteiro. Os gates são os da skill `gates`.
 - **Não há deploy automático.** Ele nasce junto da hospedagem.
 - **Toda publicação é um rolling update.** O container novo sobe ao lado do antigo e só recebe tráfego
   depois de passar no health check do `/health`; o antigo para em seguida. Por isso toda migration é

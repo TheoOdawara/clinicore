@@ -37,6 +37,7 @@ internal fun Project.configureQuality() {
     dependencies { add("detektPlugins", libs.findLibrary("compose-rules-detekt").get()) }
 
     pluginManager.apply("org.jetbrains.kotlinx.kover")
+    rootProject.dependencies.add("kover", rootProject.dependencies.project(path))
 
     dependencyLocking { lockAllConfigurations() }
 

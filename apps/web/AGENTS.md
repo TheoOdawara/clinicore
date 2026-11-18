@@ -9,7 +9,7 @@ sempre online.
 ```
 apps/web/
 ├── public/                  manifest.webmanifest, ícones do PWA, favicon
-├── e2e/<feature>/<fluxo>.spec.ts · e2e/support/     Playwright
+├── e2e/<feature>/<fluxo>.spec.ts · e2e/support/     Playwright, sobre o build servido pelo vite preview
 └── src/
     ├── main.ts  index.html
     ├── styles/              styles.scss é manifesto: _tokens.scss, _theme.scss (mat.theme), _typography.scss

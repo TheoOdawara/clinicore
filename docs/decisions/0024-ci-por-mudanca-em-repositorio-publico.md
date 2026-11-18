@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-11-17
 - Emenda a: 0019 (o gate de CVE do iOS e a forma de atualizar dependência)
+- Emendada no scaffold (#5): lint e formato rodam o app inteiro, e o CI ganha cache, prazo e dois workflows
 
 ## Context
 
@@ -44,19 +45,30 @@ CI no commit `7486536`.
    | App | O que dispara o quê |
    | --- | --- |
    | `apps/api` | `core` → os três crates · `app` → `app` · `worker` → `worker` · `migrations/` ou `.sqlx/` → `app`, `worker` e o `sqlx prepare --check` · `Cargo.lock` ou `deny.toml` → `cargo deny` e tudo |
-   | `apps/web` | uma feature → os testes dela, pelo `include` do builder, e o e2e marcado com ela · `shared/`, configuração ou `package.json` → todos · lint e formato nos arquivos alterados · `ng build` sempre |
-   | `apps/site` | `vitest --changed` contra a `staging` · lint e formato nos arquivos alterados · `svelte-check` e build sempre |
+   | `apps/web` | uma feature → os testes dela, pelo `include` do builder, e o e2e marcado com ela · `shared/`, configuração ou `package.json` → todos · `ng build` sempre |
+   | `apps/site` | `vitest --changed` contra a `staging` · `svelte-check` e build sempre |
    | `apps/android` | uma feature → ela e o `app` · `core/model` ou `core/data` → o que depende deles · `build-logic` ou o catálogo de versões → tudo · emulador só quando o `core/data` muda · Maestro com os fluxos da feature · cache de build do Gradle |
-   | `apps/ios` | o mesmo desenho, com `swift test --filter` nos targets afetados e `-only-testing:` no XCUITest · formato e lint nos arquivos alterados · build do app sempre |
+   | `apps/ios` | o mesmo desenho, com `swift test --filter` nos targets afetados e `-only-testing:` no XCUITest · build do app sempre |
 
 3. **O push na `staging` e o PR para a `main` rodam tudo.** É a rede de segurança para um mapa de
    dependências desatualizado no YAML.
-4. **Tipos, build e formato rodam o app inteiro** sempre que ele é afetado; a auditoria de CVE roda
-   quando o lockfile muda.
+4. **Tipos, build, formato e lint rodam o app inteiro** sempre que ele é afetado; a auditoria de CVE
+   roda quando o lockfile muda e toda segunda-feira, pelo `ci-audit.yml`, sobre a `main`.
 5. **Máquinas:** `ubuntu-latest` para api, web, site e android, com a aceleração de emulador do runner
    Linux; `xcode-27`, com o Xcode travado no 27.2, para o iOS.
 6. **Toda action de terceiro fica numa versão exata**, e o cache de dependência de cada app usa o
-   lockfile dele como chave.
+   lockfile dele como chave. **Só o push na `staging` grava cache**; o PR só lê. O GitHub deixa o PR ler o
+   cache da branch base, e o cache gravado no PR ocuparia a cota com uma entrada que nenhum outro PR lê.
+7. **Todo job tem `timeout-minutes`**, e o `cancel-in-progress` vale só no PR: um push na `staging` nunca
+   cancela a verificação do anterior.
+8. **O `ci-repo.yml` confere o que fica fora dos apps**: o `actionlint` nos workflows e o build da
+   documentação.
+
+No scaffold (#5), por decisão do dono do produto, lint e formato passaram a rodar o app inteiro. Nos
+arquivos alterados, o ESLint com tipos não via o erro que a mudança causava num arquivo que a importa, e
+o filtro deixava de fora o arquivo renomeado; o ganho eram segundos num job de minutos. No mesmo scaffold,
+o filtro de caminho foi para dentro do job de gates, sem um runner só para ele, e o e2e do web e do site
+passou a rodar sobre o build que o job acabou de fazer.
 
 ## Consequences
 

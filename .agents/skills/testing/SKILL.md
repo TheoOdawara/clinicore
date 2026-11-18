@@ -23,6 +23,10 @@ description: Como escrever e revisar teste no Clinicore, inclusive teste escrito
   chamada do `diff-cover` com `--include`.
 - **Ficam fora da conta**, declarados no gerador de cobertura de cada app: código gerado, o ponto de
   entrada e as telas, que são cobertas pelo teste de interface.
+- **Todo arquivo-fonte entra no relatório**, testado ou não. O `diff-cover` ignora o arquivo que falta no
+  relatório e dá 100%, então o gerador de cada app lista os arquivos pela pasta, nunca por quem o teste
+  carregou: o `coverageInclude` no web, o `coverage.include` no site, a convenção que registra cada módulo
+  no Kover e um `-object` por `.xctest` no iOS.
 - Não há piso global. Um teste apagado aparece no diff do PR.
 
 | App | Relatório que o `diff-cover` lê |

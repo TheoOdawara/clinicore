@@ -6,11 +6,6 @@ plugins {
     id("clinicore.root")
 }
 
-dependencies {
-    kover(projects.app)
-    kover(projects.core.designsystem)
-}
-
 kover {
     reports {
         filters { excludes { annotatedBy("androidx.compose.ui.tooling.preview.Preview") } }

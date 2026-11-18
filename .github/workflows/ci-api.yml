@@ -14,57 +14,16 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-api-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      everything: ${{ steps.scope.outputs.everything }}
-      sqlx: ${{ steps.scope.outputs.sqlx }}
-      deny: ${{ steps.scope.outputs.deny }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: |
-            core:
-              - apps/api/crates/core/**
-            shared:
-              - apps/api/Cargo.toml
-              - apps/api/rust-toolchain.toml
-              - .github/workflows/ci-api.yml
-            sqlx:
-              - apps/api/migrations/**
-              - apps/api/.sqlx/**
-            deny:
-              - apps/api/Cargo.lock
-              - apps/api/deny.toml
-      - id: scope
-        env:
-          FULL_RUN: ${{ github.event_name == 'push' || github.base_ref == 'main' }}
-          CORE: ${{ steps.filter.outputs.core }}
-          SHARED: ${{ steps.filter.outputs.shared }}
-          SQLX: ${{ steps.filter.outputs.sqlx }}
-          DENY: ${{ steps.filter.outputs.deny }}
-        run: |
-          everything=false
-          if [ "$FULL_RUN" = true ] || [ "$CORE" = true ] || [ "$SHARED" = true ] || [ "$DENY" = true ]; then
-            everything=true
-          fi
-          {
-            echo "everything=$everything"
-            echo "sqlx=$([ "$everything" = true ] || [ "$SQLX" = true ] && echo true || echo false)"
-            echo "deny=$([ "$FULL_RUN" = true ] || [ "$DENY" = true ] && echo true || echo false)"
-          } >> "$GITHUB_OUTPUT"
-
   gates:
-    needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/api
@@ -97,36 +56,91 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
+      - id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          list-files: shell
+          filters: |
+            shared:
+              - apps/api/crates/core/**
+              - apps/api/Cargo.toml
+              - apps/api/rust-toolchain.toml
+              - apps/api/migrations/**
+              - apps/api/.sqlx/**
+              - apps/api/Cargo.lock
+              - apps/api/deny.toml
+              - .github/workflows/ci-api.yml
+            sqlx:
+              - apps/api/migrations/**
+              - apps/api/.sqlx/**
+            deny:
+              - apps/api/Cargo.lock
+              - apps/api/deny.toml
+            crates:
+              - apps/api/crates/**
+      - id: scope
+        env:
+          FULL_RUN: ${{ github.event_name != 'pull_request' || github.base_ref == 'main' }}
+          SHARED: ${{ steps.filter.outputs.shared }}
+          SQLX: ${{ steps.filter.outputs.sqlx }}
+          DENY: ${{ steps.filter.outputs.deny }}
+        run: |
+          everything=false
+          if [ "$FULL_RUN" = true ] || [ "$SHARED" = true ]; then everything=true; fi
+          {
+            echo "everything=$everything"
+            echo "sqlx=$([ "$everything" = true ] || [ "$SQLX" = true ] && echo true || echo false)"
+            echo "deny=$([ "$FULL_RUN" = true ] || [ "$DENY" = true ] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
       - name: Toolchain
         run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: apps/api
+          save-if: ${{ github.ref == 'refs/heads/staging' }}
       - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-nextest@0.9.152,cargo-llvm-cov@0.9.1,cargo-deny@0.20.2,sqlx-cli@0.9.0
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - if: github.event_name == 'pull_request'
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
 
       - name: Format
         run: cargo fmt --all --check
       - name: Dependencies (cargo deny)
-        if: needs.changes.outputs.deny == 'true'
+        if: steps.scope.outputs.deny == 'true'
         run: cargo deny check
       - name: Lint (clippy)
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Offline queries (sqlx prepare)
-        if: needs.changes.outputs.sqlx == 'true'
+        if: steps.scope.outputs.sqlx == 'true'
         env:
           SQLX_OFFLINE: "false"
-        run: cargo sqlx prepare --workspace --check
+        run: |
+          cargo sqlx migrate run --source migrations
+          cargo sqlx prepare --workspace --check
       - name: Tests with coverage
         env:
-          PACKAGES: ${{ needs.changes.outputs.everything == 'true' && '--workspace' || '--package=clinicore-app' }}
-        run: >-
-          cargo llvm-cov nextest "$PACKAGES" --locked
-          --lcov --output-path target/lcov.info
-          --ignore-filename-regex 'main\.rs'
+          EVERYTHING: ${{ steps.scope.outputs.everything }}
+          CHANGED: ${{ steps.filter.outputs.crates_files }}
+        run: |
+          packages=()
+          if [ "$EVERYTHING" != true ]; then
+            read -ra changed <<< "$CHANGED"
+            while IFS=$'\t' read -r name dir; do
+              for file in "${changed[@]}"; do
+                case "$GITHUB_WORKSPACE/$file" in "$dir"/*) packages+=("--package=$name"); break ;; esac
+              done
+            done < <(cargo metadata --no-deps --format-version 1 --locked \
+              | jq -r '.packages[] | [.name, (.manifest_path | rtrimstr("/Cargo.toml"))] | @tsv')
+          fi
+          if [ "${#packages[@]}" -eq 0 ]; then packages=(--workspace); fi
+          echo "Testing: ${packages[*]}"
+          cargo llvm-cov nextest "${packages[@]}" --locked \
+            --lcov --output-path target/lcov.info --ignore-filename-regex 'main\.rs'
       - name: Coverage of new lines (90%)
         if: github.event_name == 'pull_request'
         working-directory: .

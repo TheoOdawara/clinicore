@@ -14,107 +14,62 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-site-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      everything: ${{ steps.scope.outputs.everything }}
-      files: ${{ steps.filter.outputs.site_files }}
-      audit: ${{ steps.scope.outputs.audit }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          list-files: shell
-          filters: |
-            config:
-              - apps/site/package.json
-              - apps/site/bun.lock
-              - apps/site/vite.config.ts
-              - apps/site/tsconfig.json
-              - apps/site/eslint.config.ts
-              - apps/site/.prettierrc
-              - .github/workflows/ci-site.yml
-            lock:
-              - apps/site/bun.lock
-            site:
-              - added|modified: apps/site/**
-      - id: scope
-        env:
-          FULL_RUN: ${{ github.event_name == 'push' || github.base_ref == 'main' }}
-          CONFIG: ${{ steps.filter.outputs.config }}
-          LOCK: ${{ steps.filter.outputs.lock }}
-        run: |
-          if [ "$FULL_RUN" = true ] || [ "$LOCK" = true ]; then
-            echo "audit=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "audit=false" >> "$GITHUB_OUTPUT"
-          fi
-          if [ "$FULL_RUN" = true ] || [ "$CONFIG" = true ]; then
-            echo "everything=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "everything=false" >> "$GITHUB_OUTPUT"
-          fi
-
   gates:
-    needs: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: apps/site
     env:
       CI: "true"
-      EVERYTHING: ${{ needs.changes.outputs.everything }}
-      CHANGED: ${{ needs.changes.outputs.files }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
+      - id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            lock:
+              - apps/site/bun.lock
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26.13.1
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - id: bun-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('apps/site/bun.lock') }}
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - id: playwright-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/site/bun.lock') }}
+      - if: github.event_name == 'pull_request'
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
       - name: Install
         run: bun install --frozen-lockfile
 
       - name: Known vulnerabilities (bun audit)
-        if: needs.changes.outputs.audit == 'true'
+        if: github.event_name != 'pull_request' || github.base_ref == 'main' || steps.filter.outputs.lock == 'true'
         run: bun run audit
       - name: Format (prettier)
-        run: |
-          if [ "$EVERYTHING" = true ]; then
-            bunx prettier --check .
-          else
-            read -ra changed <<< "${CHANGED//apps\/site\//}"
-            bunx prettier --check --ignore-unknown "${changed[@]}"
-          fi
+        run: bunx prettier --check .
       - name: Lint (eslint)
-        run: |
-          if [ "$EVERYTHING" = true ]; then
-            bun run lint
-          else
-            read -ra changed <<< "${CHANGED//apps\/site\//}"
-            lintable=()
-            for file in "${changed[@]}"; do
-              case "$file" in *.ts | *.svelte) lintable+=("$file") ;; esac
-            done
-            if [ "${#lintable[@]}" -gt 0 ]; then
-              bunx eslint --max-warnings 0 --no-warn-ignored "${lintable[@]}"
-            fi
-          fi
+        run: bun run lint
       - name: Types (svelte-check)
         run: bun run check
       - name: Architecture boundaries
@@ -127,7 +82,7 @@ jobs:
         run: bun run test -- --coverage
       - name: Playwright browser
         run: bunx playwright install --with-deps chromium
-      - name: End-to-end (playwright)
+      - name: End-to-end over the build (playwright)
         run: bun run e2e
       - name: Coverage of new lines (90%)
         if: github.event_name == 'pull_request'
@@ -136,3 +91,14 @@ jobs:
           uvx diff-cover==11.0.3 apps/site/coverage/lcov.info
           --compare-branch "origin/${{ github.base_ref }}"
           --fail-under 90
+
+      - if: github.ref == 'refs/heads/staging' && steps.bun-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('apps/site/bun.lock') }}
+      - if: github.ref == 'refs/heads/staging' && steps.playwright-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/site/bun.lock') }}

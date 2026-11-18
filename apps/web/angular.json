@@ -61,6 +61,7 @@
           "options": {
             "tsConfig": "tsconfig.spec.json",
             "coverageReporters": [["lcovonly", { "projectRoot": "../.." }], "text-summary"],
+            "coverageInclude": ["src/**/*.ts", "src/**/*.html"],
             "coverageExclude": ["src/main.ts"]
           }
         }

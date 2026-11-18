@@ -10,10 +10,12 @@ o resultado é relatado com a saída.
 
 ## Documentação
 
-Da raiz do repo:
+Da raiz do repo. O CI roda os mesmos no `ci-repo.yml`, em todo PR que muda `docs/`, o `zensical.toml`
+ou `.github/`.
 
 | Gate | Comando |
 | --- | --- |
+| Workflows | `actionlint` |
 | Build do site | `uvx zensical==0.1.2 build --clean` |
 
 ## `apps/api`
@@ -43,7 +45,7 @@ De `apps/web/`, depois do `bun install`. O CI roda os mesmos, no `ci-web.yml`.
 | Teste das fronteiras | `bun run test:boundaries` |
 | Build | `bun run build` |
 | Testes e cobertura | `bun run test -- --coverage --watch=false` |
-| E2E, a 390 px e com o axe | `bun run e2e` |
+| E2E sobre o build, a 390 px e com o axe | `bun run e2e` |
 | Linhas novas | da raiz: `uvx diff-cover==11.0.3 apps/web/coverage/web/lcov.info --compare-branch origin/staging --include-untracked --fail-under 90`, e a mesma chamada com `--fail-under 100` e o `--include` dos caminhos críticos do `ci-web.yml` |
 
 ## `apps/android`
@@ -81,7 +83,7 @@ vem pelo command plugin do `SwiftLintPlugins`, travado no `Packages/Package.swif
 | Lint | `swift package --package-path Packages plugin --allow-writing-to-package-directory swiftlint lint --strict --quiet --config "$PWD/.swiftlint.yml" "$PWD/Clinicore" "$PWD/ClinicoreUITests" "$PWD/Packages/Package.swift" "$PWD/Packages/Sources" "$PWD/Packages/Tests"` |
 | Fronteiras | o mesmo plugin com `--reporter json` sobre `"$PWD/ArchitectureFixtures"`: tem que reprovar, e a saída traz as quatro regras próprias, como o `ci-ios.yml` confere com o `jq` |
 | Build e testes (Swift Testing e XCUITest) | `xcodebuild test -project Clinicore.xcodeproj -scheme Clinicore -destination 'platform=iOS Simulator,name=iPhone 17e,OS=27.2' -enableCodeCoverage YES -derivedDataPath build` |
-| Cobertura | `xcrun llvm-cov export -format=lcov` sobre o `Coverage.profdata` em `build/Build/ProfileData/`, com `-object` no `Clinicore.app/Clinicore.debug.dylib` e no `DesignSystemTests.xctest/DesignSystemTests`, para `build/coverage.lcov` |
+| Cobertura | `xcrun llvm-cov export -format=lcov` sobre o `Coverage.profdata` em `build/Build/ProfileData/`, com `-object` no `Clinicore.app/Clinicore.debug.dylib` e em cada `.xctest` de `build/Build/Products/Debug-iphonesimulator/`, para `build/coverage.lcov`, como o `ci-ios.yml` faz |
 | Linhas novas | da raiz: `uvx diff-cover==11.0.3 apps/ios/build/coverage.lcov --compare-branch origin/staging --include-untracked --fail-under 90`, e a mesma chamada com `--fail-under 100` e o `--include` dos caminhos críticos do `ci-ios.yml` |
 
 O `xcodebuild test` sobe o simulador; no Mac, ele roda sem Gradle nem emulador ao lado. Não há gate de
@@ -101,8 +103,12 @@ De `apps/site/`, depois do `bun install`. O CI roda os mesmos, no `ci-site.yml`.
 | Build | `bun run build` |
 | Conteúdo prerenderizado | `bun run test:prerender` |
 | Testes e cobertura | `bun run test -- --coverage` |
-| E2E, a 320 px, no escuro e com o axe | `bun run e2e` |
+| E2E sobre o build, a 320 px, no escuro e com o axe | `bun run e2e` |
 | Linhas novas | da raiz: `uvx diff-cover==11.0.3 apps/site/coverage/lcov.info --compare-branch origin/staging --include-untracked --fail-under 90`; o site não tem caminho crítico |
 
 Em todo app, a cobertura das linhas novas é conferida pelo `diff-cover` contra a `origin/staging`, como a
 skill `testing` descreve (ADR 0023).
+
+No web e no site, o `bun run e2e` faz o build e serve o resultado pelo `vite preview`; no CI, com
+`CI=true`, ele serve o build que o passo anterior fez. Toda segunda-feira, o `ci-audit.yml` roda a
+auditoria de CVE do web, do site, da API e do Android sobre a `main`, mesmo sem mudança no lockfile.
