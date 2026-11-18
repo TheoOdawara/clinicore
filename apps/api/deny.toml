@@ -1,0 +1,49 @@
+[graph]
+all-features = false
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+confidence-threshold = 0.93
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+[[licenses.clarify]]
+crate = "clinicore-core"
+expression = "LicenseRef-Proprietary"
+license-files = []
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = true
+skip = [
+    { crate = "base64@0.22.1", reason = "sqlx 0.9.1 pins it; utoipa-swagger-ui 10.0.2 is on 0.23" },
+    { crate = "getrandom@0.2.17", reason = "ring 0.17.14 pins it; rand and zip are on 0.4" },
+    { crate = "hashbrown@0.16.1", reason = "sqlx 0.9.1 and hashlink pin it; indexmap is on 0.17" },
+    { crate = "syn@2.0.119", reason = "sqlx-macros 0.9.1 and tracing-attributes pin it; serde and thiserror are on 3" },
+    { crate = "windows-sys@0.52.0", reason = "ring 0.17.14 pins it; tokio is on 0.61, and the API never builds for Windows" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

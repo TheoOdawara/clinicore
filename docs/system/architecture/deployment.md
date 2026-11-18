@@ -9,11 +9,12 @@ Onde cada bloco roda, em cada ambiente, e como ele chega lá.
 | Ambiente | Estado | Onde roda |
 | --- | --- | --- |
 | Desenvolvimento | existe | a máquina de quem desenvolve |
-| CI | planejado: cada app ganha o seu workflow no scaffold | GitHub Actions |
+| CI | existe para a API, pelo `ci-api.yml` e pelo `ci-security.yml`; cada outro app ganha o seu workflow no scaffold dele | GitHub Actions |
 | Homolog (`staging`) | planejado | a VPS com Coolify |
 | Produção (`main`) | planejado | a VPS com Coolify |
 
-**Não há hospedagem nem código.** Nenhum app tem Dockerfile ainda. Cada um vai ser publicado no Coolify pelo
+**Não há hospedagem.** A VPS só entra quando o desenvolvimento terminar; até lá, cada entrega é conferida
+rodando local. Nenhum app tem Dockerfile ainda. Cada um vai ser publicado no Coolify pelo
 próprio `apps/<app>/Dockerfile`, por rolling update, como decide a
 [ADR 0014](../../decisions/0014-deploy-por-dockerfile-no-coolify.md).
 
@@ -26,7 +27,7 @@ próprio `apps/<app>/Dockerfile`, por rolling update, como decide a
 | `apps/site` | `bun run dev` | 4321 |
 | `apps/android` | Android Studio, no emulador ou no aparelho (M1) | — |
 | `apps/ios` | Xcode, no simulador ou no aparelho (M1) | — |
-| PostgreSQL 18 e Redis 8 | `docker compose up`, pelo `apps/api/compose.yaml` | as do Infisical |
+| PostgreSQL 18 e Redis 8 | `docker compose up -d --wait`, dentro do `infisical run --path=/api --`, pelo `apps/api/compose.yaml` (projeto `clinicore`) | `POSTGRES_PORT` e `REDIS_PORT` do Infisical |
 
 As variáveis da API vêm do Infisical, no ambiente `dev`, e o `apps/api/.env` local, fora do git, é mantido
 sempre igual a ele. No emulador Android, a API local é `http://10.0.2.2:3333`.

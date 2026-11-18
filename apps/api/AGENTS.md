@@ -1,7 +1,6 @@
 # `apps/api` — forma e regras
 
-Aditivo ao `AGENTS.md` da raiz. **O app ainda não existe**: nasce na issue de scaffold da API, já na
-forma abaixo. Stack nas ADRs 0009 e 0019, crates na 0010, OpenAPI na 0011, revogação
+Aditivo ao `AGENTS.md` da raiz. Stack nas ADRs 0009 e 0019, crates na 0010, OpenAPI na 0011, revogação
 na 0012, forma na 0026. O contrato é o HTTP (URL, status, cookie, limite, Problem Details); o resto
 segue o idioma do Rust, do axum e do Postgres.
 
@@ -10,8 +9,8 @@ segue o idioma do Rust, do axum e do Postgres.
 - **`crates/core` (`clinicore-core`)**: configuração, Postgres, Redis, layout do e-mail, sinal de parada,
   `tracing` e os prazos que a API e o worker dividem. Não conhece feature nem HTTP.
 - **`crates/app` (`clinicore-app`)**: a API inteira; gera o binário `api`.
-- **`crates/worker` (`clinicore-worker`)**: o trabalho fora da requisição (fila de e-mail, purga às
-  03:00 de São Paulo); gera o binário `worker` e depende só do `core`.
+- **`crates/worker` (`clinicore-worker`)**, que nasce com o primeiro job: o trabalho fora da requisição
+  (fila de e-mail, purga às 03:00 de São Paulo); gera o binário `worker` e depende só do `core`.
 - Dependência nova entra em `[workspace.dependencies]` com a versão exata.
 
 ## Estrutura

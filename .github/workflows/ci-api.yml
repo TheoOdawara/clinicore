@@ -1,0 +1,158 @@
+name: ci-api
+
+on:
+  pull_request:
+    branches: [staging, main]
+    paths:
+      - apps/api/**
+      - .github/workflows/ci-api.yml
+  push:
+    branches: [staging]
+    paths:
+      - apps/api/**
+      - .github/workflows/ci-api.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-api-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      everything: ${{ steps.scope.outputs.everything }}
+      sqlx: ${{ steps.scope.outputs.sqlx }}
+      deny: ${{ steps.scope.outputs.deny }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            core:
+              - apps/api/crates/core/**
+            shared:
+              - apps/api/Cargo.toml
+              - apps/api/rust-toolchain.toml
+              - .github/workflows/ci-api.yml
+            sqlx:
+              - apps/api/migrations/**
+              - apps/api/.sqlx/**
+            deny:
+              - apps/api/Cargo.lock
+              - apps/api/deny.toml
+      - id: scope
+        env:
+          FULL_RUN: ${{ github.event_name == 'push' || github.base_ref == 'main' }}
+          CORE: ${{ steps.filter.outputs.core }}
+          SHARED: ${{ steps.filter.outputs.shared }}
+          SQLX: ${{ steps.filter.outputs.sqlx }}
+          DENY: ${{ steps.filter.outputs.deny }}
+        run: |
+          everything=false
+          if [ "$FULL_RUN" = true ] || [ "$CORE" = true ] || [ "$SHARED" = true ] || [ "$DENY" = true ]; then
+            everything=true
+          fi
+          {
+            echo "everything=$everything"
+            echo "sqlx=$([ "$everything" = true ] || [ "$SQLX" = true ] && echo true || echo false)"
+            echo "deny=$([ "$FULL_RUN" = true ] || [ "$DENY" = true ] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
+
+  gates:
+    needs: changes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:18.7-alpine
+        env:
+          POSTGRES_USER: clinicore
+          POSTGRES_PASSWORD: ci-only-throwaway
+          POSTGRES_DB: clinicore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U clinicore -d clinicore"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:8.10.3-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      APP_ENV: test
+      LOG_LEVEL: warn
+      PORT: "3333"
+      DATABASE_URL: postgresql://clinicore:ci-only-throwaway@localhost:5432/clinicore
+      SQLX_OFFLINE: "true"
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: apps/api
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+        with:
+          tool: cargo-nextest@0.9.152,cargo-llvm-cov@0.9.1,cargo-deny@0.20.2,sqlx-cli@0.9.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Dependencies (cargo deny)
+        if: needs.changes.outputs.deny == 'true'
+        run: cargo deny check
+      - name: Lint (clippy)
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Offline queries (sqlx prepare)
+        if: needs.changes.outputs.sqlx == 'true'
+        env:
+          SQLX_OFFLINE: "false"
+        run: cargo sqlx prepare --workspace --check
+      - name: Tests with coverage
+        env:
+          PACKAGES: ${{ needs.changes.outputs.everything == 'true' && '--workspace' || '--package=clinicore-app' }}
+        run: >-
+          cargo llvm-cov nextest "$PACKAGES" --locked
+          --lcov --output-path target/lcov.info
+          --ignore-filename-regex 'main\.rs'
+      - name: Coverage of new lines (90%)
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        run: >-
+          uvx diff-cover==11.0.3 apps/api/target/lcov.info
+          --compare-branch "origin/${{ github.base_ref }}"
+          --fail-under 90
+      - name: Coverage of new lines on critical paths (100%)
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        run: >-
+          uvx diff-cover==11.0.3 apps/api/target/lcov.info
+          --compare-branch "origin/${{ github.base_ref }}"
+          --fail-under 100
+          --include
+          'apps/api/crates/app/src/sessions/**'
+          'apps/api/crates/app/src/credentials/**'
+          'apps/api/crates/app/src/oauth/**'
+          'apps/api/crates/app/src/password_resets/**'
+          'apps/api/crates/app/src/email_verifications/**'
+          'apps/api/crates/app/src/http/rate_limit.rs'
+          'apps/api/crates/app/src/http/origin.rs'
+          'apps/api/crates/app/src/http/client.rs'
+          'apps/api/crates/app/src/tenancy/**'
+          'apps/api/crates/app/src/authorization/**'
+          'apps/api/crates/app/src/audit/**'
+          'apps/api/crates/app/src/idempotency/**'
+          'apps/api/crates/worker/src/purge.rs'
+          'apps/api/crates/worker/src/outbox.rs'

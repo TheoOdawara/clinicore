@@ -3,7 +3,8 @@
 **Sprint Goal:** o usuário cria a conta, confirma o e-mail e entra no Clinicore pelo web, pelo Android e
 pelo iOS, com e-mail e senha ou com Google.
 
-**Definition of Done:** os gates de cada app tocado, na ordem da skill `gates`, verdes no CI, e a mudança observada funcionando em staging.
+**Definition of Done:** os gates de cada app tocado, na ordem da skill `gates`, verdes no CI, e a mudança observada funcionando local. Não há staging até o fim
+do desenvolvimento.
 
 **Baseline dos requisitos:** [v2.0.3](../../../product/requirements/CHANGELOG.md). A única mudança de
 requisito aberta, a #2, já está aplicada nessa versão.
@@ -13,7 +14,7 @@ requisito aberta, a #2, já está aplicada nessa versão.
 
 | Ordem | Item | Épico | Pontos |
 | --- | --- | --- | --- |
-| 1 | #5 Scaffold de API, web, Android e iOS, com CI e deploy em staging | #3 | 8 |
+| 1 | #5 Scaffold de API, web, Android e iOS, com CI | #3 | 8 |
 | 2 | #6 API: cadastro, confirmação de e-mail e sessão | #4 | 8 |
 | 3 | #7 API: Google, recuperar e trocar a senha | #4 | 5 |
 | 4 | #8 Web: telas de autenticação e web instalável | #4 | 8 |
