@@ -5,7 +5,7 @@
 
 ## Context
 
-A spec `docs/specs/autenticacao/003-autenticacao-web.md` dizia que as telas usariam "utilitárias do
+A spec `docs/work/specs/autenticacao/003-autenticacao-web.md` dizia que as telas usariam "utilitárias do
 Tailwind diretamente, sem design system", e listava design system em Fora de Escopo, numa fase que ainda
 não tinha issue. Sete telas de autenticação estão prestes a ser escritas, e a regra 8 dessa spec —
 `label` associado, `aria-describedby`, `role="alert"` e foco visível — seria escrita à mão em cada uma

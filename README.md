@@ -59,6 +59,6 @@ migrations.
 
 ## Documentação
 
-- `docs/requirements/`: o SRS, com problema, escopo e cada requisito com ID e critérios de aceite
+- `docs/product/requirements/`: o SRS, com problema, escopo e cada requisito com ID e critérios de aceite
 - `docs/decisions/`: ADRs da stack e da arquitetura, incluindo a migração da API para Rust (ADR 0009)
-- `docs/specs/`: especificações por entrega
+- `docs/work/specs/`: especificações por entrega

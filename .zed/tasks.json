@@ -1,7 +1,7 @@
 [
   {
     "label": "docs: serve",
-    "command": "uvx zensical@0.0.71 serve --open",
+    "command": "uvx zensical==0.1.2 serve --open",
     "cwd": "$ZED_WORKTREE_ROOT"
   },
   {

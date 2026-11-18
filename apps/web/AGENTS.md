@@ -4,8 +4,7 @@ Aditivo ao `AGENTS.md` da raiz. Stack na ADR 0020, forma na 0026. É o sistema d
 `app.clinicore.com.br`: SPA estático em Angular, instalável como PWA, só para usuário autenticado e
 sempre online.
 
-**Hoje o app ainda é o scaffold em React e Vite.** A troca para Angular é a issue de scaffold do web;
-toda feature nova já nasce na forma abaixo.
+**O app ainda não existe.** Ele nasce na issue de scaffold do web, já na forma abaixo.
 
 ## Estrutura
 
@@ -57,7 +56,7 @@ Conferidas pelo `eslint-plugin-boundaries`. Cada pasta importa só:
 - **O `HttpClient` usa `withCredentials`, e o `refresh-interceptor` faz um único refresh no 401.**
 - **Estilo é SCSS por componente sobre os tokens do tema do Material**; sem Tailwind e sem valor de cor
   ou espaço solto.
-- **Animação é CSS com `animate.enter` e `animate.leave`, atrás de `prefers-reduced-motion`.**
+- **Animação é CSS com `animate.enter`/`animate.leave`, atrás de `prefers-reduced-motion`.**
 - **Texto em pt-BR direto no template**; sem biblioteca de i18n.
 - **O ambiente entra no build pelo `--define`** e é validado no boot pelo `app-config.ts`. Trocar a URL
   da API é um build novo.

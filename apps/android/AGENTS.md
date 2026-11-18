@@ -3,7 +3,7 @@
 Aditivo ao `AGENTS.md` da raiz. Stack na ADR 0022, forma na 0026, offline na 0007 (itens 3 a 9). App
 nativo em Kotlin e Compose, com as telas do web e offline completo.
 
-**O app ainda não existe.** Ele nasce na issue de scaffold do Android, já na forma abaixo.
+**O app ainda não existe**: nasce no scaffold, nesta forma.
 
 ## Estrutura
 
@@ -11,14 +11,13 @@ nativo em Kotlin e Compose, com as telas do web e offline completo.
 apps/android/
 ├── gradle/libs.versions.toml  gradle/verification-metadata.xml
 ├── config/                  example.properties commitado; dev, staging e prod fora do git
-├── build-logic/convention/  plugins clinicore.android.application, .android.library, .android.feature,
-│                            .jvm.library, .android.room, .hilt, .compose, .detekt, .kover
+├── build-logic/convention/  plugins clinicore.*: application, library, feature, jvm, room, hilt, compose, detekt, kover
 ├── app/                     MainActivity, ClinicoreApplication, AppConfig.kt, NavDisplay e as abas
 ├── core/
 │   ├── model/               JVM puro: o domínio (Patient, Appointment)
 │   ├── common/              JVM puro: dispatchers injetáveis, Result, relógio
 │   ├── security/            chaves no Keystore, AES-GCM e os apagamentos
-│   ├── network/             Retrofit, OkHttp, Interceptor, Authenticator, ApiError, *Request, *Response
+│   ├── network/             Retrofit, OkHttp, Authenticator, ApiError, *Request, *Response
 │   ├── database/            Room 3 + SQLCipher: ClinicalDatabase, OutboxDatabase, *Entity, *Dao; schemas/
 │   ├── datastore/           TokenStore
 │   ├── data/                os repositories: a única API pública dos dados
@@ -56,11 +55,11 @@ Testes do Konsist conferem o resto: `ViewModel` só em `feature:*:impl`, com suf
   e uma função pública por evento, com nome de verbo. Camada de domínio só quando uma regra se repete.
 - **O banco local é a fonte da verdade.** Toda escrita vai para a fila do `outbox.db` e sobe pelo
   WorkManager; recusa da API vira Pendência.
-- **A navegação passa ID primitivo**, e a tela carrega o dado do repository.
+- **A navegação passa ID primitivo**; a tela carrega o dado do repository.
 - **Tudo é `internal` por padrão**, e a dependência é `implementation`, não `api`.
 - **JSON com `ignoreUnknownKeys` no app** e decodificação estrita sobre fixtures nos testes.
 - **`AppConfig.kt` é o único leitor da configuração**, que o Gradle valida e põe no `BuildConfig`.
-- **Teste na JVM primeiro**, com fakes; `androidTest` só onde a JVM não alcança.
+- **Teste na JVM primeiro**, com fakes; `androidTest` só onde ela não alcança.
 
 ## Nomes
 

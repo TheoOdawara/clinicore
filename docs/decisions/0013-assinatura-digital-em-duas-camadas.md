@@ -2,14 +2,14 @@
 
 - Status: accepted
 - Date: 2026-10-03
-- Registra: a decisão tomada em 2026-09-15, que morava no `docs/requirements.md` e saiu de lá quando
-  ele virou o SRS em `docs/requirements/` (#139)
+- Registra: a decisão tomada em 2026-09-15, que morava no `docs/product/requirements.md` e saiu de lá quando
+  ele virou o SRS em `docs/product/requirements/` (#139)
 
 ## Context
 
 Eliminar o papel do prontuário exige assinatura com validade jurídica, e a exigência muda conforme
 quem assina e o que é assinado. As regras estão no SRS, como `BR-01` a `BR-06` de
-`docs/requirements/business-rules.md`:
+`docs/product/requirements/business-rules.md`:
 
 - Lei 14.063/2020, art. 13 — atestado e receita de controle especial exigem assinatura qualificada.
 - Lei 14.063/2020, art. 14 — os demais documentos do profissional de saúde valem com avançada ou
@@ -44,7 +44,7 @@ gratuitos ou com plano gratuito que cubra a fase de teste. São duas camadas:
 - `FR-CLN-07`, `FR-CLN-08` e `FR-CLN-09` descrevem a capacidade; esta ADR diz com quem ela é entregue.
 - Trocar de provedor muda esta ADR, não o SRS.
 - O dentista sem certificado continua com papel em atestado e receita de controle especial.
-- Seguem em aberto, em `docs/requirements/open-questions.md`: o parecer jurídico sobre o alcance da
+- Seguem em aberto, em `docs/product/requirements/open-questions.md`: o parecer jurídico sobre o alcance da
   assinatura avançada (`OQ-04`) e o custo da integração com PSC e da API da Autentique em produção
   (`OQ-05`).
 

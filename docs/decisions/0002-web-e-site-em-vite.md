@@ -9,7 +9,7 @@
 
 A ADR 0001 reconstruiu o `apps/api` em NestJS e deixou o front explicitamente pendente em três lugares:
 o `CLAUDE.md` chamava os dois gerenciadores de pacote de estado transitório "até o web migrar para
-Next"; a própria 0001 registrou que `docs/specs/autenticacao/003-autenticacao-web.md` "segue descrevendo
+Next"; a própria 0001 registrou que `docs/work/specs/autenticacao/003-autenticacao-web.md` "segue descrevendo
 o cliente do Better Auth" e que isso se resolve quando o front migrar; e as tasks 8 a 11 dessa spec nunca
 viraram issue.
 
@@ -18,7 +18,7 @@ servidor próprio fazendo BFF e renderização.
 
 Três informações mudaram a resposta durante a decisão:
 
-1. **O sistema não tem superfície pública.** `docs/requirements/` diz que o paciente não opera o
+1. **O sistema não tem superfície pública.** `docs/product/requirements/` diz que o paciente não opera o
    sistema e interage só por WhatsApp e documentos recebidos; a assinatura do paciente é feita em
    plataforma de terceiros; a cobrança do SaaS está fora do escopo. Todo usuário do `apps/web` é
    autenticado.
@@ -63,7 +63,7 @@ Decisões de detalhe dentro desta:
   `withCredentials: true` e o interceptor de `401` que faz o refresh — que o cliente do Better Auth
   escondia e agora é código nosso. O Zod continua validando toda resposta.
 - **O Better Auth sai do web**, porque saiu da API na 0001. Toda chamada passa a bater nas rotas
-  `/auth/*` descritas em `docs/specs/autenticacao/003-autenticacao-api.md`.
+  `/auth/*` descritas em `docs/work/specs/autenticacao/003-autenticacao-api.md`.
 - **A API passa a ter duas origens.** `APP_ORIGIN` monta os redirecionamentos de autenticação e aponta
   só para o sistema; `ALLOWED_ORIGINS` é a lista que o CORS e a guarda de `Origin` conferem por
   pertencimento, e inclui a landing, que pode vir a chamar a API.

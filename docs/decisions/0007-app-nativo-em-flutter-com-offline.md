@@ -5,7 +5,7 @@
   (sem geração do OpenAPI), no estado, nos gates e nos testes; substituída pela 0022 na stack; os itens 3 a 9 continuam valendo, com o 7 emendado no iOS
 - Date: 2026-09-21
 - Emenda a: 0002 (o web deixa de ser o único front do sistema e não guarda dado clínico offline),
-  `docs/requirements/` (a plataforma, hoje `NFR-FLEX-01`, e o offline, hoje `NFR-REL-02`, `NFR-REL-03` e
+  `docs/product/requirements/` (a plataforma, hoje `NFR-FLEX-01`, e o offline, hoje `NFR-REL-02`, `NFR-REL-03` e
   `NFR-SEC-04`) e `CLAUDE.md` da raiz (Stack)
 
 ## Context
@@ -79,7 +79,7 @@ Decisões de detalhe dentro desta:
    `SameSite=Lax` da spec `003-autenticacao-api.md` não se aplica a ele. Access token curto, refresh
    opaco guardado no Keychain/Keystore, os dois na mesma tabela `session` que o web usa. A sessão do
    app dura 7 dias de inatividade; a do web continua em 24 horas, porque o computador da recepção é
-   compartilhado. O contrato está em `docs/specs/autenticacao/004-sessao-por-token-api.md`.
+   compartilhado. O contrato está em `docs/work/specs/autenticacao/004-sessao-por-token-api.md`.
 9. **Leitura de prontuário offline é auditada.** O app registra o acesso localmente e o envia pela mesma
    fila, para que a trilha de acesso ao prontuário do §5 dos requisitos não tenha buraco.
 
@@ -88,7 +88,7 @@ Fica fora desta ADR, cada um com o seu dono:
 - Os dois períodos do item 6 — spec da agenda, depois de analisar o uso real.
 - O canal da notificação do item 5 — spec do prontuário.
 - As rotas de sincronização e o formato da pendência — spec do motor de sync.
-- As rotas e o ciclo do token do item 8 — `docs/specs/autenticacao/004-sessao-por-token-api.md`.
+- As rotas e o ciclo do token do item 8 — `docs/work/specs/autenticacao/004-sessao-por-token-api.md`.
 
 Ordem do que vem depois: spec de autenticação do app, spec do motor de sync, scaffold do `apps/mobile`.
 

@@ -3,7 +3,7 @@
 Aditivo ao `AGENTS.md` da raiz. Stack na ADR 0022, forma na 0026, offline na 0007 (itens 3 a 9, e o 7
 emendado pela 0022). App nativo em Swift e SwiftUI, com as mesmas telas do web e offline completo.
 
-**O app ainda não existe.** Ele nasce na issue de scaffold do iOS, já na forma abaixo.
+**O app ainda não existe**: nasce no scaffold, nesta forma.
 
 ## Estrutura
 
@@ -11,7 +11,7 @@ emendado pela 0022). App nativo em Swift e SwiftUI, com as mesmas telas do web e
 apps/ios/
 ├── Clinicore.xcodeproj           só o target do app
 ├── Clinicore/                    o app, em pasta sincronizada
-│   ├── ClinicoreApp.swift        @main: monta o AppContainer e registra as BGTasks
+│   ├── ClinicoreApp.swift        @main: monta o AppContainer, registra as BGTasks
 │   ├── AppContainer.swift        cria e injeta tudo
 │   ├── AppConfig.swift           único leitor da configuração
 │   ├── Navigation/               Router.swift, Route.swift, RootView.swift (TabView, NavigationStack por aba)
@@ -60,7 +60,7 @@ Regras próprias do SwiftLint conferem o resto: `import SwiftData` só em `Persi
   de verbo; o `State` é `struct`.
 - **A feature não conhece o `Route`**: recebe closures (`onSelectPatient: (Patient.ID) -> Void`), e o
   app decide o destino.
-- **Injeção manual pelo `init`**, montada no `AppContainer`; `@Environment` só para o `Router` e a sessão.
+- **Injeção manual pelo `init`**, no `AppContainer`; `@Environment` só para o `Router` e a sessão.
 - **O banco local é a fonte da verdade**, e toda escrita vai para a fila. Nada sincroniza com o aparelho
   bloqueado, e sem código de desbloqueio nada fica offline.
 - **Só é `public` o que outro target usa**; o resto é `internal`. Modelo do domínio é `struct` imutável.

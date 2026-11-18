@@ -1,0 +1,338 @@
+.pdf-export-button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.pdf-export-button:focus-visible {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+}
+
+.pdf-export-dialog {
+  width: min(36rem, calc(100vw - 32px));
+  max-height: min(44rem, calc(100dvh - 32px));
+  padding: 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  font-size: 14px;
+  box-shadow: 0 12px 40px #0000004d;
+}
+
+.pdf-export-dialog[open] {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+}
+
+.pdf-export-dialog::backdrop {
+  background: #00000066;
+}
+
+.pdf-export-dialog__heading {
+  margin: 0;
+  padding: 18px 20px 12px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.pdf-export-dialog__shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 20px 12px;
+}
+
+.pdf-export-dialog__chip {
+  max-width: 100%;
+  min-height: 32px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 16px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.pdf-export-dialog__chip[aria-pressed="true"] {
+  border-color: var(--md-accent-fg-color);
+  background: var(--md-accent-fg-color--transparent);
+}
+
+.pdf-export-dialog__tree {
+  overflow-y: auto;
+  padding: 8px 12px;
+  border-block: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.pdf-export-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pdf-export-tree__row {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding-left: calc(var(--depth) * 20px);
+}
+
+.pdf-export-tree__row > .pdf-export-tree__label:first-child {
+  margin-left: 28px;
+}
+
+.pdf-export-tree__toggle {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--md-default-fg-color--light);
+  cursor: pointer;
+}
+
+.pdf-export-tree__toggle::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+.pdf-export-tree__toggle[aria-expanded="true"]::before {
+  transform: rotate(45deg);
+}
+
+.pdf-export-tree__label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.pdf-export-tree__label input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--md-accent-fg-color);
+}
+
+.pdf-export-tree__label span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pdf-export-dialog__status {
+  margin: 0;
+  padding: 10px 20px 0;
+  color: var(--md-default-fg-color--light);
+}
+
+.pdf-export-dialog__status--error {
+  color: #d32f2f;
+}
+
+[data-md-color-scheme="slate"] .pdf-export-dialog__status--error {
+  color: #ff8a80;
+}
+
+.pdf-export-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 18px;
+}
+
+.pdf-export-dialog__button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pdf-export-dialog__button--primary {
+  border-color: var(--md-accent-fg-color);
+  background: var(--md-accent-fg-color);
+  color: var(--md-accent-bg-color, #ffffff);
+  font-weight: 600;
+}
+
+.pdf-export-dialog__button:disabled,
+.pdf-export-dialog__chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pdf-export-dialog button:focus-visible,
+.pdf-export-tree__label:has(input:focus-visible) {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+}
+
+.pdf-export {
+  display: none;
+}
+
+@page {
+  size: A4;
+  margin: 20mm 16mm 18mm;
+
+  @top-left {
+    font: 8.5pt/1 var(--md-text-font-family, system-ui), system-ui, sans-serif;
+    color: #6b7280;
+  }
+
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font: 8.5pt/1 var(--md-text-font-family, system-ui), system-ui, sans-serif;
+    color: #6b7280;
+  }
+}
+
+@page pdf-export-cover {
+  @top-left {
+    content: none;
+  }
+
+  @bottom-right {
+    content: none;
+  }
+}
+
+@media print {
+  html.pdf-exporting body {
+    display: block;
+    background: #ffffff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html.pdf-exporting body > :not(.pdf-export) {
+    display: none !important;
+  }
+
+  html.pdf-exporting .pdf-export {
+    display: block;
+  }
+
+  .pdf-export__cover {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 240mm;
+    page: pdf-export-cover;
+    font-family: var(--md-text-font-family, system-ui), system-ui, sans-serif;
+    break-after: page;
+  }
+
+  .pdf-export__cover img {
+    align-self: flex-start;
+    width: auto;
+    height: 24mm;
+  }
+
+  .pdf-export__cover h1 {
+    margin: 10mm 0 4mm;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--md-default-fg-color);
+  }
+
+  .pdf-export__scope,
+  .pdf-export__date {
+    margin: 0 0 2mm;
+    font-size: 0.85rem;
+    color: var(--md-default-fg-color--light);
+  }
+
+  .pdf-export__contents ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .md-typeset.pdf-export__contents li {
+    margin: 0 0 0.35em;
+    padding-left: calc(max(var(--depth) - 1, 0) * 1.2em);
+  }
+
+  .pdf-export__contents a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .pdf-export__page {
+    break-before: page;
+  }
+
+  .pdf-export__contents + .pdf-export__page,
+  .pdf-export > .pdf-export__page:first-child {
+    break-before: auto;
+  }
+
+  .pdf-export__contents {
+    break-after: page;
+  }
+
+  .pdf-export__page > .md-content__inner {
+    margin: 0;
+    padding: 0;
+  }
+
+  .pdf-export__page > .md-content__inner::before {
+    display: none;
+  }
+
+  .pdf-export .md-typeset h1,
+  .pdf-export .md-typeset h2,
+  .pdf-export .md-typeset h3,
+  .pdf-export .md-typeset h4 {
+    break-after: avoid;
+  }
+
+  .pdf-export .md-typeset img,
+  .pdf-export .md-typeset figure,
+  .pdf-export .md-typeset pre,
+  .pdf-export .md-typeset blockquote,
+  .pdf-export .md-typeset tr,
+  .pdf-export .md-typeset .admonition {
+    break-inside: avoid;
+  }
+
+  .pdf-export .md-typeset img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .pdf-export .md-typeset table:not([class]) {
+    display: table;
+    width: 100%;
+    font-size: 0.6rem;
+  }
+
+  .pdf-export .md-typeset pre > code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

@@ -3,7 +3,7 @@
 - Status: accepted; substituída pela 0021
 - Date: 2026-09-24
 - Emenda a: 0002 (a stack e a entrega do `apps/site`), issue #4 (o site passa a ter processo próprio no
-  deploy), `docs/specs/002-scaffold-apps-e-ci.md` (task 5) e `CLAUDE.md` da raiz (Stack, Comandos e
+  deploy), `docs/work/specs/002-scaffold-apps-e-ci.md` (task 5) e `CLAUDE.md` da raiz (Stack, Comandos e
   Arquitetura do `apps/site`)
 
 ## Context
