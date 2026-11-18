@@ -17,8 +17,10 @@ estrangeira: as três existem para um endereço, e sobrevivem ao usuário até v
 
 ## Modelo físico
 
-Não há: o diagrama físico é lido de um banco com as migrations aplicadas, e o repositório não tem
-migration desde 2026-11-18. Ele volta com a primeira.
+![Modelo físico](diagrams/physical.drawio.svg)
+
+Lido de um banco com as migrations de `apps/api/migrations/` aplicadas. `PK`, `FK` e `UQ` marcam a chave
+primária, a estrangeira e a coluna que entra numa restrição de unicidade, sozinha ou com outra.
 
 ## Entidades
 

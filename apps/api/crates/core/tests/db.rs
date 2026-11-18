@@ -23,11 +23,22 @@ async fn the_real_migrations_apply_to_an_empty_database(
         .await
         .expect("the database is reachable and the migrations apply");
 
-    let recorded: bool = sqlx::query_scalar("select to_regclass('_sqlx_migrations') is not null")
-        .fetch_one(&pool)
-        .await
-        .expect("the database answers");
-    assert!(recorded);
+    for table in [
+        "_sqlx_migrations",
+        "users",
+        "accounts",
+        "sessions",
+        "verifications",
+        "email_dispatches",
+        "email_outbox",
+    ] {
+        let exists: bool = sqlx::query_scalar("select to_regclass($1) is not null")
+            .bind(table)
+            .fetch_one(&pool)
+            .await
+            .expect("the database answers");
+        assert!(exists, "{table} exists");
+    }
 }
 
 #[sqlx::test(migrations = false)]

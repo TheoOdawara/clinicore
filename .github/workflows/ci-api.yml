@@ -51,6 +51,11 @@ jobs:
       LOG_LEVEL: warn
       PORT: "3333"
       DATABASE_URL: postgresql://clinicore:ci-only-throwaway@localhost:5432/clinicore
+      REDIS_URL: redis://localhost:6379
+      ALLOWED_ORIGINS: http://localhost:3000
+      APP_ORIGIN: http://localhost:3000
+      CLIENT_IP_SOURCE: peer
+      JWT_SECRET: ci-only-throwaway-secret-of-at-least-32-chars
       SQLX_OFFLINE: "true"
       CARGO_TERM_COLOR: always
     steps:

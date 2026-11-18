@@ -1,36 +1,7 @@
-use std::io::Write;
-use std::sync::{Arc, Mutex};
-
 use axum::http::Method;
 use clinicore_core::config::AppEnv;
-use tracing_subscriber::fmt::MakeWriter;
 
-use crate::support::{app, send};
-
-#[derive(Clone, Default)]
-struct Captured(Arc<Mutex<Vec<u8>>>);
-
-impl Write for Captured {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0
-            .lock()
-            .expect("the buffer is not poisoned")
-            .extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-impl<'a> MakeWriter<'a> for Captured {
-    type Writer = Captured;
-
-    fn make_writer(&'a self) -> Self::Writer {
-        self.clone()
-    }
-}
+use crate::support::{Captured, app, send};
 
 async fn log_of(method: Method, path: &str) -> String {
     let captured = Captured::default();
@@ -43,14 +14,7 @@ async fn log_of(method: Method, path: &str) -> String {
 
     send(app(AppEnv::Test), method, path).await;
 
-    String::from_utf8(
-        captured
-            .0
-            .lock()
-            .expect("the buffer is not poisoned")
-            .clone(),
-    )
-    .expect("the log is UTF-8")
+    captured.text()
 }
 
 #[tokio::test]

@@ -4,7 +4,7 @@ O armazenamento decidido: PostgreSQL 18, com o schema aplicado pelas migrations 
 
 ## Tabelas
 
-As tabelas, as colunas, as chaves e as restrições vão para o [modelo físico](README.md#modelo-físico) com a primeira migration.
+As tabelas, as colunas, as chaves e as restrições estão no [modelo físico](README.md#modelo-físico).
 Toda chave é `uuid` com `gen_random_uuid()` como padrão, e toda data é `timestamptz`. Os `CHECK`
 não aparecem no diagrama: `email = lower(email)` em `users` e em `email_outbox`, o de `accounts` que
 exige `password_hash` na credencial, e os dois da `email_outbox`: `attempts` entre 0 e 5, e os dois
@@ -37,8 +37,9 @@ Além dos que as chaves e as restrições de unicidade criam:
 
 ## Migrations
 
-- **Uma migration é um arquivo SQL** em `apps/api/migrations/`, aplicado por `sqlx migrate run`. Ainda
-  não há nenhuma.
+- **Uma migration é um arquivo SQL** em `apps/api/migrations/`, aplicado por `sqlx migrate run`. A
+  primeira, `20261118120000_authentication.sql`, cria os cinco tipos, as seis tabelas e os índices
+  desta página.
 - **Depois de mudar o schema, o `.sqlx/` é regerado** com `cargo sqlx prepare --workspace`, e o CI
   reprova a consulta que divergiu.
 - **Os testes criam um banco por teste** a partir das mesmas migrations.

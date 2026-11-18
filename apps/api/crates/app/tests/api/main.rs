@@ -2,6 +2,7 @@ mod architecture;
 mod boot;
 mod errors;
 mod health;
+mod http;
 mod log;
 mod openapi;
 mod support;

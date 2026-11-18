@@ -5,7 +5,7 @@ use clinicore_app::http::layers;
 use clinicore_core::config::AppEnv;
 use serde_json::json;
 
-use crate::support::{app, send};
+use crate::support::{app, send, state};
 
 #[tokio::test]
 async fn an_unknown_path_answers_a_not_found_problem() {
@@ -37,7 +37,7 @@ async fn a_panicking_handler_answers_an_internal_problem_without_detail() {
         get(|| async { panic!("database password is hunter2") }),
         get(|| async { panic!("{}", String::from("owned message")) }),
     ] {
-        let panicking = layers(Router::new().route("/panic", route));
+        let panicking = layers(Router::new().route("/panic", route), state());
 
         let answer = send(panicking, Method::GET, "/panic").await;
 
