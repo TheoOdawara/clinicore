@@ -2,7 +2,7 @@
 
 O processo da API que trabalha fora da requisição, em Rust, no `apps/api/crates/worker/`. Ele envia o
 e-mail que a API grava na fila `email_outbox` e purga o que venceu, uma vez por dia
-([spec 006](../../../work/specs/autenticacao/006-worker-e-fila-de-email-api.md),
+([spec 007](../../../work/specs/autenticacao/007-cadastro-confirmacao-e-sessao-api.md),
 [ADR 0017](../../../decisions/0017-fila-de-email-no-postgres-e-worker-com-cron.md)).
 
 **Nunca faz:** responder HTTP, depender do `clinicore-app`, guardar estado em memória que outra
@@ -16,7 +16,7 @@ instância precise ver, purgar no boot, conectar no SMTP antes do primeiro envio
 | --- | --- | --- |
 | Boot | `crates/worker/src/main.rs` | lê o `WorkerConfig`, liga o `tracing`, abre o pool, monta o `Mailer` e roda a fila e o agendamento até o sinal de parada |
 | Fila | `crates/worker/src/outbox.rs` | a cada 5 segundos reserva até 10 e-mails, envia um por vez, apaga o enviado e adia ou desiste do que falhou |
-| E-mail | `crates/worker/src/mail.rs` | o `Mailer`: o SMTP do `lettre` com pool, STARTTLS e 10 segundos de timeout por envio |
+| E-mail | `crates/worker/src/mail.rs` | o `Mailer`: o SMTP do `lettre` com pool, o TLS de `SMTP_TLS` e 10 segundos de timeout por envio |
 | Agendamento | `crates/worker/src/schedule.rs` | calcula a próxima `0 3 * * *` em `America/Sao_Paulo` com o `croner` sobre o `jiff`, dorme até ela, purga e repete |
 | Purga | `crates/worker/src/purge.rs` | apaga a sessão vencida ou que passou dos 30 dias, a verificação vencida, o registro de envio com mais de 24 horas e o e-mail vencido da fila, e registra as quantidades no log |
 | `core` | `crates/core/` | configuração, pool do Postgres, sinal de parada, subscriber do `tracing` e os prazos `SESSION_ABSOLUTE_LIFETIME` e `DISPATCH_WINDOW`, compartilhados com a API |
@@ -45,9 +45,10 @@ instância precise ver, purgar no boot, conectar no SMTP antes do primeiro envio
 
 ## Para mudar com segurança
 
-Rodar: `infisical run --path=/api -- cargo run -p clinicore-worker`. Em dev ele envia e-mail de verdade,
-então o teste à mão usa só endereço `@example.com`. Os testes ficam em `crates/worker/tests/worker/`,
+Rodar: `infisical run --path=/api -- cargo run -p clinicore-worker`. Em dev ele envia para o Mailpit do
+`apps/api/compose.yaml`, com `SMTP_TLS=none`, e nenhum e-mail sai da máquina; a caixa fica na porta
+`MAILPIT_UI_PORT`. Os testes ficam em `crates/worker/tests/worker/`,
 com as mesmas regras de teste da API, descritas no
 [`apps/api/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/apps/api/AGENTS.md). O
-horário, o fuso e a tabela de backoff são o comportamento: mudar qualquer um muda o que a spec 006
+horário, o fuso e a tabela de backoff são o comportamento: mudar qualquer um muda o que a spec 007
 decidiu.

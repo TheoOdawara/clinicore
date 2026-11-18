@@ -16,3 +16,9 @@ numa sprint escreve a sua spec de novo, partindo da antiga quando ela ainda serv
 | [004 · app e web](autenticacao/004-autenticacao-mobile.md) | Entrar, cadastrar-se e usar passkey no app e no web |
 | [005](005-migrar-api-para-rust.md) | Migrar a API para Rust e extrair o scaffold NestJS |
 | [006 · API](autenticacao/006-worker-e-fila-de-email-api.md) | Enviar o e-mail por fila e purgar o que venceu num worker |
+
+Specs do recomeço:
+
+| Spec | Entrega | Issue |
+| --- | --- | --- |
+| [007 · API](autenticacao/007-cadastro-confirmacao-e-sessao-api.md) | Criar a conta, confirmar o e-mail e manter a sessão | #6 |

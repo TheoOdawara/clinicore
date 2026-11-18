@@ -27,7 +27,8 @@ próprio `apps/<app>/Dockerfile`, por rolling update, como decide a
 | `apps/site` | `bun run dev` | 4321 |
 | `apps/android` | Android Studio, no emulador ou no aparelho (M1) | — |
 | `apps/ios` | Xcode, no simulador ou no aparelho (M1) | — |
-| PostgreSQL 18 e Redis 8 | `docker compose up -d --wait`, dentro do `infisical run --path=/api --`, pelo `apps/api/compose.yaml` (projeto `clinicore`) | `POSTGRES_PORT` e `REDIS_PORT` do Infisical |
+| worker | `cargo run -p clinicore-worker`, dentro do `infisical run --path=/api --` | — |
+| PostgreSQL 18, Redis 8 e Mailpit | `docker compose up -d --wait`, dentro do `infisical run --path=/api --`, pelo `apps/api/compose.yaml` (projeto `clinicore`) | `POSTGRES_PORT`, `REDIS_PORT`, `MAILPIT_SMTP_PORT` e `MAILPIT_UI_PORT` do Infisical |
 
 As variáveis da API vêm do Infisical, no ambiente `dev`, e o `apps/api/.env` local, fora do git, é mantido
 sempre igual a ele. No emulador Android, a API local é `http://10.0.2.2:3333`.

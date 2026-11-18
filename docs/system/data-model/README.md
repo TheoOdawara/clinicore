@@ -56,7 +56,7 @@ migration desde 2026-11-18. Ele volta com a primeira.
 - **EmailDispatch:** um endereço recebe no máximo 5 e-mails do mesmo tipo em 24 horas, e no máximo 1 a
   cada 60 segundos, exista ou não uma conta nele. A contagem e o registro acontecem sob o mesmo lock por
   endereço, então dois pedidos simultâneos não passam os dois.
-- **EmailOutbox** ([spec 006](../../work/specs/autenticacao/006-worker-e-fila-de-email-api.md)):
+- **EmailOutbox** ([spec 007](../../work/specs/autenticacao/007-cadastro-confirmacao-e-sessao-api.md)):
   - nasce na mesma transação da verificação que o link carrega, com o mesmo `expires_at`;
   - a linha enviada é apagada, e a que vence nunca é enviada;
   - só a linha `pending` guarda os corpos; a quinta falha a marca `failed` e apaga os dois na mesma

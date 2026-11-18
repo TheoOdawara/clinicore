@@ -14,7 +14,7 @@ onde mora toda a regra de negócio. Não fala com o SMTP: o e-mail vai para a fi
 | --- | --- | --- |
 | Boot | `crates/app/src/main.rs` | lê a configuração, liga o `tracing` e faz o bind |
 | Router | `crates/app/src/lib.rs` | o `AppState`, as rotas e as camadas do tower: log, CORS, panic, IP do cliente e limite de corpo |
-| Encanamento HTTP | `crates/app/src/http/` | erro em Problem Details, extractor de validação, log de requisição, OpenAPI, guards de cliente e de origem, limite de requisições |
+| Encanamento HTTP | `crates/app/src/http/` | erro em Problem Details, extractor de validação, log de requisição, OpenAPI, o header `Clinicore-Client`, a guarda de origem, o IP do cliente pela `CLIENT_IP_SOURCE`, o limite de requisições e o `Cache-Control: no-store` |
 | `health` | `crates/app/src/health.rs` | `GET /health` |
 | `users` | `crates/app/src/users/` | o cadastro, em `POST /users` |
 | `email_verifications` | `crates/app/src/email_verifications/` | o pedido e a confirmação do link de e-mail |
@@ -29,8 +29,8 @@ pastas novas em `crates/app/src/`, no M1.
 
 ## Rotas da autenticação
 
-O contrato da primeira implementação, apagada em 2026-11-18. A spec de autenticação o confirma ou o
-muda antes do código.
+O contrato da [spec 007](../../../work/specs/autenticacao/007-cadastro-confirmacao-e-sessao-api.md). As
+rotas do Google, da recuperação e da troca de senha entram com a spec da #7.
 
 | Método e caminho | O que faz |
 | --- | --- |
@@ -42,8 +42,6 @@ muda antes do código.
 | `GET /sessions/current` | lê o usuário da sessão |
 | `DELETE /sessions/current` | sai e revoga a sessão |
 | `POST /sessions/current/tokens` | rotaciona o refresh token |
-| `GET /oauth/google` | redireciona o navegador para o login do Google |
-| `GET /oauth/google/callback` | recebe a volta do Google, vincula ou cria a conta e abre a sessão web |
 
 Fora de produção, o documento OpenAPI fica em `/api-json` e a interface dele em `/api`.
 

@@ -16,10 +16,11 @@
 - **A revogação é imediata**, pela denylist no Redis, escrita antes de a sessão ser apagada
   ([ADR 0012](../../../decisions/0012-revogacao-de-sessao-antes-de-apagar.md)).
 - **O transporte do token depende do cliente.** O web recebe cookie `HttpOnly` em `SameSite=Lax`, e o
-  `Secure` segue o esquema da `API_URL`; o app recebe o token no corpo e o manda no `Authorization`.
+  `Secure` quando `APP_ENV` é `production`; o app recebe o token no corpo e o manda no `Authorization`.
 - **A origem é conferida em toda rota**, contra `ALLOWED_ORIGINS`, e o CORS só libera essas origens.
-- **Toda rota limitada conta em duas chaves**: o IP e uma identidade — a sessão, o e-mail ou a faixa de
-  rede.
+- **Toda rota limitada conta em duas chaves**: o IP e uma identidade, que é a sessão, o e-mail ou a
+  faixa de rede. O IP vem da fonte que `CLIENT_IP_SOURCE` declara, e o que o cliente escreve fora dela
+  nunca é lido.
 - **Nenhuma resposta revela se um e-mail tem conta**: cadastro, reenvio e pedido de redefinição
   respondem `202` sempre, e o login confere a senha mesmo sem conta.
 
