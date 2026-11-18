@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- shortcut: the brand has no logo yet (docs/product/design/tokens.md), add the launcher icon with it -->
+    <issue id="MissingApplicationIcon" severity="ignore" />
+    <!-- shortcut: protobuf-javalite stays on 3.x because the accessibility test framework ships 3.19 generated code, move to 4.x when it ships 4.x code -->
+    <issue id="NewerVersionAvailable">
+        <ignore regexp="protobuf-javalite" />
+    </issue>
+</lint>

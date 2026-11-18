@@ -1,0 +1,52 @@
+name: ci-repo
+
+on:
+  pull_request:
+    branches: [staging, main]
+    paths:
+      - .github/**
+      - docs/**
+      - zensical.toml
+  push:
+    branches: [staging]
+    paths:
+      - .github/**
+      - docs/**
+      - zensical.toml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-repo-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install actionlint
+        working-directory: ${{ runner.temp }}
+        run: |
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$archive"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $archive" | sha256sum --check
+          tar -xzf "$archive" actionlint
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Lint the workflows (actionlint)
+        run: actionlint
+
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      - name: Build the docs site (zensical)
+        run: uvx zensical==0.1.2 build --clean

@@ -1,0 +1,6 @@
+bun.lock
+.svelte-kit/
+build/
+coverage/
+test-results/
+playwright-report/

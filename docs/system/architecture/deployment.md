@@ -9,11 +9,12 @@ Onde cada bloco roda, em cada ambiente, e como ele chega lá.
 | Ambiente | Estado | Onde roda |
 | --- | --- | --- |
 | Desenvolvimento | existe | a máquina de quem desenvolve |
-| CI | planejado: cada app ganha o seu workflow no scaffold | GitHub Actions |
+| CI | existe para os cinco apps, um workflow por app, mais o `ci-security.yml`, o `ci-repo.yml` e o `ci-audit.yml` | GitHub Actions |
 | Homolog (`staging`) | planejado | a VPS com Coolify |
 | Produção (`main`) | planejado | a VPS com Coolify |
 
-**Não há hospedagem nem código.** Nenhum app tem Dockerfile ainda. Cada um vai ser publicado no Coolify pelo
+**Não há hospedagem.** A VPS só entra quando o desenvolvimento terminar; até lá, cada entrega é conferida
+rodando local. Nenhum app tem Dockerfile ainda. Cada um vai ser publicado no Coolify pelo
 próprio `apps/<app>/Dockerfile`, por rolling update, como decide a
 [ADR 0014](../../decisions/0014-deploy-por-dockerfile-no-coolify.md).
 
@@ -26,7 +27,7 @@ próprio `apps/<app>/Dockerfile`, por rolling update, como decide a
 | `apps/site` | `bun run dev` | 4321 |
 | `apps/android` | Android Studio, no emulador ou no aparelho (M1) | — |
 | `apps/ios` | Xcode, no simulador ou no aparelho (M1) | — |
-| PostgreSQL 18 e Redis 8 | `docker compose up`, pelo `apps/api/compose.yaml` | as do Infisical |
+| PostgreSQL 18 e Redis 8 | `docker compose up -d --wait`, dentro do `infisical run --path=/api --`, pelo `apps/api/compose.yaml` (projeto `clinicore`) | `POSTGRES_PORT` e `REDIS_PORT` do Infisical |
 
 As variáveis da API vêm do Infisical, no ambiente `dev`, e o `apps/api/.env` local, fora do git, é mantido
 sempre igual a ele. No emulador Android, a API local é `http://10.0.2.2:3333`.
@@ -55,12 +56,15 @@ Backup e recuperação estão em aberto, na
 - **Toda entrega chega por pull request** para a `staging`; o release é um pull request da `staging`
   para a `main`.
 - **O CI roda só onde houve mudança** ([ADR 0024](../../decisions/0024-ci-por-mudanca-em-repositorio-publico.md)):
-  um workflow por app (`ci-api.yml`, com PostgreSQL e Redis de serviço, `ci-web.yml` e `ci-site.yml`),
-  disparado pelo caminho do app, e o `ci-security.yml` com o gitleaks em todo pull request. O push na
-  `staging` roda o app inteiro. Os gates são os da skill `gates`.
+  um workflow por app (`ci-api.yml`, com PostgreSQL e Redis de serviço, `ci-web.yml`, `ci-android.yml`, `ci-ios.yml` e `ci-site.yml`),
+  disparado pelo caminho do app, e o `ci-security.yml` com o gitleaks em todo pull request. O
+  `ci-repo.yml` confere os workflows e o build da documentação, e o `ci-audit.yml` roda a auditoria de
+  CVE toda segunda-feira. O push na `staging` roda o app inteiro. Os gates são os da skill `gates`.
 - **Não há deploy automático.** Ele nasce junto da hospedagem.
 - **Toda publicação é um rolling update.** O container novo sobe ao lado do antigo e só recebe tráfego
   depois de passar no health check do `/health`; o antigo para em seguida. Por isso toda migration é
   compatível com a versão anterior da API
   ([NFR-REL-04](../../product/requirements/non-functional/reliability.md#nfr-rel-04--publicação-sem-indisponibilidade)).
-- **Os workflows do Android e do iOS nascem com o scaffold de cada app.**
+- **O `ci-android.yml` roda sem emulador**: a acessibilidade e o Maestro rodam no emulador local, até a
+  ADR 0024 ligar o emulador no CI. O `ci-ios.yml` roda no runner `xcode-27`, ainda em preview, com o
+  simulador e o XCUITest no CI.

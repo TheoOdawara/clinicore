@@ -16,8 +16,8 @@ Nenhum código é compartilhado: a fronteira é o contrato HTTP.
 | `apps/android` | Kotlin · Jetpack Compose · Room com SQLCipher · Hilt | loja |
 | `apps/ios` | Swift · SwiftUI · SwiftData · SwiftPM | loja |
 
-As versões estão nas ADRs, e depois nos manifestos. Nenhum app tem código ainda: cada um nasce no
-scaffold dele, já na forma do seu `AGENTS.md`.
+As versões estão nas ADRs, e depois nos manifestos. Cada app nasce no scaffold dele, já na forma do seu
+`AGENTS.md`.
 
 ## Linguagens e scripts
 
@@ -31,7 +31,7 @@ script `.sh`.
 apps/              api · web · site · android · ios
 docs/              product · system · decisions · work
 .agents/skills/    skills do projeto (.claude/skills/ aponta para elas)
-.github/workflows/ ci-<app>.yml por app e ci-security.yml, cada um nasce com o scaffold do app
+.github/workflows/ ci-<app>.yml por app, com o scaffold dele · ci-security · ci-repo · ci-audit
 ```
 
 - **O browser fala com a API em origem cruzada**, no mesmo domínio registrável, o que mantém o cookie

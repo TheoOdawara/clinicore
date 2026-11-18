@@ -5,8 +5,7 @@ description: O passo a passo de uma seção nova ou de uma página nova no apps/
 
 # site-section
 
-A forma está no `apps/site/AGENTS.md`. Enquanto o site for o scaffold em Next, esta skill vale só a
-partir da issue que o migra para o SvelteKit.
+A forma está no `apps/site/AGENTS.md`.
 
 ## Seção nova
 

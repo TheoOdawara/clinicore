@@ -1,7 +1,8 @@
 # Tokens
 
-Os valores vivem em [`tokens.css`](tokens.css), com os nomes de variável do shadcn/ui, para que o
-`apps/web` copie o arquivo sem traduzir nome nenhum. Os protótipos de `pages/` leem o mesmo arquivo.
+Os valores vivem em [`tokens.css`](tokens.css), com os nomes de variável do shadcn/ui, e os protótipos
+de `pages/` leem esse arquivo. O `apps/web` repete os mesmos nomes e valores em
+`src/styles/_tokens.scss`, que alimenta o `mat.theme` do Angular Material.
 
 A direção saiu do `ui-ux-pro-max`, na busca por clínica médica e odontológica: estilo minimalista e
 funcional, azul-petróleo como cor de ação e uma família tipográfica feita para leitura. Os valores
@@ -42,6 +43,31 @@ adiante, em CPF e número de carteirinha. Ela cobre os acentos do português.
 
 No `apps/web` a fonte entra pelo `@fontsource-variable`, servida pelo próprio app, para que o PWA
 funcione sem conexão.
+
+No `apps/android` a fonte entra em quatro TTF estáticos, de 400, 500, 600 e 700, em
+`core/designsystem/src/main/res/font/`, com a licença OFL ao lado, no `OFL.txt`. Fonte variável no
+Android só vale da API 26 em diante, e o `minSdk` é 24. Os quatro saem da fonte variável do
+[`google/fonts`](https://github.com/google/fonts/tree/main/ofl/atkinsonhyperlegiblenext), instanciada
+uma vez com o fonttools 4.68.0:
+
+```sh
+uvx --from fonttools==4.68.0 fonttools varLib.instancer --static \
+  'AtkinsonHyperlegibleNext[wght].ttf' wght=600 -o atkinson_hyperlegible_next_semibold.ttf
+```
+
+O mesmo comando, com `wght=400`, `500` e `700`, gera os demais. O tema do app lê as cores do
+`Color.kt`, que o `ColorTest` confere contra estes tokens, e o `ContrastTest` confere o contraste de cada
+par de texto e de borda.
+
+No `apps/site` os tokens ficam em `src/lib/styles/tokens.css`, com os mesmos nomes e valores de
+[`tokens.css`](tokens.css); o escuro vem pelo `prefers-color-scheme`, sem classe. A fonte entra pelo
+mesmo `@fontsource-variable` do web, e o axe do e2e confere o contraste no claro e no escuro.
+
+No `apps/ios` a fonte entra como o próprio TTF variável do `google/fonts`, renomeado para
+`AtkinsonHyperlegibleNext.ttf`, em `Packages/Sources/DesignSystem/Resources/Fonts/`, com o `OFL.txt` ao
+lado. O mínimo é o iOS 26, que lê o eixo de peso, então não há instâncias estáticas. O `DesignSystem`
+registra a fonte ao abrir o app e lê as cores do `Palette.swift`, que o `PaletteTests` confere contra
+estes tokens; o `ContrastTests` confere os mesmos pares de texto e de borda do Android.
 
 ## Forma e espaço
 

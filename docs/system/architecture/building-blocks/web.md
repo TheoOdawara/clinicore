@@ -9,20 +9,21 @@ sessão em cookie.
 [ADR 0007](../../../decisions/0007-app-nativo-em-flutter-com-offline.md)), importar código de outro app,
 ter regra de negócio que a API não tenha.
 
-O app ainda não existe; nasce no M1.
+Existem o shell, o tema, o locale pt-BR e as fronteiras conferidas pelo lint. Os demais blocos nascem
+com a #8.
 
 ## Blocos internos
 
 | Bloco | Onde | Responsabilidade | Estado |
 | --- | --- | --- | --- |
-| Shell | `src/app/shell/` | o layout autenticado: barra, menu, conteúdo | M1 |
+| Shell | `src/app/shell/` | o layout autenticado: barra, menu, conteúdo | existe, só com a barra e o conteúdo |
 | Configuração | `src/app/core/config/` | lê e valida os valores do build | M1 |
 | Cliente HTTP | `src/app/core/http/` | os interceptors de credencial e de refresh, e o Problem Details | M1 |
 | Sessão | `src/app/core/session/` | o usuário atual e o guard da área autenticada | M1 |
-| Locale | `src/app/core/locale/` | pt-BR no Angular e no Material | M1 |
+| Locale | `src/app/core/locale/` | pt-BR no Angular e no Material | existe o `LOCALE_ID`; os textos do Material entram com o primeiro componente que os usa |
 | UI genérica | `src/app/shared/` | componentes de mais de uma feature, sem estado | M1 |
 | Features | `src/app/features/<feature>/` | `data/` (API, schema Zod, store), `pages/` e `ui/` de uma feature | M1, a começar pela autenticação |
-| Tema | `src/styles/` | o `mat.theme` sobre os tokens de `docs/product/design/` | M1 |
+| Tema | `src/styles/` | o `mat.theme` sobre os tokens de `docs/product/design/` | existe |
 | PWA instalável | manifesto e service worker | instalação pelo navegador, sem guardar resposta da API | M1 |
 
 ## Para mudar com segurança

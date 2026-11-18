@@ -1,0 +1,106 @@
+name: ci-ios
+
+on:
+  pull_request:
+    branches: [staging, main]
+    paths:
+      - apps/ios/**
+      - .github/workflows/ci-ios.yml
+  push:
+    branches: [staging]
+    paths:
+      - apps/ios/**
+      - .github/workflows/ci-ios.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-ios-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DESTINATION: platform=iOS Simulator,name=iPhone 17e,OS=27.2
+
+jobs:
+  gates:
+    runs-on: xcode-27
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/ios
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
+      - if: github.event_name == 'pull_request'
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      - name: Select Xcode 27.2
+        run: sudo xcode-select -s /Applications/Xcode_27.2.app
+      - id: spm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            apps/ios/Packages/.build
+            apps/ios/build/SourcePackages
+          key: spm-${{ runner.os }}-xcode-27.2-${{ hashFiles('apps/ios/Packages/Package.resolved') }}
+
+      - name: Format (swift-format)
+        run: |
+          xcrun swift-format lint --strict --recursive \
+            Clinicore ClinicoreUITests ArchitectureFixtures \
+            Packages/Package.swift Packages/Sources Packages/Tests
+      - name: Lint (SwiftLint)
+        run: |
+          swift package --package-path Packages plugin --allow-writing-to-package-directory \
+            swiftlint lint --strict --quiet --config "$PWD/.swiftlint.yml" \
+            "$PWD/Clinicore" "$PWD/ClinicoreUITests" \
+            "$PWD/Packages/Package.swift" "$PWD/Packages/Sources" "$PWD/Packages/Tests"
+      - name: Architecture rules fire on the fixtures
+        run: |
+          swift package --package-path Packages plugin --allow-writing-to-package-directory \
+            swiftlint lint --strict --quiet --reporter json --config "$PWD/.swiftlint.yml" \
+            "$PWD/ArchitectureFixtures" > "$RUNNER_TEMP/fixtures.json" && exit 1
+          jq -e '[.[].rule_id] | unique == [
+            "keychain_outside_security",
+            "swiftdata_outside_persistence",
+            "urlsession_outside_networking",
+            "viewmodel_outside_feature"
+          ]' "$RUNNER_TEMP/fixtures.json"
+      - name: Build and test (Swift Testing and XCUITest)
+        run: |
+          xcodebuild test -project Clinicore.xcodeproj -scheme Clinicore \
+            -destination "$DESTINATION" -enableCodeCoverage YES -derivedDataPath build
+      - name: Coverage report (llvm-cov)
+        run: |
+          products=build/Build/Products/Debug-iphonesimulator
+          objects=(-object "$products/Clinicore.app/Clinicore.debug.dylib")
+          for bundle in "$products"/*.xctest; do
+            objects+=(-object "$bundle/$(basename "$bundle" .xctest)")
+          done
+          xcrun llvm-cov export -format=lcov \
+            -instr-profile "$(find build/Build/ProfileData -name Coverage.profdata)" \
+            "${objects[@]}" > build/coverage.lcov
+      - name: Coverage of new lines (90%, and 100% on critical paths)
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          report=apps/ios/build/coverage.lcov
+          uvx diff-cover==11.0.3 "$report" --compare-branch "$BASE" --fail-under 90
+          uvx diff-cover==11.0.3 "$report" --compare-branch "$BASE" --fail-under 100 --include \
+            'apps/ios/Packages/Sources/Security/**' \
+            'apps/ios/Packages/Sources/Networking/**' \
+            'apps/ios/Packages/Sources/Sync/**' \
+            '**/Outbox*.swift'
+
+      - if: github.ref == 'refs/heads/staging' && steps.spm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            apps/ios/Packages/.build
+            apps/ios/build/SourcePackages
+          key: spm-${{ runner.os }}-xcode-27.2-${{ hashFiles('apps/ios/Packages/Package.resolved') }}

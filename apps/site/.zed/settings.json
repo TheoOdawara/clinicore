@@ -1,0 +1,36 @@
+{
+  "languages": {
+    "TypeScript": {
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "TSX": {
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "JavaScript": {
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "JSON": {
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "HTML": {
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "CSS": {
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "SCSS": {
+      "formatter": "prettier",
+      "format_on_save": "on"
+    },
+    "Svelte": {
+      "formatter": "prettier",
+      "format_on_save": "on"
+    }
+  }
+}

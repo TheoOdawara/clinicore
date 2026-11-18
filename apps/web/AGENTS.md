@@ -4,14 +4,12 @@ Aditivo ao `AGENTS.md` da raiz. Stack na ADR 0020, forma na 0026. É o sistema d
 `app.clinicore.com.br`: SPA estático em Angular, instalável como PWA, só para usuário autenticado e
 sempre online.
 
-**O app ainda não existe.** Ele nasce na issue de scaffold do web, já na forma abaixo.
-
 ## Estrutura
 
 ```
 apps/web/
 ├── public/                  manifest.webmanifest, ícones do PWA, favicon
-├── e2e/<feature>/<fluxo>.spec.ts · e2e/support/     Playwright
+├── e2e/<feature>/<fluxo>.spec.ts · e2e/support/     Playwright, sobre o build servido pelo vite preview
 └── src/
     ├── main.ts  index.html
     ├── styles/              styles.scss é manifesto: _tokens.scss, _theme.scss (mat.theme), _typography.scss
@@ -37,7 +35,7 @@ Conferidas pelo `eslint-plugin-boundaries`. Cada pasta importa só:
 
 - `features/X`: `core`, `shared` e a própria X, nunca outra feature;
 - `pages/`: `ui/` e `data/` da própria feature;
-- `ui/`: `shared`;
+- `ui/`: `shared` e outro `ui/` da própria feature;
 - `data/`: `core/http` e `core/config`;
 - `shared` e `core`: só a si mesmos;
 - `shell` e a raiz do `app/`: tudo.

@@ -1,0 +1,130 @@
+{
+  "folders": [
+    {
+      "name": "repo",
+      "path": "."
+    },
+    {
+      "name": "api",
+      "path": "apps/api"
+    },
+    {
+      "name": "web",
+      "path": "apps/web"
+    },
+    {
+      "name": "site",
+      "path": "apps/site"
+    },
+    {
+      "name": "android",
+      "path": "apps/android"
+    },
+    {
+      "name": "ios",
+      "path": "apps/ios"
+    }
+  ],
+  "settings": {
+    "rust-analyzer.check.command": "clippy",
+    "files.exclude": {
+      "apps": true
+    },
+    "files.watcherExclude": {
+      "**/node_modules": true,
+      "**/target": true,
+      "**/build": true,
+      "**/dist": true,
+      "**/coverage": true,
+      "**/.gradle": true,
+      "**/.kotlin": true,
+      "**/.angular": true,
+      "**/.svelte-kit": true,
+      "**/test-results": true,
+      "**/DerivedData": true,
+      "**/.build": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/target": true,
+      "**/build": true,
+      "**/dist": true,
+      "**/coverage": true,
+      "**/.gradle": true,
+      "**/.kotlin": true,
+      "**/.angular": true,
+      "**/.svelte-kit": true,
+      "**/test-results": true,
+      "**/DerivedData": true,
+      "**/.build": true
+    }
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "docs: serve",
+        "type": "shell",
+        "command": "uvx zensical==0.1.2 serve --open",
+        "options": {
+          "cwd": "${workspaceFolder:repo}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "gates: api",
+        "type": "shell",
+        "command": "cargo fmt --all --check && cargo deny check && cargo clippy --workspace --all-targets --locked -- -D warnings && infisical run --path=/api -- cargo sqlx prepare --workspace --check && infisical run --path=/api -- cargo llvm-cov nextest --workspace --locked --lcov --output-path target/lcov.info --ignore-filename-regex 'main\\.rs' && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/api/target/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=90 && uvx diff-cover==11.0.3 apps/api/target/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=100 --include 'apps/api/crates/app/src/sessions/**' 'apps/api/crates/app/src/credentials/**' 'apps/api/crates/app/src/oauth/**' 'apps/api/crates/app/src/password_resets/**' 'apps/api/crates/app/src/email_verifications/**' 'apps/api/crates/app/src/http/rate_limit.rs' 'apps/api/crates/app/src/http/origin.rs' 'apps/api/crates/app/src/http/client.rs' 'apps/api/crates/app/src/tenancy/**' 'apps/api/crates/app/src/authorization/**' 'apps/api/crates/app/src/audit/**' 'apps/api/crates/app/src/idempotency/**' 'apps/api/crates/worker/src/purge.rs' 'apps/api/crates/worker/src/outbox.rs'",
+        "options": {
+          "cwd": "${workspaceFolder:api}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "gates: web",
+        "type": "shell",
+        "command": "bun run audit && bunx prettier --check . && bun run lint && bun run typecheck && bun run test:boundaries && bun run build && bun run test -- --coverage --watch=false && bun run e2e && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/web/coverage/web/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=90 && uvx diff-cover==11.0.3 apps/web/coverage/web/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=100 --include 'apps/web/src/app/core/http/**' 'apps/web/src/app/core/session/**' 'apps/web/src/app/core/config/**'",
+        "options": {
+          "cwd": "${workspaceFolder:web}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "gates: site",
+        "type": "shell",
+        "command": "bun run audit && bunx prettier --check . && bun run lint && bun run check && bun run test:boundaries && bun run build && bun run test:prerender && bun run test -- --coverage && bun run e2e && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/site/coverage/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=90",
+        "options": {
+          "cwd": "${workspaceFolder:site}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "gates: android",
+        "type": "shell",
+        "command": "osv-scanner scan source $(find . -name gradle.lockfile -not -path '*/build/*' -exec printf -- '--lockfile %s ' {} +) && ./gradlew spotlessCheck detekt lintDebug :build-logic:convention:test testDebugUnitTest koverXmlReportUnit assembleDebug assembleDebugAndroidTest && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/android/build/reports/kover/reportUnit.xml --compare-branch=origin/staging --include-untracked --src-roots $(find apps/android -path '*/src/main/kotlin' -not -path '*/build/*' -not -path '*/build-logic/*') --fail-under=90 && uvx diff-cover==11.0.3 apps/android/build/reports/kover/reportUnit.xml --compare-branch=origin/staging --include-untracked --src-roots $(find apps/android -path '*/src/main/kotlin' -not -path '*/build/*' -not -path '*/build-logic/*') --fail-under=100 --include 'apps/android/core/security/**' 'apps/android/core/network/**' 'apps/android/core/datastore/**' 'apps/android/core/sync/**' '**/OutboxDatabase.kt'",
+        "options": {
+          "cwd": "${workspaceFolder:android}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "gates: ios",
+        "type": "shell",
+        "command": "xcrun swift-format lint --strict --recursive Clinicore ClinicoreUITests ArchitectureFixtures Packages/Package.swift Packages/Sources Packages/Tests && swift package --package-path Packages plugin --allow-writing-to-package-directory swiftlint lint --strict --quiet --config \"$PWD/.swiftlint.yml\" \"$PWD/Clinicore\" \"$PWD/ClinicoreUITests\" \"$PWD/Packages/Package.swift\" \"$PWD/Packages/Sources\" \"$PWD/Packages/Tests\" && xcodebuild test -project Clinicore.xcodeproj -scheme Clinicore -destination 'platform=iOS Simulator,name=iPhone 17e,OS=27.2' -enableCodeCoverage YES -derivedDataPath build && xcrun llvm-cov export -format=lcov -instr-profile \"$(find build/Build/ProfileData -name Coverage.profdata)\" -object build/Build/Products/Debug-iphonesimulator/Clinicore.app/Clinicore.debug.dylib $(for bundle in build/Build/Products/Debug-iphonesimulator/*.xctest; do printf -- '-object %s ' \"$bundle/$(basename \"$bundle\" .xctest)\"; done) > build/coverage.lcov && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/ios/build/coverage.lcov --compare-branch=origin/staging --include-untracked --fail-under=90 && uvx diff-cover==11.0.3 apps/ios/build/coverage.lcov --compare-branch=origin/staging --include-untracked --fail-under=100 --include 'apps/ios/Packages/Sources/Security/**' 'apps/ios/Packages/Sources/Networking/**' 'apps/ios/Packages/Sources/Sync/**' '**/Outbox*.swift'",
+        "options": {
+          "cwd": "${workspaceFolder:ios}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "ios: build server",
+        "type": "shell",
+        "command": "xcode-build-server config -project Clinicore.xcodeproj -scheme Clinicore --build_root \"$PWD/build\"",
+        "options": {
+          "cwd": "${workspaceFolder:ios}"
+        },
+        "problemMatcher": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+excluded:
+  - Packages/.build
+  - build
+
+disabled_rules:
+  - trailing_comma
+
+opt_in_rules:
+  - file_name
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+
+line_length:
+  warning: 100
+  ignores_urls: true
+
+opening_brace:
+  ignore_multiline_statement_conditions: true
+
+file_name:
+  excluded:
+    - Package.swift
+
+custom_rules:
+  swiftdata_outside_persistence:
+    name: SwiftData outside Persistence
+    message: Only the Persistence target imports SwiftData.
+    regex: '^\s*import\s+SwiftData\b'
+    excluded: '/Packages/Sources/Persistence/'
+    severity: error
+  urlsession_outside_networking:
+    name: URLSession outside Networking
+    message: Only the Networking target talks to URLSession.
+    regex: '\bURLSession\b'
+    match_kinds: [identifier, typeidentifier]
+    excluded: '/Packages/Sources/Networking/'
+    severity: error
+  keychain_outside_security:
+    name: Keychain or LocalAuthentication outside Security
+    message: Only the Security target calls SecItem or LAContext.
+    regex: '\b(SecItem\w*|LAContext)\b'
+    match_kinds: [identifier, typeidentifier]
+    excluded: '/Packages/Sources/Security/'
+    severity: error
+  viewmodel_outside_feature:
+    name: ViewModel outside a feature
+    message: A ViewModel lives in a <Feature>Feature target.
+    regex: '\b(class|struct|actor)\s+\w*ViewModel\b'
+    excluded: '/Packages/Sources/\w+Feature/'
+    severity: error

@@ -1,0 +1,23 @@
+{
+  "file_types": {
+    "Kotlin": [
+      "*.gradle.kts"
+    ]
+  },
+  "languages": {
+    "Kotlin": {
+      "language_servers": [
+        "kotlin-lsp",
+        "!kotlin-language-server",
+        "..."
+      ],
+      "format_on_save": "off"
+    },
+    "Gradle": {
+      "enable_language_server": false
+    },
+    "Java": {
+      "enable_language_server": false
+    }
+  }
+}

@@ -1,0 +1,47 @@
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light dark;
+
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$cyan-palette,
+        theme-type: color-scheme,
+      ),
+      typography: (
+        plain-family: var(--font-sans),
+        brand-family: var(--font-sans),
+        bold-weight: 700,
+        medium-weight: 600,
+        regular-weight: 400,
+      ),
+      density: 0,
+    )
+  );
+
+  @include mat.theme-overrides(
+    (
+      primary: var(--primary),
+      on-primary: var(--primary-foreground),
+      background: var(--background),
+      on-background: var(--foreground),
+      surface: var(--background),
+      on-surface: var(--foreground),
+      on-surface-variant: var(--muted-foreground),
+      surface-container-lowest: var(--card),
+      surface-container-low: var(--card),
+      surface-container: var(--card),
+      surface-container-high: var(--card),
+      surface-container-highest: var(--muted),
+      secondary-container: var(--secondary),
+      on-secondary-container: var(--secondary-foreground),
+      outline: var(--input),
+      outline-variant: var(--border),
+      error: var(--destructive),
+      corner-small: calc(var(--radius) - 2px),
+      corner-medium: var(--radius),
+      corner-large: calc(var(--radius) + 4px),
+    )
+  );
+}

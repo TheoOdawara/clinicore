@@ -1,0 +1,20 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.bar {
+  border-block-end: var(--border-width) solid var(--border);
+}
+
+.brand {
+  color: var(--primary);
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-title);
+}
+
+.content {
+  flex: 1;
+  padding-inline: var(--space-gutter);
+}

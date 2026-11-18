@@ -1,0 +1,23 @@
+{
+  "recommendations": [
+    "rust-lang.rust-analyzer",
+    "tamasfe.even-better-toml",
+    "Angular.ng-template",
+    "svelte.svelte-vscode",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "vitest.explorer",
+    "ms-playwright.playwright",
+    "EditorConfig.EditorConfig",
+    "JetBrains.kotlin-server",
+    "swiftlang.swift-vscode",
+    "github.vscode-github-actions",
+    "redhat.vscode-yaml",
+    "hediet.vscode-drawio"
+  ],
+  "unwantedRecommendations": [
+    "orta.vscode-jest",
+    "vscjava.vscode-gradle",
+    "redhat.java"
+  ]
+}
