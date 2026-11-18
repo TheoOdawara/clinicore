@@ -3,13 +3,14 @@
 Aditivo ao `AGENTS.md` da raiz. Stack na ADR 0022, forma na 0026, offline na 0007 (itens 3 a 9, e o 7
 emendado pela 0022). App nativo em Swift e SwiftUI, com as mesmas telas do web e offline completo.
 
-**O app ainda não existe**: nasce no scaffold, nesta forma.
-
 ## Estrutura
 
 ```
 apps/ios/
-├── Clinicore.xcodeproj           só o target do app
+├── Clinicore.xcodeproj           o target do app e o de UI test; o pacote entra como pasta
+├── Clinicore.xctestplan          os testes do pacote e os XCUITest, com cobertura
+├── .swiftlint.yml  .swift-format
+├── ArchitectureFixtures/         uma fonte que viola cada regra própria do SwiftLint, fora de qualquer target
 ├── Clinicore/                    o app, em pasta sincronizada
 │   ├── ClinicoreApp.swift        @main: monta o AppContainer, registra as BGTasks
 │   ├── AppContainer.swift        cria e injeta tudo
@@ -54,6 +55,18 @@ Regras próprias do SwiftLint conferem o resto: `import SwiftData` só em `Persi
 `@MainActor @Observable`.
 
 ## Padrões
+
+- **Toda regra própria do SwiftLint tem uma fonte em `ArchitectureFixtures/`**, num caminho que a viola, e
+  o gate de fronteiras exige que cada regra dispare nela.
+- **A acessibilidade de cada tela é conferida pelo `performAccessibilityAudit()`** no XCUITest, no claro,
+  no escuro e no maior Dynamic Type; o contraste dos tokens, pelo `ContrastTests` do `DesignSystem`.
+- **Texto que precisa crescer com o Dynamic Type fica fora da barra de navegação**: o iOS limita o
+  tamanho dele lá, e o audit reprova.
+- **Target de teste novo entra no `Clinicore.xctestplan`**, senão o `xcodebuild test` não o roda.
+- **Até o `AppConfig` chegar (#10), o `Info.plist` é gerado pelo build** (`GENERATE_INFOPLIST_FILE`), e não
+  há `Config/`, `Clinicore.entitlements` nem as configurações `Staging` e `Release`.
+- `shortcut: o app não tem ícone porque a marca ainda não tem logo (docs/product/design/tokens.md), o
+  AppIcon entra com ele`
 
 - **A View guarda o ViewModel em `@State private var viewModel`.** O ViewModel é
   `@MainActor @Observable final class`, com `private(set) var state` e uma função por evento, com nome

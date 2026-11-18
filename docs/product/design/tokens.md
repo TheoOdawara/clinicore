@@ -59,6 +59,12 @@ O mesmo comando, com `wght=400`, `500` e `700`, gera os demais. O tema do app l�
 `Color.kt`, que o `ColorTest` confere contra estes tokens, e o `ContrastTest` confere o contraste de cada
 par de texto e de borda.
 
+No `apps/ios` a fonte entra como o próprio TTF variável do `google/fonts`, renomeado para
+`AtkinsonHyperlegibleNext.ttf`, em `Packages/Sources/DesignSystem/Resources/Fonts/`, com o `OFL.txt` ao
+lado. O mínimo é o iOS 26, que lê o eixo de peso, então não há instâncias estáticas. O `DesignSystem`
+registra a fonte ao abrir o app e lê as cores do `Palette.swift`, que o `PaletteTests` confere contra
+estes tokens; o `ContrastTests` confere os mesmos pares de texto e de borda do Android.
+
 ## Forma e espaço
 
 | Token | Valor | Uso |

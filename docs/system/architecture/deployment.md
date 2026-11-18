@@ -9,7 +9,7 @@ Onde cada bloco roda, em cada ambiente, e como ele chega lá.
 | Ambiente | Estado | Onde roda |
 | --- | --- | --- |
 | Desenvolvimento | existe | a máquina de quem desenvolve |
-| CI | existe para a API, o web e o Android, pelo `ci-api.yml`, pelo `ci-web.yml`, pelo `ci-android.yml` e pelo `ci-security.yml`; cada outro app ganha o seu workflow no scaffold dele | GitHub Actions |
+| CI | existe para a API, o web, o Android e o iOS, pelo `ci-api.yml`, pelo `ci-web.yml`, pelo `ci-android.yml`, pelo `ci-ios.yml` e pelo `ci-security.yml`; o site ganha o seu workflow no scaffold dele | GitHub Actions |
 | Homolog (`staging`) | planejado | a VPS com Coolify |
 | Produção (`main`) | planejado | a VPS com Coolify |
 
@@ -56,7 +56,7 @@ Backup e recuperação estão em aberto, na
 - **Toda entrega chega por pull request** para a `staging`; o release é um pull request da `staging`
   para a `main`.
 - **O CI roda só onde houve mudança** ([ADR 0024](../../decisions/0024-ci-por-mudanca-em-repositorio-publico.md)):
-  um workflow por app (`ci-api.yml`, com PostgreSQL e Redis de serviço, `ci-web.yml`, `ci-android.yml` e `ci-site.yml`),
+  um workflow por app (`ci-api.yml`, com PostgreSQL e Redis de serviço, `ci-web.yml`, `ci-android.yml`, `ci-ios.yml` e `ci-site.yml`),
   disparado pelo caminho do app, e o `ci-security.yml` com o gitleaks em todo pull request. O push na
   `staging` roda o app inteiro. Os gates são os da skill `gates`.
 - **Não há deploy automático.** Ele nasce junto da hospedagem.
@@ -64,5 +64,6 @@ Backup e recuperação estão em aberto, na
   depois de passar no health check do `/health`; o antigo para em seguida. Por isso toda migration é
   compatível com a versão anterior da API
   ([NFR-REL-04](../../product/requirements/non-functional/reliability.md#nfr-rel-04--publicação-sem-indisponibilidade)).
-- **O workflow do iOS nasce com o scaffold dele.** O `ci-android.yml` roda sem emulador; a acessibilidade
-  e o Maestro rodam no emulador local, até a ADR 0024 ligar o emulador no CI.
+- **O `ci-android.yml` roda sem emulador**: a acessibilidade e o Maestro rodam no emulador local, até a
+  ADR 0024 ligar o emulador no CI. O `ci-ios.yml` roda no runner `xcode-27`, ainda em preview, com o
+  simulador e o XCUITest no CI.

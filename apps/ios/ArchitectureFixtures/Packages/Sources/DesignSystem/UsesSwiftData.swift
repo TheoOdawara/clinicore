@@ -1,0 +1,3 @@
+import SwiftData
+
+enum UsesSwiftData {}

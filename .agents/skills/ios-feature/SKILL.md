@@ -5,14 +5,17 @@ description: O passo a passo de uma feature nova ou de uma tela nova no apps/ios
 
 # ios-feature
 
-A forma (targets, fronteiras, nomes) está no `apps/ios/AGENTS.md`. Vale a partir da issue de scaffold do
-iOS.
+A forma (targets, fronteiras, nomes) está no `apps/ios/AGENTS.md`. O scaffold (#5) criou o app com o
+shell, o `Packages/Package.swift` com o target `DesignSystem` (cores, fonte e os testes de token e de
+contraste), o `Clinicore.xctestplan` e as regras próprias do SwiftLint com as fontes de exemplo. O resto da
+árvore nasce com a primeira feature que o usa.
 
 ## Feature nova
 
 1. Declarar o target `<Feature>Feature` no `Packages/Package.swift`, dependendo só de `Repositories`,
    `DesignSystem` e `Models`, e o target de teste `<Feature>FeatureTests`.
-2. Adicionar o produto ao target do app no `Clinicore.xcodeproj`.
+2. Adicionar o produto ao target do app no `Clinicore.xcodeproj`, e o target de teste ao
+   `Clinicore.xctestplan`.
 3. No app, os casos novos entram no `Route`, e o `RootView` liga cada caso à tela da feature, passando
    as closures de navegação.
 
@@ -40,5 +43,6 @@ iOS.
 
 - ViewModel e repository: Swift Testing em `Tests/<Target>Tests/`, com os fakes do `TestSupport` e o
   stub de `URLProtocol`.
-- Tela e Keychain real: XCUITest em `ClinicoreUITests/<feature>/`.
+- Tela e Keychain real: XCUITest em `ClinicoreUITests/<feature>/`, com o `performAccessibilityAudit()` no
+  claro, no escuro e no maior Dynamic Type, como o `ShellTests`.
 - Fluxo: `ClinicoreE2ETests`, contra a API local.

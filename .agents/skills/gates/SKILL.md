@@ -70,15 +70,31 @@ Dependência nova pede `./gradlew :app:dependencies :core:designsystem:dependenc
 `:<módulo>:dependencies` por módulo) e depois `./gradlew --write-verification-metadata sha256` com os
 gates acima, para o arquivo ver cada artefato.
 
-## Os outros apps
+## `apps/ios`
 
-Ainda sem código. Os gates de cada um entram nesta skill com o scaffold dele, como comandos que o
-scaffold faz passar, e cada app ganha o seu `ci-<app>.yml`.
+De `apps/ios/`, com o Xcode 27.2. O CI roda os mesmos no `ci-ios.yml`, no runner `xcode-27`. O SwiftLint
+vem pelo command plugin do `SwiftLintPlugins`, travado no `Packages/Package.swift`; ninguém o instala.
+
+| Gate | Comando |
+| --- | --- |
+| Formato | `xcrun swift-format lint --strict --recursive Clinicore ClinicoreUITests ArchitectureFixtures Packages/Package.swift Packages/Sources Packages/Tests` |
+| Lint | `swift package --package-path Packages plugin --allow-writing-to-package-directory swiftlint lint --strict --quiet --config "$PWD/.swiftlint.yml" "$PWD/Clinicore" "$PWD/ClinicoreUITests" "$PWD/Packages/Package.swift" "$PWD/Packages/Sources" "$PWD/Packages/Tests"` |
+| Fronteiras | o mesmo plugin com `--reporter json` sobre `"$PWD/ArchitectureFixtures"`: tem que reprovar, e a saída traz as quatro regras próprias, como o `ci-ios.yml` confere com o `jq` |
+| Build e testes (Swift Testing e XCUITest) | `xcodebuild test -project Clinicore.xcodeproj -scheme Clinicore -destination 'platform=iOS Simulator,name=iPhone 17e,OS=27.2' -enableCodeCoverage YES -derivedDataPath build` |
+| Cobertura | `xcrun llvm-cov export -format=lcov` sobre o `Coverage.profdata` em `build/Build/ProfileData/`, com `-object` no `Clinicore.app/Clinicore.debug.dylib` e no `DesignSystemTests.xctest/DesignSystemTests`, para `build/coverage.lcov` |
+| Linhas novas | da raiz: `uvx diff-cover==11.0.3 apps/ios/build/coverage.lcov --compare-branch origin/staging --include-untracked --fail-under 90`, e a mesma chamada com `--fail-under 100` e o `--include` dos caminhos críticos do `ci-ios.yml` |
+
+O `xcodebuild test` sobe o simulador; no Mac, ele roda sem Gradle nem emulador ao lado. Não há gate de
+CVE: o osv-scanner não lê o `Package.resolved`, e o alerta vem do Dependabot (ADR 0024).
+
+## `apps/site`
+
+O `apps/site` ainda não tem código. Os gates dele entram nesta skill com o scaffold, como comandos que o
+scaffold faz passar, e ele ganha o seu `ci-site.yml`.
 
 | App | Gates | Ferramentas decididas |
 | --- | --- | --- |
 | `apps/site` | n/a: sem código | ESLint com `eslint-plugin-svelte` e `eslint-plugin-boundaries`, Prettier, `svelte-check`, `vite build`, Vitest (ADRs 0021, 0026) |
-| `apps/ios` | n/a: sem código | swift-format, SwiftLint `--strict`, Swift Testing, XCUITest (ADRs 0022, 0026) |
 
 Em todo app, a cobertura das linhas novas é conferida pelo `diff-cover` contra a `origin/staging`, como a
 skill `testing` descreve (ADR 0023).

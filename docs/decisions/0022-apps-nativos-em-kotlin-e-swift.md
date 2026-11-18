@@ -81,6 +81,11 @@ foi feita para o Kotlin 2.0.21.
 | Cobertura | Nativa do Xcode e do SwiftPM | — |
 | CVE | Alertas do Dependabot sobre o `Package.resolved` commitado | — |
 
+No scaffold (#5), o projeto ganhou um segundo target, o dos XCUITest. O pacote local entra nele como
+pasta, porque só assim o `Clinicore.xctestplan` roda os testes do pacote. O SwiftLint roda pelo command
+plugin do `SwiftLintPlugins`, que lê também o app e os UI tests. A fonte entra variável, sem
+instâncias estáticas, porque o iOS 26 lê o eixo de peso.
+
 O SwiftData é provisório. Ele volta a ser decidido se a migração de schema doer, se a concorrência do
 Swift 6 atrapalhar ou se o volume de dados crescer; a saída é o GRDB ou o SQLiteData, e a troca fica
 restrita ao `Core/Data`.
