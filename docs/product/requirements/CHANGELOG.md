@@ -2,6 +2,13 @@
 
 Uma entrada por versão do SRS: a data, os IDs adicionados, alterados ou aposentados, e o porquê.
 
+## 2.0.3 — 2026-11-18
+
+A pergunta do nome deixa de citar uma issue apagada (#2). Nenhum requisito muda.
+
+- **Perguntas em aberto:** a `OQ-01` não aponta mais para a #168, apagada com o repositório antigo em
+  2026-11-18. A escolha do nome continua em aberto e não bloqueia o design system nem as telas.
+
 ## 2.0.2 — 2026-11-17
 
 O nome comercial sai do caminho da construção (#167). Nenhum requisito muda.

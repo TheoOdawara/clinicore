@@ -19,8 +19,9 @@ gerar as imagens de novo, abra o HTML no Chrome headless em `--window-size=<larg
 `cwebp`. Com `?dark`, o HTML mostra o tema escuro, e com `?desktop` mostra só o primeiro estado, na tela
 inteira.
 
-`brand/` tem os estudos da marca. A descrição da marca, o brand book, o logo e o banner nascem quando o
-produto ganhar nome, porque "Clinicore" é codinome.
+[`brand/`](brand/README.md) tem a marca aprovada, a rota Arcada: símbolo, azulejo, cores e tipo, com os
+estudos que a definiram. O logotipo completo e o banner nascem quando o produto ganhar nome, porque
+"Clinicore" é codinome.
 
 Os tokens alimentam o tema de cada app: o `mat.theme` do Angular Material no web (ADR 0020), as variáveis
 CSS do site (ADR 0021), o tema Material 3 do Android e o `DesignSystem` do iOS (ADR 0022).

@@ -12,8 +12,8 @@ Clinicore é codinome interno e não pode virar marca:
 - o domínio `clinicore.com.br` pertence a uma clínica médica;
 - o nome é próximo do concorrente Clinicorp.
 
-O produto é construído como Clinicore e renomeado antes de ser vendido. A escolha do nome está no
-backlog, na #168, e não bloqueia o design system nem as telas.
+O produto é construído como Clinicore e renomeado antes de ser vendido. A escolha do nome não bloqueia
+o design system nem as telas.
 
 Restrições que o nome precisa cumprir:
 

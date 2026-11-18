@@ -1,6 +1,6 @@
 # Clinicore — Especificação de Requisitos de Software
 
-**Versão:** 2.0.2 · **Data:** 2026-11-17 · [Changelog](CHANGELOG.md)
+**Versão:** 2.0.3 · **Data:** 2026-11-18 · [Changelog](CHANGELOG.md)
 
 > Clinicore é codinome interno. O nome comercial está em aberto ([OQ-01](open-questions.md#oq-01--nome-comercial)).
 
