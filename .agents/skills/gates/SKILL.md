@@ -69,8 +69,9 @@ artefato no `gradle/verification-metadata.xml` e as versões nos `gradle.lockfil
 | E2E, no emulador | `./gradlew installDebug` e `maestro test e2e/` |
 
 Dependência nova pede `./gradlew :app:dependencies :core:designsystem:dependencies --write-locks` (um
-`:<módulo>:dependencies` por módulo) e depois `./gradlew --write-verification-metadata sha256` com os
-gates acima, para o arquivo ver cada artefato.
+`:<módulo>:dependencies` por módulo) e depois `./gradlew -g <pasta vazia> --write-verification-metadata
+sha256` com os gates acima. A pasta vazia faz o Gradle baixar tudo como o CI baixa: com o cache local, os
+POMs e BOMs que só um cache limpo resolve ficam de fora do arquivo, e o CI reprova na verificação.
 
 ## `apps/ios`
 
