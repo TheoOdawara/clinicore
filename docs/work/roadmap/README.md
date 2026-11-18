@@ -5,18 +5,18 @@ fica aqui: está no [GitHub Project](https://github.com/users/TheoOdawara/projec
 [milestones](https://github.com/TheoOdawara/clinicore/milestones).
 
 O Project tem só o que está planejado na sprint atual. O resto do roadmap mora neste arquivo e nos
-milestones. Nenhum épico tem issue ainda (—): cada um ganha a sua quando entra numa sprint, com uma
-issue por app.
+milestones. Um épico ganha a sua issue quando entra numa sprint, com uma issue por app; até lá, a coluna
+Issue mostra —.
 
 ## M1 — Go-live piloto
 
-A primeira clínica piloto sai do Simples Dental e opera no Clinicore. O GitHub Milestone nasce
-no planejamento da primeira sprint.
+A primeira clínica piloto sai do Simples Dental e opera no Clinicore. GitHub Milestone:
+[M1](https://github.com/TheoOdawara/clinicore/milestone/1).
 
 | Épico | Issue | Cobre |
 | --- | --- | --- |
-| Plataforma | — | [`NFR-PERF-01` e `02`](../../product/requirements/non-functional/performance.md), [`NFR-INTR-01` a `03`](../../product/requirements/non-functional/interaction.md), [`NFR-REL-01` e `04`](../../product/requirements/non-functional/reliability.md), [`NFR-SEC-02` e `05`](../../product/requirements/non-functional/security.md), [`NFR-FLEX-01`](../../product/requirements/non-functional/flexibility.md) |
-| Autenticação e sessão | — | [`FR-ACC-07` a `12` e `15`](../../product/requirements/functional/access.md), [`NFR-FLEX-02`](../../product/requirements/non-functional/flexibility.md), [`NFR-SEC-07`](../../product/requirements/non-functional/security.md) |
+| Plataforma | #3 | [`NFR-PERF-01` e `02`](../../product/requirements/non-functional/performance.md), [`NFR-INTR-01` a `03`](../../product/requirements/non-functional/interaction.md), [`NFR-REL-01` e `04`](../../product/requirements/non-functional/reliability.md), [`NFR-SEC-02` e `05`](../../product/requirements/non-functional/security.md), [`NFR-FLEX-01`](../../product/requirements/non-functional/flexibility.md) |
+| Autenticação e sessão | #4 | [`FR-ACC-07` a `12` e `15`](../../product/requirements/functional/access.md), [`NFR-FLEX-02`](../../product/requirements/non-functional/flexibility.md), [`NFR-SEC-07`](../../product/requirements/non-functional/security.md) |
 | Organização e acesso | — | [`FR-ACC-01` a `06` e `16` a `19`](../../product/requirements/functional/access.md), [`NFR-SEC-01`](../../product/requirements/non-functional/security.md) |
 | Pacientes | — | [`FR-PAT-01` a `03`](../../product/requirements/functional/patients.md) |
 | Agenda | — | [`FR-SCH-01` a `10`](../../product/requirements/functional/scheduling.md) |
@@ -140,4 +140,5 @@ Todo requisito aprovado de um marco planejado está em exatamente um épico. Hoj
 
 ## Sprints
 
-Nenhuma ainda. A primeira é planejada pelo `/tightship:sprint plan`.
+- [Sprint 1](sprints/sprint-01.md) — o usuário cria a conta, confirma o e-mail e entra pelo web, pelo
+  Android e pelo iOS.
