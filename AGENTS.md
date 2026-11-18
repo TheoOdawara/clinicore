@@ -16,8 +16,8 @@ Nenhum código é compartilhado: a fronteira é o contrato HTTP.
 | `apps/android` | Kotlin · Jetpack Compose · Room com SQLCipher · Hilt | loja |
 | `apps/ios` | Swift · SwiftUI · SwiftData · SwiftPM | loja |
 
-As versões estão nas ADRs, e depois nos manifestos. Nenhum app tem código ainda: cada um nasce no
-scaffold dele, já na forma do seu `AGENTS.md`.
+As versões estão nas ADRs, e depois nos manifestos. Cada app nasce no scaffold dele, já na forma do seu
+`AGENTS.md`; o `apps/site` ainda não tem código.
 
 ## Linguagens e scripts
 

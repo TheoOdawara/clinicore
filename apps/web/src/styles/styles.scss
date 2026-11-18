@@ -1,0 +1,8 @@
+@use 'tokens';
+@use 'theme';
+@use 'typography';
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--ring);
+  outline-offset: var(--focus-ring-width);
+}

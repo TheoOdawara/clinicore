@@ -30,6 +30,22 @@ roda os mesmos, no `ci-api.yml`.
 | Testes e cobertura | `infisical run --path=/api -- cargo llvm-cov nextest --workspace --locked --lcov --output-path target/lcov.info --ignore-filename-regex 'main\.rs'` |
 | Linhas novas | da raiz: `uvx diff-cover==11.0.3 apps/api/target/lcov.info --compare-branch origin/staging --include-untracked --fail-under 90`, e a mesma chamada com `--fail-under 100` e o `--include` dos caminhos críticos do `ci-api.yml` |
 
+## `apps/web`
+
+De `apps/web/`, depois do `bun install`. O CI roda os mesmos, no `ci-web.yml`.
+
+| Gate | Comando |
+| --- | --- |
+| Vulnerabilidades conhecidas | `bun run audit` |
+| Formato | `bunx prettier --check .` |
+| Lint e fronteiras | `bun run lint` |
+| Tipos dos arquivos de configuração e do e2e | `bun run typecheck` |
+| Teste das fronteiras | `bun run test:boundaries` |
+| Build | `bun run build` |
+| Testes e cobertura | `bun run test -- --coverage --watch=false` |
+| E2E, a 390 px e com o axe | `bun run e2e` |
+| Linhas novas | da raiz: `uvx diff-cover==11.0.3 apps/web/coverage/web/lcov.info --compare-branch origin/staging --include-untracked --fail-under 90`, e a mesma chamada com `--fail-under 100` e o `--include` dos caminhos críticos do `ci-web.yml` |
+
 ## Os outros apps
 
 Ainda sem código. Os gates de cada um entram nesta skill com o scaffold dele, como comandos que o
@@ -37,7 +53,6 @@ scaffold faz passar, e cada app ganha o seu `ci-<app>.yml`.
 
 | App | Gates | Ferramentas decididas |
 | --- | --- | --- |
-| `apps/web` | n/a: sem código | angular-eslint com `eslint-plugin-boundaries`, Prettier, `ng build`, Vitest pelo `ng test`, Playwright (ADRs 0020, 0026) |
 | `apps/site` | n/a: sem código | ESLint com `eslint-plugin-svelte` e `eslint-plugin-boundaries`, Prettier, `svelte-check`, `vite build`, Vitest (ADRs 0021, 0026) |
 | `apps/android` | n/a: sem código | Spotless, detekt, Android Lint, Konsist, Kover, osv-scanner (ADRs 0022, 0026) |
 | `apps/ios` | n/a: sem código | swift-format, SwiftLint `--strict`, Swift Testing, XCUITest (ADRs 0022, 0026) |

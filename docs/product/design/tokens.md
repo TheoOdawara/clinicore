@@ -1,7 +1,8 @@
 # Tokens
 
-Os valores vivem em [`tokens.css`](tokens.css), com os nomes de variável do shadcn/ui, para que o
-`apps/web` copie o arquivo sem traduzir nome nenhum. Os protótipos de `pages/` leem o mesmo arquivo.
+Os valores vivem em [`tokens.css`](tokens.css), com os nomes de variável do shadcn/ui, e os protótipos
+de `pages/` leem esse arquivo. O `apps/web` repete os mesmos nomes e valores em
+`src/styles/_tokens.scss`, que alimenta o `mat.theme` do Angular Material.
 
 A direção saiu do `ui-ux-pro-max`, na busca por clínica médica e odontológica: estilo minimalista e
 funcional, azul-petróleo como cor de ação e uma família tipográfica feita para leitura. Os valores

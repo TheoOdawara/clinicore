@@ -6,12 +6,12 @@
   },
   {
     "label": "gates: api",
-    "command": "cargo fmt --check && cargo deny check && infisical run --path=/api -- cargo clippy --all-targets -- -D warnings && infisical run --path=/api -- cargo build && infisical run --path=/api -- cargo sqlx prepare --workspace --check && infisical run --path=/api -- cargo llvm-cov nextest --lcov --output-path lcov.info && git fetch origin staging && uvx diff-cover==11.0.3 lcov.info --compare-branch=origin/staging --fail-under=90",
+    "command": "cargo fmt --all --check && cargo deny check && cargo clippy --workspace --all-targets --locked -- -D warnings && infisical run --path=/api -- cargo sqlx prepare --workspace --check && infisical run --path=/api -- cargo llvm-cov nextest --workspace --locked --lcov --output-path target/lcov.info --ignore-filename-regex 'main\\.rs' && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/api/target/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=90",
     "cwd": "$ZED_WORKTREE_ROOT/apps/api"
   },
   {
     "label": "gates: web",
-    "command": "bun audit && bun run lint && bun run format:check && bun run build && bun check && bun run test",
+    "command": "bun run audit && bunx prettier --check . && bun run lint && bun run typecheck && bun run test:boundaries && bun run build && bun run test -- --coverage --watch=false && bun run e2e && git fetch origin staging && cd ../.. && uvx diff-cover==11.0.3 apps/web/coverage/web/lcov.info --compare-branch=origin/staging --include-untracked --fail-under=90",
     "cwd": "$ZED_WORKTREE_ROOT/apps/web"
   },
   {

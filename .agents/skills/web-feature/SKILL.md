@@ -5,8 +5,7 @@ description: O passo a passo de uma feature nova ou de uma tela nova no apps/web
 
 # web-feature
 
-A forma (pastas, fronteiras, nomes) está no `apps/web/AGENTS.md`. Enquanto o web for o scaffold em
-React, esta skill vale só a partir da issue que o migra para o Angular.
+A forma (pastas, fronteiras, nomes) está no `apps/web/AGENTS.md`.
 
 ## Feature nova
 

@@ -1,0 +1,147 @@
+name: ci-web
+
+on:
+  pull_request:
+    branches: [staging, main]
+    paths:
+      - apps/web/**
+      - .github/workflows/ci-web.yml
+  push:
+    branches: [staging]
+    paths:
+      - apps/web/**
+      - .github/workflows/ci-web.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      everything: ${{ steps.scope.outputs.everything }}
+      files: ${{ steps.filter.outputs.web_files }}
+      audit: ${{ steps.scope.outputs.audit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          list-files: shell
+          filters: |
+            config:
+              - apps/web/package.json
+              - apps/web/bun.lock
+              - apps/web/angular.json
+              - apps/web/tsconfig*.json
+              - apps/web/eslint.config.ts
+              - apps/web/.prettierrc
+              - .github/workflows/ci-web.yml
+            lock:
+              - apps/web/bun.lock
+            web:
+              - added|modified: apps/web/**
+      - id: scope
+        env:
+          FULL_RUN: ${{ github.event_name == 'push' || github.base_ref == 'main' }}
+          CONFIG: ${{ steps.filter.outputs.config }}
+          LOCK: ${{ steps.filter.outputs.lock }}
+        run: |
+          if [ "$FULL_RUN" = true ] || [ "$LOCK" = true ]; then
+            echo "audit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "audit=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$FULL_RUN" = true ] || [ "$CONFIG" = true ]; then
+            echo "everything=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "everything=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  gates:
+    needs: changes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      CI: "true"
+      EVERYTHING: ${{ needs.changes.outputs.everything }}
+      CHANGED: ${{ needs.changes.outputs.files }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.13.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('apps/web/bun.lock') }}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Known vulnerabilities (bun audit)
+        if: needs.changes.outputs.audit == 'true'
+        run: bun run audit
+      - name: Format (prettier)
+        run: |
+          if [ "$EVERYTHING" = true ]; then
+            bunx prettier --check .
+          else
+            read -ra changed <<< "${CHANGED//apps\/web\//}"
+            bunx prettier --check --ignore-unknown "${changed[@]}"
+          fi
+      - name: Lint (eslint)
+        run: |
+          if [ "$EVERYTHING" = true ]; then
+            bun run lint
+          else
+            read -ra changed <<< "${CHANGED//apps\/web\//}"
+            lintable=()
+            for file in "${changed[@]}"; do
+              case "$file" in *.ts | *.html) lintable+=("$file") ;; esac
+            done
+            if [ "${#lintable[@]}" -gt 0 ]; then
+              bunx eslint --max-warnings 0 --no-warn-ignored "${lintable[@]}"
+            fi
+          fi
+      - name: Types of the config and e2e files
+        run: bun run typecheck
+      - name: Architecture boundaries
+        run: bun run test:boundaries
+      - name: Build
+        run: bun run build
+      - name: Unit tests with coverage
+        run: bun run test -- --coverage --watch=false
+      - name: Playwright browser
+        run: bunx playwright install --with-deps chromium
+      - name: End-to-end (playwright)
+        run: bun run e2e
+      - name: Coverage of new lines (90%)
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        run: >-
+          uvx diff-cover==11.0.3 apps/web/coverage/web/lcov.info
+          --compare-branch "origin/${{ github.base_ref }}"
+          --fail-under 90
+      - name: Coverage of new lines on critical paths (100%)
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        run: >-
+          uvx diff-cover==11.0.3 apps/web/coverage/web/lcov.info
+          --compare-branch "origin/${{ github.base_ref }}"
+          --fail-under 100
+          --include
+          'apps/web/src/app/core/http/**'
+          'apps/web/src/app/core/session/**'
+          'apps/web/src/app/core/config/**'

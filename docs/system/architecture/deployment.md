@@ -9,7 +9,7 @@ Onde cada bloco roda, em cada ambiente, e como ele chega lá.
 | Ambiente | Estado | Onde roda |
 | --- | --- | --- |
 | Desenvolvimento | existe | a máquina de quem desenvolve |
-| CI | existe para a API, pelo `ci-api.yml` e pelo `ci-security.yml`; cada outro app ganha o seu workflow no scaffold dele | GitHub Actions |
+| CI | existe para a API e o web, pelo `ci-api.yml`, pelo `ci-web.yml` e pelo `ci-security.yml`; cada outro app ganha o seu workflow no scaffold dele | GitHub Actions |
 | Homolog (`staging`) | planejado | a VPS com Coolify |
 | Produção (`main`) | planejado | a VPS com Coolify |
 
