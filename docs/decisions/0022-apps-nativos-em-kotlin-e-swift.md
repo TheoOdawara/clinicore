@@ -25,7 +25,7 @@ próprio build, os próprios gates e o próprio `AGENTS.md`.
 
 | Papel | Escolha | Versão em 2026-11-17 |
 | --- | --- | --- |
-| Build | Gradle com Kotlin DSL, version catalog e wrapper commitado · Android Gradle Plugin · JDK 17 | 9.9.1 · 9.5.1 |
+| Build | Gradle com Kotlin DSL, version catalog e wrapper commitado · Android Gradle Plugin · JDK 21 (Temurin) | 9.9.1 · 9.5.1 · 21 |
 | Linguagem | Kotlin | 2.4.21 |
 | SDK | `compileSdk` e `targetSdk` 37 · `minSdk` 24 | — |
 | Módulos | Multimódulo desde o início: `app`, `core/model`, `core/data`, `core/ui`, `feature/<feature>` e `build-logic` com plugins de convenção | — |
@@ -42,12 +42,16 @@ próprio build, os próprios gates e o próprio `AGENTS.md`.
 | Formato | ktfmt no estilo `kotlinlang`, pelo Spotless | 0.64 · 8.11.0 |
 | Lint | detekt com compose-rules · Android Lint com `warningsAsErrors` · Kotlin com `allWarningsAsErrors` | 2.0.0-alpha.6 · 0.6.8 |
 | Arquitetura conferida | A fronteira entre módulos pelo Gradle e as camadas dentro do módulo por testes do Konsist | 0.18.1 |
-| Testes | JUnit 4 na JVM: coroutines-test, Turbine, Truth, Robolectric com Compose UI test para as telas, MockWebServer, `work-testing`, `hilt-android-testing` e `room3-testing`; fakes escritos à mão e MockK só onde o fake não compensa | 4.13.2 · 1.11.0 · 1.2.1 · 1.4.5 · 4.18 · 1.12.1 |
-| Teste no emulador | Só o que a JVM não roda (SQLCipher, Keystore, migração real, apagamentos), com AndroidX Test e Orchestrator no Gradle Managed Devices, nas APIs 24 e 37 | 1.7.0 · 1.6.1 |
+| Testes | JUnit 4 na JVM: coroutines-test, Turbine, Truth, Robolectric com Compose UI test para as telas, MockWebServer, `work-testing`, `hilt-android-testing` e `room3-testing`; fakes escritos à mão e MockK só onde o fake não compensa | 4.13.2 · 1.11.0 · 1.2.1 · 1.4.5 · 4.18.1 · 1.12.1 |
+| Teste no emulador | Só o que a JVM não roda (SQLCipher, Keystore, migração real, apagamentos, e as checagens de acessibilidade do ATF, que no Robolectric não avaliam Compose), com AndroidX Test e Orchestrator no Gradle Managed Devices, nas APIs 24 e 37 | 1.7.0 · 1.6.1 |
 | E2E | Maestro, com os fluxos em YAML em `apps/android/e2e/`, contra a API local | 2.12.1 |
-| Cobertura | Kover agregado | 0.9.9 |
+| Cobertura | Kover agregado | 0.9.11 |
 | Dependências | Dependency locking do Gradle e `gradle/verification-metadata.xml` com SHA-256 | — |
 | CVE | osv-scanner sobre os `gradle.lockfile` | 2.7.1 |
+
+O JDK passou de 17 para 21 no scaffold (#5), por decisão do dono do produto: o 21 é a LTS que o
+Gradle 9.9 e o AGP 9.5 recomendam. No mesmo scaffold, o Kover passou para a 0.9.11 e o Robolectric para
+a 4.18.1, as últimas, e as checagens de acessibilidade foram para o emulador.
 
 O detekt fica na alpha por decisão do dono do produto, até a 2.0 sair estável. A versão estável, 1.23.8,
 foi feita para o Kotlin 2.0.21.

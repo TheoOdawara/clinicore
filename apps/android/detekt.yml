@@ -1,0 +1,14 @@
+Compose:
+  ModifierMissing:
+    active: true
+  ViewModelForwarding:
+    active: true
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+
+style:
+  MagicNumber:
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true

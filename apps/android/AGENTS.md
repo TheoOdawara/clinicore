@@ -3,15 +3,14 @@
 Aditivo ao `AGENTS.md` da raiz. Stack na ADR 0022, forma na 0026, offline na 0007 (itens 3 a 9). App
 nativo em Kotlin e Compose, com as telas do web e offline completo.
 
-**O app ainda não existe**: nasce no scaffold, nesta forma.
-
 ## Estrutura
 
 ```
 apps/android/
 ├── gradle/libs.versions.toml  gradle/verification-metadata.xml
 ├── config/                  example.properties commitado; dev, staging e prod fora do git
-├── build-logic/convention/  plugins clinicore.*: application, library, feature, jvm, room, hilt, compose, detekt, kover
+├── build-logic/convention/  plugins clinicore.*: root, application, library, compose, e feature, jvm, room e hilt
+│                            quando o primeiro módulo os usar; spotless, detekt, kover e as fronteiras valem em todo módulo
 ├── app/                     MainActivity, ClinicoreApplication, AppConfig.kt, NavDisplay e as abas
 ├── core/
 │   ├── model/               JVM puro: o domínio (Patient, Appointment)
@@ -34,7 +33,8 @@ apps/android/
 
 ## Fronteiras
 
-O Gradle impõe:
+O Gradle impõe, pela tabela de `build-logic/convention/src/main/kotlin/ModuleBoundaries.kt`, que o
+`ModuleBoundariesTest` prova linha por linha:
 
 | Módulo | Depende de |
 | --- | --- |
@@ -46,7 +46,8 @@ O Gradle impõe:
 
 Testes do Konsist conferem o resto: `ViewModel` só em `feature:*:impl`, com sufixo e `@HiltViewModel`;
 `core:model` e `core:common` sem `android.*`; nenhum `*Dao`, `*Response` ou Retrofit numa feature;
-`UiState` imutável.
+`UiState` imutável. Cada regra também roda contra `app/src/test/konsist-fixtures/`, que a viola de
+propósito.
 
 ## Padrões
 
@@ -59,7 +60,15 @@ Testes do Konsist conferem o resto: `ViewModel` só em `feature:*:impl`, com suf
 - **Tudo é `internal` por padrão**, e a dependência é `implementation`, não `api`.
 - **JSON com `ignoreUnknownKeys` no app** e decodificação estrita sobre fixtures nos testes.
 - **`AppConfig.kt` é o único leitor da configuração**, que o Gradle valida e põe no `BuildConfig`.
-- **Teste na JVM primeiro**, com fakes; `androidTest` só onde ela não alcança.
+- **Teste na JVM primeiro**, com fakes; `androidTest` só onde ela não alcança. O ATF é um desses casos:
+  no Robolectric ele não avalia Compose, então as checagens de acessibilidade rodam no emulador, e o
+  contraste dos tokens é conferido na JVM, no `ContrastTest`.
+- **Piso de segurança de dependência transitiva**: uma versão com vulnerabilidade conhecida que chega por
+  ferramenta (lint, ATF, Robolectric) sobe por uma entrada `security-floor-*` no `libs.versions.toml`,
+  aplicada como constraint em toda configuração. A constraint só sobe a versão e nunca acrescenta
+  dependência.
+- **Nada do app sai do aparelho por backup**: `allowBackup="false"`, e o `dataExtractionRules` e o
+  `fullBackupContent` excluem todos os domínios.
 
 ## Nomes
 

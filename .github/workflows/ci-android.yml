@@ -1,0 +1,105 @@
+name: ci-android
+
+on:
+  pull_request:
+    branches: [staging, main]
+    paths:
+      - apps/android/**
+      - .github/workflows/ci-android.yml
+  push:
+    branches: [staging]
+    paths:
+      - apps/android/**
+      - .github/workflows/ci-android.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      audit: ${{ steps.scope.outputs.audit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            lock:
+              - apps/android/**/gradle.lockfile
+              - apps/android/gradle/libs.versions.toml
+      - id: scope
+        env:
+          FULL_RUN: ${{ github.event_name == 'push' || github.base_ref == 'main' }}
+          LOCK: ${{ steps.filter.outputs.lock }}
+        run: |
+          if [ "$FULL_RUN" = true ] || [ "$LOCK" = true ]; then
+            echo "audit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "audit=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  gates:
+    needs: changes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Known vulnerabilities (osv-scanner)
+        if: needs.changes.outputs.audit == 'true'
+        run: |
+          curl -fsSLo "$RUNNER_TEMP/osv-scanner" \
+            https://github.com/google/osv-scanner/releases/download/v2.7.1/osv-scanner_linux_amd64
+          echo "fb7dab19a8bd9bbe5c3189f09d4b7ee1820c9553a23bac202648a56efd2f6ee8  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/osv-scanner"
+          lockfiles=()
+          while IFS= read -r lockfile; do lockfiles+=(--lockfile "$lockfile"); done \
+            < <(find . -name gradle.lockfile -not -path '*/build/*')
+          "$RUNNER_TEMP/osv-scanner" scan source "${lockfiles[@]}"
+      - name: Format (spotless)
+        run: ./gradlew spotlessCheck
+      - name: Static analysis (detekt)
+        run: ./gradlew detekt
+      - name: Android Lint
+        run: ./gradlew lintDebug
+      - name: Module boundaries
+        run: ./gradlew :build-logic:convention:test
+      - name: Unit tests (Robolectric and Konsist)
+        run: ./gradlew testDebugUnitTest
+      - name: Coverage report (kover)
+        run: ./gradlew koverXmlReport
+      - name: Build
+        run: ./gradlew assembleDebug assembleDebugAndroidTest
+      - name: Coverage of new lines (90%, and 100% on critical paths)
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          mapfile -t roots < <(find apps/android -path '*/src/main/kotlin' -not -path '*/build/*' -not -path '*/build-logic/*')
+          report=apps/android/build/reports/kover/report.xml
+          uvx diff-cover==11.0.3 "$report" --compare-branch "$BASE" --src-roots "${roots[@]}" \
+            --fail-under 90
+          uvx diff-cover==11.0.3 "$report" --compare-branch "$BASE" --src-roots "${roots[@]}" \
+            --fail-under 100 --include \
+            'apps/android/core/security/**' \
+            'apps/android/core/network/**' \
+            'apps/android/core/datastore/**' \
+            'apps/android/core/sync/**' \
+            '**/OutboxDatabase.kt'

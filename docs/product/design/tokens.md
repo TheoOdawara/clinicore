@@ -44,6 +44,21 @@ adiante, em CPF e número de carteirinha. Ela cobre os acentos do português.
 No `apps/web` a fonte entra pelo `@fontsource-variable`, servida pelo próprio app, para que o PWA
 funcione sem conexão.
 
+No `apps/android` a fonte entra em quatro TTF estáticos, de 400, 500, 600 e 700, em
+`core/designsystem/src/main/res/font/`, com a licença OFL ao lado, no `OFL.txt`. Fonte variável no
+Android só vale da API 26 em diante, e o `minSdk` é 24. Os quatro saem da fonte variável do
+[`google/fonts`](https://github.com/google/fonts/tree/main/ofl/atkinsonhyperlegiblenext), instanciada
+uma vez com o fonttools 4.68.0:
+
+```sh
+uvx --from fonttools==4.68.0 fonttools varLib.instancer --static \
+  'AtkinsonHyperlegibleNext[wght].ttf' wght=600 -o atkinson_hyperlegible_next_semibold.ttf
+```
+
+O mesmo comando, com `wght=400`, `500` e `700`, gera os demais. O tema do app lê as cores do
+`Color.kt`, que o `ColorTest` confere contra estes tokens, e o `ContrastTest` confere o contraste de cada
+par de texto e de borda.
+
 ## Forma e espaço
 
 | Token | Valor | Uso |
