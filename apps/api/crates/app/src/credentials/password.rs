@@ -1,5 +1,9 @@
+use std::sync::LazyLock;
+
 use argon2::Argon2;
-use argon2::password_hash::PasswordHasher;
+use argon2::password_hash::{PasswordHasher, PasswordVerifier};
+
+use crate::credentials::secret::Secret;
 
 const MIN_LENGTH: usize = 8;
 const MAX_LENGTH: usize = 128;
@@ -14,15 +18,34 @@ pub fn meets_policy(password: &str) -> bool {
             .any(|character| !character.is_alphanumeric())
 }
 
+static UNMATCHABLE: LazyLock<String> = LazyLock::new(|| hash_now(Secret::generate().as_str()));
+
+pub fn prepare() {
+    LazyLock::force(&UNMATCHABLE);
+}
+
 pub async fn hash(password: String) -> String {
+    tokio::task::spawn_blocking(move || hash_now(&password))
+        .await
+        .expect("hashing a password never panics")
+}
+
+pub async fn verify(password: String, hash: Option<String>) -> bool {
     tokio::task::spawn_blocking(move || {
-        Argon2::default()
-            .hash_password(password.as_bytes())
-            .expect("argon2 with default parameters hashes any password")
-            .to_string()
+        let matches = Argon2::default()
+            .verify_password(password.as_bytes(), hash.as_deref().unwrap_or(&UNMATCHABLE))
+            .is_ok();
+        matches && hash.is_some()
     })
     .await
-    .expect("hashing a password never panics")
+    .expect("verifying a password never panics")
+}
+
+fn hash_now(password: &str) -> String {
+    Argon2::default()
+        .hash_password(password.as_bytes())
+        .expect("argon2 with default parameters hashes any password")
+        .to_string()
 }
 
 #[cfg(test)]
@@ -58,5 +81,21 @@ mod tests {
 
         assert!(hashed.starts_with("$argon2id$"), "{hashed}");
         assert!(!hashed.contains("Clinica#2026"));
+    }
+
+    #[tokio::test]
+    async fn only_the_hashed_password_verifies() {
+        let hashed = hash("Clinica#2026".to_owned()).await;
+
+        assert!(verify("Clinica#2026".to_owned(), Some(hashed.clone())).await);
+        assert!(!verify("Errada#2026".to_owned(), Some(hashed)).await);
+        assert!(!verify("Clinica#2026".to_owned(), Some("not a hash".to_owned())).await);
+    }
+
+    #[tokio::test]
+    async fn no_hash_never_verifies() {
+        prepare();
+
+        assert!(!verify("Clinica#2026".to_owned(), None).await);
     }
 }

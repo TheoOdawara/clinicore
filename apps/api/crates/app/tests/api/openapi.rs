@@ -14,6 +14,34 @@ async fn the_document_lists_the_routes_and_their_schemas_outside_production() {
         assert!(document["paths"]["/users"]["post"].is_object());
         assert!(document["paths"]["/email-verifications"]["post"].is_object());
         assert!(document["paths"]["/email-verifications/confirmation"]["post"].is_object());
+        assert!(document["paths"]["/sessions"]["post"].is_object());
+        assert!(document["paths"]["/sessions/current"]["get"].is_object());
+        assert!(document["paths"]["/sessions/current"]["delete"].is_object());
+        assert!(document["paths"]["/sessions/current/tokens"]["post"].is_object());
+        assert_eq!(
+            document["components"]["schemas"]["SignInRequest"]["required"],
+            serde_json::json!(["email", "password"])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["RefreshTokensRequest"]["required"],
+            serde_json::json!(["refreshToken"])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["SessionResponse"]["required"],
+            serde_json::json!(["user"])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["UserResponse"]["required"],
+            serde_json::json!(["id", "name", "email"])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["TokensResponse"]["required"],
+            serde_json::json!(["accessToken", "refreshToken", "accessTokenExpiresIn"])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["RefreshTokensResponse"]["required"],
+            serde_json::json!(["tokens"])
+        );
         assert_eq!(
             document["components"]["schemas"]["EmailVerificationRequest"]["required"],
             serde_json::json!(["email"])

@@ -2,6 +2,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use std::process::ExitCode;
 use std::sync::Arc;
 
+use clinicore_app::credentials::password;
 use clinicore_app::{AppState, router};
 use clinicore_core::config::ApiConfig;
 use clinicore_core::{db, redis, shutdown, telemetry};
@@ -40,6 +41,8 @@ async fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+
+    password::prepare();
 
     let listener = match TcpListener::bind((Ipv4Addr::UNSPECIFIED, config.port)).await {
         Ok(listener) => listener,

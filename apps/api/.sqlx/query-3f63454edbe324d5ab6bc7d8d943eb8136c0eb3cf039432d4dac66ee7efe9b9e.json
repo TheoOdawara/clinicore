@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE email_outbox SET next_attempt_at = now() + $2::interval WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Interval"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3f63454edbe324d5ab6bc7d8d943eb8136c0eb3cf039432d4dac66ee7efe9b9e"
+}

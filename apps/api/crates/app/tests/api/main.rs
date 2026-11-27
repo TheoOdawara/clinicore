@@ -6,5 +6,6 @@ mod health;
 mod http;
 mod log;
 mod openapi;
+mod sessions;
 mod support;
 mod users;

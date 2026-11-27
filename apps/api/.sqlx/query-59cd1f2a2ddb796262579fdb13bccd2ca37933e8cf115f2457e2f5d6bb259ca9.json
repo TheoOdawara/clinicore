@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM sessions\n        WHERE user_id = $1 AND id <> $2 AND id NOT IN (\n            SELECT id FROM sessions\n            WHERE user_id = $1 AND id <> $2\n            ORDER BY created_at DESC, id DESC\n            LIMIT $3\n        )\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "sessions",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "59cd1f2a2ddb796262579fdb13bccd2ca37933e8cf115f2457e2f5d6bb259ca9"
+}

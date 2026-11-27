@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE email_outbox SET status = 'failed', html_body = NULL, text_body = NULL\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2671fcf00f0a81845841828cdca046b15051b9c8e534cf348c5d432d03295dd0"
+}

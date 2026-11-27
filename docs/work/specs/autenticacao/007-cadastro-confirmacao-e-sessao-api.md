@@ -141,7 +141,7 @@ No app, nenhum `Set-Cookie`, e o corpo ganha os tokens:
 
 Os schemas do OpenAPI são `SignUpRequest`, `EmailVerificationRequest`,
 `EmailVerificationConfirmationRequest`, `SignInRequest`, `RefreshTokensRequest`, `SessionResponse`,
-`UserResponse` e `TokensResponse`.
+`RefreshTokensResponse` (o `{ "tokens": … }` do refresh do app), `UserResponse` e `TokensResponse`.
 
 **Erro**, em toda rota: Problem Details da RFC 9457, em `application/problem+json`, com
 `type` `tag:clinicore.com.br,2026:<slug>`, o `title` fixo da seção Erros e o `status`. A validação traz
@@ -447,6 +447,7 @@ tenancy (`FR-ACC-01` a `05`, `NFR-SEC-01`) entram em outro épico.
   | Nome | Formato esperado |
   | --- | --- |
   | `MAIL_FROM` | `expected a mailbox (Name <address@domain>)` |
+  | `MAIL_REDIRECT_TO` | `expected off, or an address outside production` |
   | `SMTP_HOST` | `expected a hostname` |
   | `SMTP_PASSWORD` | `expected a non-empty string` |
   | `SMTP_PORT` | `expected an integer between 1 and 65535` |
@@ -456,7 +457,10 @@ tenancy (`FR-ACC-01` a `05`, `NFR-SEC-01`) entram em outro épico.
 - A API não lê nenhuma `SMTP_*` nem `MAIL_FROM`.
 - O compose de dev ganha o Mailpit, com `MP_SMTP_AUTH_ACCEPT_ANY=1` e
   `MP_SMTP_AUTH_ALLOW_INSECURE=1`, nas portas `MAILPIT_SMTP_PORT` e `MAILPIT_UI_PORT`, ligadas só a
-  `127.0.0.1`. Em dev, o worker envia para ele com `SMTP_TLS=none`, e nenhum e-mail sai para fora.
+  `127.0.0.1`, para quem quer testar sem SMTP de verdade.
+- Em dev, o worker envia pelo SMTP do ambiente, e o `MAIL_REDIRECT_TO` troca o destinatário de todo
+  e-mail por um endereço só, guardado no Infisical; nenhum e-mail chega ao endereço da conta. Fora de
+  `production` ele aceita `off` ou um endereço; em `production`, só `off`.
 - O `.env.example` lista as variáveis novas, e o CI da API recebe o Redis como serviço.
 
 ### 19. Persistência, auditoria e log
@@ -884,7 +888,7 @@ Então ele termina com código 0
   `http/rate_limit.rs` e a camada de `Cache-Control`. A tabela "Rotas da autenticação" deixa de ser o
   contrato apagado e passa a ser o desta spec; as rotas de Google saem dela até a #7.
 - **[worker](../../../system/architecture/building-blocks/worker.md):** nasce como está descrito, e o
-  "envia e-mail de verdade em dev" vira o Mailpit.
+  "envia e-mail de verdade em dev" passa a enviar só para o `MAIL_REDIRECT_TO`.
 - **[Redis](../../../system/architecture/building-blocks/redis.md):** sem mudança de papel; as chaves de
   limite passam a ser as da regra 14.
 - **[Ciclo de vida da sessão](../../../system/architecture/runtime/session-lifecycle.md)** e
@@ -893,8 +897,8 @@ Então ele termina com código 0
   faixa de rede.
 - **[Segurança](../../../system/architecture/concepts/security.md):** o `Secure` segue o `APP_ENV`, não a
   `API_URL`; o IP do cliente vem de `CLIENT_IP_SOURCE`.
-- **[Configuração](../../../system/architecture/concepts/configuration.md):** o worker passa a ler nove
-  variáveis, com `SMTP_TLS`; a API ganha as cinco da regra 18.
+- **[Configuração](../../../system/architecture/concepts/configuration.md):** o worker passa a ler dez
+  variáveis, com `SMTP_TLS` e `MAIL_REDIRECT_TO`; a API ganha as cinco da regra 18.
 - **[Implantação](../../../system/architecture/deployment.md):** o Mailpit entra no compose de dev, e o
   worker roda local por `cargo run -p clinicore-worker`.
 

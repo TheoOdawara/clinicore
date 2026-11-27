@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM email_dispatches WHERE created_at <= now() - $1::interval",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Interval"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "637563e163ad2118ff5a57ea7527957f425f08b12d77cf6e6ed52c2c62ad05e9"
+}

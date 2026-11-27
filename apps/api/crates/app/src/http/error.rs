@@ -9,6 +9,7 @@ use utoipa::ToSchema;
 const PROBLEM_JSON: &str = "application/problem+json";
 const ABOUT_BLANK: &str = "about:blank";
 const PROBLEM_TYPE_PREFIX: &str = "tag:clinicore.com.br,2026:";
+const BEARER_CHALLENGE: &str = r#"Bearer realm="clinicore""#;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
@@ -34,6 +35,14 @@ pub enum AppError {
     InvalidToken,
     #[error("the token is past its expiry")]
     TokenExpired,
+    #[error("the email or the password does not match an account")]
+    InvalidCredentials,
+    #[error("the session is missing, invalid, expired or revoked")]
+    InvalidSession,
+    #[error("the refresh token was already rotated")]
+    SessionReused,
+    #[error("the email of the account is not verified")]
+    EmailNotVerified,
     #[error("the limit of the route was reached")]
     RateLimited { retry_after: u64 },
     #[error("a service the request needs is unavailable")]
@@ -63,7 +72,10 @@ impl AppError {
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             Self::InvalidClient => StatusCode::BAD_REQUEST,
-            Self::InvalidOrigin => StatusCode::FORBIDDEN,
+            Self::InvalidOrigin | Self::EmailNotVerified => StatusCode::FORBIDDEN,
+            Self::InvalidCredentials | Self::InvalidSession | Self::SessionReused => {
+                StatusCode::UNAUTHORIZED
+            }
             Self::Validation(_) | Self::MalformedBody | Self::InvalidToken | Self::TokenExpired => {
                 StatusCode::BAD_REQUEST
             }
@@ -87,6 +99,10 @@ impl AppError {
             Self::Validation(_) => Some(("validation-failed", "Validation failed")),
             Self::InvalidToken => Some(("invalid-token", "Invalid token")),
             Self::TokenExpired => Some(("token-expired", "Token expired")),
+            Self::InvalidCredentials => Some(("invalid-credentials", "Invalid email or password")),
+            Self::InvalidSession => Some(("invalid-session", "Invalid session")),
+            Self::SessionReused => Some(("session-reused", "Refresh token reuse detected")),
+            Self::EmailNotVerified => Some(("email-not-verified", "Email not verified")),
             Self::RateLimited { .. } => Some(("rate-limited", "Too many requests")),
             Self::ServiceUnavailable => {
                 Some(("service-unavailable", "Service temporarily unavailable"))
@@ -125,6 +141,12 @@ impl IntoResponse for AppError {
         response
             .headers_mut()
             .insert(header::CONTENT_TYPE, HeaderValue::from_static(PROBLEM_JSON));
+        if status == StatusCode::UNAUTHORIZED {
+            response.headers_mut().insert(
+                header::WWW_AUTHENTICATE,
+                HeaderValue::from_static(BEARER_CHALLENGE),
+            );
+        }
         if let Some(seconds) = retry_after {
             response
                 .headers_mut()
