@@ -27,7 +27,7 @@ impl Validate for SignInRequest {
 }
 
 #[derive(ToSchema)]
-#[schema(example = json!({ "refreshToken": "0b8f2c1e-5a4d-4c3b-9e7f-1a2b3c4d5e6f.q6m0o4RzW0n3bGJ8m4v0n1Xk2d5c7a9e1f3h5j7l9n0" }))]
+#[schema(example = json!({ "refreshToken": "<sessionId>.<43 base64url characters>" }))]
 pub struct RefreshTokensRequest {
     #[schema(value_type = String, rename = "refreshToken")]
     pub refresh_token: RefreshToken,
