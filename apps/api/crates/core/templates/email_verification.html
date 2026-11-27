@@ -1,0 +1,5 @@
+{% extends "layout.html" %}
+{% block content %}
+<p style="margin:0 0 24px;font-size:16px;line-height:24px;">Olá, {{ first_name }}. Confirme seu e-mail para começar a usar o Clinicore. O link expira em 1 hora.</p>
+<p style="margin:0;"><a href="{{ link }}" style="display:inline-block;padding:12px 24px;background:#1f6feb;color:#ffffff;text-decoration:none;border-radius:6px;font-size:16px;">Confirmar e-mail</a></p>
+{% endblock %}

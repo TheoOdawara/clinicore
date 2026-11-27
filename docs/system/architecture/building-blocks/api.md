@@ -18,10 +18,10 @@ onde mora toda a regra de negócio. Não fala com o SMTP: o e-mail vai para a fi
 | `health` | `crates/app/src/health.rs` | `GET /health` |
 | `users` | `crates/app/src/users/` | o cadastro, em `POST /users` |
 | `email_verifications` | `crates/app/src/email_verifications/` | o pedido e a confirmação do link de e-mail |
-| `email_outbox` | `crates/app/src/email_outbox.rs` | grava o token e o e-mail na fila numa escrita só, na transação de quem pede o envio |
+| `email_outbox` | `crates/app/src/email_outbox.rs` | reserva o envio pelo limite de cada endereço e grava o e-mail na fila, na transação de quem pede o envio |
 | `sessions` | `crates/app/src/sessions/` | login, leitura da sessão, refresh e logout, com os tokens em `tokens/` |
 | `oauth` | `crates/app/src/oauth/` | o login com Google por OpenID Connect com PKCE, com o `id_token` conferido, e o vínculo com a conta do mesmo e-mail |
-| `credentials` | `crates/app/src/credentials/` | hash de senha em Argon2 e segredo aleatório, usados por várias features |
+| `credentials` | `crates/app/src/credentials/` | o endereço de e-mail normalizado, a política e o hash Argon2 da senha, e o segredo aleatório com o hash dele, usados por várias features |
 | `core` | `crates/core/` | configuração, pool do Postgres, cliente do Redis, o template do e-mail, o sinal de parada, o subscriber do `tracing` e os prazos que a API divide com o [worker](worker.md); biblioteca que não conhece HTTP |
 
 As features de produto — pacientes, agenda, prontuário, financeiro, estoque, laboratório — entram como

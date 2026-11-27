@@ -1,0 +1,3 @@
+Olá, {{ first_name }}. Confirme seu e-mail para começar a usar o Clinicore. O link expira em 1 hora.
+
+{{ link }}

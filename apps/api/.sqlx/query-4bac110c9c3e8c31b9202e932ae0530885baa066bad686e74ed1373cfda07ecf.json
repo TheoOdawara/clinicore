@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            count(*) AS \"in_window!\",\n            count(*) FILTER (WHERE created_at > now() - $3::interval) AS \"in_spacing!\"\n        FROM email_dispatches\n        WHERE email = $1 AND kind = $2 AND created_at > now() - $4::interval\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "in_window!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "in_spacing!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        {
+          "Custom": {
+            "name": "email_dispatch_kind",
+            "kind": {
+              "Enum": [
+                "email_verification",
+                "password_reset"
+              ]
+            }
+          }
+        },
+        "Interval",
+        "Interval"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "4bac110c9c3e8c31b9202e932ae0530885baa066bad686e74ed1373cfda07ecf"
+}

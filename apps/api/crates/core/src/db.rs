@@ -3,6 +3,7 @@ use std::time::Duration;
 use sqlx::PgPool;
 use sqlx::migrate::{MigrateError, Migrator};
 use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::types::PgInterval;
 
 const FIRST_RETRY: Duration = Duration::from_secs(1);
 const LONGEST_RETRY: Duration = Duration::from_secs(30);
@@ -35,4 +36,8 @@ pub async fn connect_and_migrate(url: &str, migrator: &Migrator) -> Result<PgPoo
     };
     migrator.run(&pool).await?;
     Ok(pool)
+}
+
+pub fn interval(duration: Duration) -> PgInterval {
+    PgInterval::try_from(duration).expect("every lifetime the services use fits an interval")
 }

@@ -1,20 +1,23 @@
 use std::collections::HashMap;
 use std::io::Write;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 
 use axum::Router;
 use axum::body::Body;
-use axum::http::{HeaderMap, Method, Request, StatusCode};
+use axum::extract::ConnectInfo;
+use axum::http::{HeaderMap, Method, Request, StatusCode, header};
 use clinicore_app::{AppState, router};
 use clinicore_core::config::{ApiConfig, AppEnv};
 use http_body_util::BodyExt;
+use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceExt;
 use tracing_subscriber::fmt::MakeWriter;
 
 pub const WEB_ORIGIN: &str = "http://localhost:3000";
 
-pub fn state_with(app_env: AppEnv, overrides: &[(&str, &str)]) -> AppState {
+fn config(app_env: AppEnv, overrides: &[(&str, &str)]) -> ApiConfig {
     let app_env = match app_env {
         AppEnv::Development => "development",
         AppEnv::Production => "production",
@@ -38,8 +41,12 @@ pub fn state_with(app_env: AppEnv, overrides: &[(&str, &str)]) -> AppState {
         ("JWT_SECRET", "a-test-secret-with-at-least-32-characters"),
     ]);
     source.extend(overrides.iter().copied());
-    let config = ApiConfig::from_source(|name| source.get(name).map(|value| (*value).to_owned()))
-        .expect("the test environment is valid");
+    ApiConfig::from_source(|name| source.get(name).map(|value| (*value).to_owned()))
+        .expect("the test environment is valid")
+}
+
+pub fn state_with(app_env: AppEnv, overrides: &[(&str, &str)]) -> AppState {
+    let config = config(app_env, overrides);
     let db = PgPoolOptions::new()
         .connect_lazy(&config.database_url)
         .expect("the url parses");
@@ -49,6 +56,66 @@ pub fn state_with(app_env: AppEnv, overrides: &[(&str, &str)]) -> AppState {
         redis,
         config: Arc::new(config),
     }
+}
+
+pub fn state_on(db: PgPool, overrides: &[(&str, &str)]) -> AppState {
+    let redis_url = std::env::var("REDIS_URL").expect("the tests run with REDIS_URL");
+    let mut overrides = overrides.to_vec();
+    if !overrides.iter().any(|(name, _)| *name == "REDIS_URL") {
+        overrides.push(("REDIS_URL", redis_url.as_str()));
+    }
+    let config = config(AppEnv::Test, &overrides);
+    let redis = clinicore_core::redis::connect(&config.redis_url).expect("the url parses");
+    AppState {
+        db,
+        redis,
+        config: Arc::new(config),
+    }
+}
+
+pub fn app_on(db: PgPool) -> Router {
+    router(state_on(db, &[]))
+}
+
+pub fn random_ip() -> IpAddr {
+    IpAddr::V4(Ipv4Addr::from(rand::random::<[u8; 4]>()))
+}
+
+pub async fn post_json(
+    app: Router,
+    path: &str,
+    body: &serde_json::Value,
+    headers: &[(&str, &str)],
+) -> Answer {
+    dispatch(
+        app,
+        from_peer(json_request(path, body, headers), random_ip()),
+    )
+    .await
+}
+
+pub fn json_request(
+    path: &str,
+    body: &serde_json::Value,
+    headers: &[(&str, &str)],
+) -> Request<Body> {
+    let mut request = Request::builder()
+        .method(Method::POST)
+        .uri(path)
+        .header(header::CONTENT_TYPE, "application/json");
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    request
+        .body(Body::from(body.to_string()))
+        .expect("the request is well formed")
+}
+
+pub fn from_peer(mut request: Request<Body>, peer: IpAddr) -> Request<Body> {
+    request
+        .extensions_mut()
+        .insert(ConnectInfo(SocketAddr::new(peer, 50_000)));
+    request
 }
 
 pub fn state() -> AppState {

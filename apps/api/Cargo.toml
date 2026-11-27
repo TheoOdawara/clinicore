@@ -11,12 +11,20 @@ publish = false
 
 [workspace.dependencies]
 clinicore-core = { path = "crates/core" }
+argon2 = "=0.6.0"
+askama = { version = "=0.16.1", default-features = false, features = ["derive", "std"] }
+base64 = "=0.23.1"
+email_address = "=0.2.10"
+rand = "=0.10.4"
+sha2 = "=0.11.1"
+unicode-normalization = "=0.1.26"
+uuid = "=1.29.3"
 axum = "=0.8.9"
 http-body-util = "=0.1.5"
 redis = { version = "=1.8.2", default-features = false, features = ["tokio-comp", "connection-manager"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
-sqlx = { version = "=0.9.1", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls", "migrate", "macros"] }
+sqlx = { version = "=0.9.1", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls", "migrate", "macros", "uuid"] }
 thiserror = "=2.0.21"
 tokio = { version = "=1.54.1", features = ["macros", "rt-multi-thread", "signal", "net", "time"] }
 tower = { version = "=0.5.3", features = ["util"] }
@@ -26,6 +34,12 @@ tracing-subscriber = { version = "=0.3.23", features = ["env-filter", "json", "f
 utoipa = "=6.0.0"
 utoipa-axum = "=0.3.0"
 utoipa-swagger-ui = { version = "=10.0.2", features = ["axum", "vendored"] }
+
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

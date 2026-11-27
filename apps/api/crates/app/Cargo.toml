@@ -12,6 +12,13 @@ path = "src/main.rs"
 
 [dependencies]
 clinicore-core.workspace = true
+argon2.workspace = true
+base64.workspace = true
+email_address.workspace = true
+rand.workspace = true
+sha2.workspace = true
+unicode-normalization.workspace = true
+uuid.workspace = true
 axum.workspace = true
 redis.workspace = true
 serde.workspace = true

@@ -6,3 +6,4 @@ mod http;
 mod log;
 mod openapi;
 mod support;
+mod users;

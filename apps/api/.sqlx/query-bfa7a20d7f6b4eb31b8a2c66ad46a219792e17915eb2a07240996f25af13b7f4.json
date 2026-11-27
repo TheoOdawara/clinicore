@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO verifications (email, purpose, token_hash, expires_at)\n        VALUES ($1, 'email_verification', $2, now() + $3::interval)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Bytea",
+        "Interval"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bfa7a20d7f6b4eb31b8a2c66ad46a219792e17915eb2a07240996f25af13b7f4"
+}

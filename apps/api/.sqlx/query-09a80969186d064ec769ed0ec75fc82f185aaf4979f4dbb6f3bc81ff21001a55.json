@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO accounts (user_id, provider, password_hash) VALUES ($1, 'credential', $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "09a80969186d064ec769ed0ec75fc82f185aaf4979f4dbb6f3bc81ff21001a55"
+}

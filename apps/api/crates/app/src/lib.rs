@@ -1,4 +1,8 @@
+pub mod credentials;
+pub mod email_outbox;
+pub mod email_verifications;
 pub mod http;
+pub mod users;
 
 mod health;
 
@@ -22,6 +26,7 @@ pub struct AppState {
 pub fn router(state: AppState) -> Router {
     let (routes, openapi) = OpenApiRouter::with_openapi(http::openapi::ApiDoc::openapi())
         .merge(health::routes())
+        .merge(users::routes())
         .split_for_parts();
     let routes = match state.config.app_env {
         AppEnv::Production => routes,
