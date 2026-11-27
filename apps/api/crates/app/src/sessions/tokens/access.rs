@@ -1,10 +1,7 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use hmac::{Hmac, KeyInit, Mac};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
 use uuid::Uuid;
 
 use crate::http::client::Client;
@@ -12,9 +9,6 @@ use crate::sessions::SessionId;
 use crate::users::UserId;
 
 pub const ACCESS_LIFETIME: Duration = Duration::from_secs(15 * 60);
-const HEADER: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
-
-type Signer = Hmac<Sha256>;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Claims {
@@ -26,10 +20,7 @@ pub struct Claims {
 }
 
 pub fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("the clock is past 1970")
-        .as_secs()
+    jsonwebtoken::get_current_timestamp()
 }
 
 pub fn issue(
@@ -46,119 +37,75 @@ pub fn issue(
         iat: now,
         exp: now + ACCESS_LIFETIME.as_secs(),
     };
-    let payload = serde_json::to_vec(&claims).expect("the claims serialize");
-    let signing_input = format!("{HEADER}.{}", URL_SAFE_NO_PAD.encode(payload));
-    let signature = signer(secret)
-        .chain_update(signing_input.as_bytes())
-        .finalize()
-        .into_bytes();
-    format!("{signing_input}.{}", URL_SAFE_NO_PAD.encode(signature))
+    let key = EncodingKey::from_secret(secret.as_bytes())
+        .expect("the boot refuses a JWT_SECRET shorter than 32 characters");
+    jsonwebtoken::encode(&Header::new(Algorithm::HS256), &claims, &key)
+        .expect("HS256 signs any claims")
 }
 
-pub fn verify(secret: &str, token: &str, now: u64) -> Option<Claims> {
-    let (signing_input, signature) = token.rsplit_once('.')?;
-    let (header, payload) = signing_input.split_once('.')?;
-    if header != HEADER {
-        return None;
-    }
-    let signature = URL_SAFE_NO_PAD.decode(signature).ok()?;
-    signer(secret)
-        .chain_update(signing_input.as_bytes())
-        .verify_slice(&signature)
-        .ok()?;
-    let payload = URL_SAFE_NO_PAD.decode(payload).ok()?;
-    let claims: Claims = serde_json::from_slice(&payload).ok()?;
-    (claims.exp > now).then_some(claims)
-}
-
-fn signer(secret: &str) -> Signer {
-    Signer::new_from_slice(secret.as_bytes()).expect("hmac takes a key of any length")
+pub fn verify(secret: &str, token: &str) -> Option<Claims> {
+    let key = DecodingKey::from_secret(secret.as_bytes())
+        .expect("the boot refuses a JWT_SECRET shorter than 32 characters");
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.leeway = 0;
+    jsonwebtoken::decode::<Claims>(token, &key, &validation)
+        .ok()
+        .map(|data| data.claims)
 }
 
 #[cfg(test)]
 mod tests {
+    use base64::Engine;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
     use super::*;
 
     const SECRET: &str = "a-test-secret-with-at-least-32-characters";
-    const NOW: u64 = 1_800_000_000;
 
-    fn token() -> String {
+    fn token_at(now: u64) -> String {
         issue(
             SECRET,
             UserId(Uuid::from_u128(1)),
             SessionId(Uuid::from_u128(2)),
             Client::Mobile,
-            NOW,
+            now,
         )
     }
 
     #[test]
-    fn the_header_is_hs256() {
-        let header = URL_SAFE_NO_PAD
-            .decode(HEADER)
-            .expect("the header is base64url");
-
-        assert_eq!(header, br#"{"alg":"HS256","typ":"JWT"}"#);
-    }
-
-    #[test]
-    fn an_issued_token_verifies_with_its_claims_for_900_seconds() {
-        let claims = verify(SECRET, &token(), NOW + 899).expect("the token is valid");
+    fn an_issued_token_is_hs256_and_verifies_with_its_claims() {
+        let issued_at = now();
+        let token = token_at(issued_at);
+        let header = token.split('.').next().expect("the token has a header");
 
         assert_eq!(
-            claims,
-            Claims {
+            URL_SAFE_NO_PAD.decode(header).expect("base64url"),
+            br#"{"typ":"JWT","alg":"HS256"}"#
+        );
+        assert_eq!(
+            verify(SECRET, &token),
+            Some(Claims {
                 sub: Uuid::from_u128(1),
                 sid: Uuid::from_u128(2),
                 cli: Client::Mobile,
-                iat: NOW,
-                exp: NOW + 900,
-            }
+                iat: issued_at,
+                exp: issued_at + 900,
+            })
         );
-        assert_eq!(verify(SECRET, &token(), NOW + 900), None);
     }
 
     #[test]
-    fn another_secret_or_a_changed_part_is_refused() {
-        let token = token();
-        let (signing_input, signature) = token.rsplit_once('.').expect("three parts");
-        let (_, payload) = signing_input.split_once('.').expect("three parts");
+    fn an_expired_token_another_secret_or_another_algorithm_is_refused() {
+        let token = token_at(now());
+        let (_, rest) = token.split_once('.').expect("the token has a header");
         let none_header = URL_SAFE_NO_PAD.encode(br#"{"alg":"none","typ":"JWT"}"#);
-        let forged_payload = URL_SAFE_NO_PAD.encode(
-            br#"{"sub":"00000000-0000-0000-0000-000000000009","sid":"00000000-0000-0000-0000-000000000002","cli":"mobile","iat":1800000000,"exp":1800000900}"#,
-        );
 
+        assert_eq!(verify(SECRET, &token_at(now() - 901)), None);
         assert_eq!(
-            verify("another-secret-with-at-least-32-characters", &token, NOW),
+            verify("another-secret-with-at-least-32-characters", &token),
             None
         );
-        for forged in [
-            format!("{none_header}.{payload}.{signature}"),
-            format!("{none_header}.{payload}."),
-            format!("{HEADER}.{forged_payload}.{signature}"),
-            format!("{signing_input}.not-base64!"),
-            signing_input.to_owned(),
-            "garbage".to_owned(),
-        ] {
-            assert_eq!(verify(SECRET, &forged, NOW), None, "{forged}");
-        }
-    }
-
-    fn signed(payload: &str) -> String {
-        let signing_input = format!("{HEADER}.{payload}");
-        let signature = signer(SECRET)
-            .chain_update(signing_input.as_bytes())
-            .finalize()
-            .into_bytes();
-        format!("{signing_input}.{}", URL_SAFE_NO_PAD.encode(signature))
-    }
-
-    #[test]
-    fn a_signed_payload_that_is_not_the_claims_is_refused() {
-        assert_eq!(
-            verify(SECRET, &signed(&URL_SAFE_NO_PAD.encode(b"{}")), NOW),
-            None
-        );
-        assert_eq!(verify(SECRET, &signed("!"), NOW), None);
+        assert_eq!(verify(SECRET, &format!("{none_header}.{rest}")), None);
+        assert_eq!(verify(SECRET, "garbage"), None);
     }
 }

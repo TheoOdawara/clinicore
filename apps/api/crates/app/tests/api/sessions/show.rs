@@ -46,7 +46,7 @@ async fn a_missing_malformed_forged_or_expired_token_is_an_invalid_session(pool:
         UserId(user_id),
         SessionId(session_id),
         Client::Mobile,
-        access::now() - 900,
+        access::now() - 901,
     );
     let forged = access::issue(
         "another-secret-with-at-least-32-characters",

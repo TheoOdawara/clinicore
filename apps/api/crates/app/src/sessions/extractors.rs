@@ -35,7 +35,7 @@ impl FromRequestParts<AppState> for CurrentSession {
             Client::Mobile => bearer(&parts.headers),
         }
         .ok_or(AppError::InvalidSession)?;
-        let claims = access::verify(&state.config.jwt_secret, token, access::now())
+        let claims = access::verify(&state.config.jwt_secret, token)
             .filter(|claims| claims.cli == client)
             .ok_or(AppError::InvalidSession)?;
         let session_id = SessionId(claims.sid);

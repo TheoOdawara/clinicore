@@ -16,7 +16,7 @@ askama = { version = "=0.16.1", default-features = false, features = ["derive", 
 base64 = "=0.23.1"
 croner = { version = "=5.0.1", default-features = false, features = ["std", "jiff"] }
 email_address = "=0.2.10"
-hmac = "=0.13.0"
+jsonwebtoken = { version = "=12.0.0", default-features = false, features = ["rust_crypto"] }
 jiff = { version = "=1.0.3", default-features = false, features = ["std", "tz-system", "tzdb-bundle-always"] }
 lettre = { version = "=0.11.24", default-features = false, features = ["builder", "smtp-transport", "pool", "tokio1", "tokio1-rustls-tls"] }
 rand = "=0.10.4"
