@@ -30,6 +30,10 @@ pub enum AppError {
     PayloadTooLarge,
     #[error("the body is not declared as JSON")]
     UnsupportedMediaType,
+    #[error("the token names no pending verification")]
+    InvalidToken,
+    #[error("the token is past its expiry")]
+    TokenExpired,
     #[error("the limit of the route was reached")]
     RateLimited { retry_after: u64 },
     #[error("a service the request needs is unavailable")]
@@ -60,7 +64,9 @@ impl AppError {
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             Self::InvalidClient => StatusCode::BAD_REQUEST,
             Self::InvalidOrigin => StatusCode::FORBIDDEN,
-            Self::Validation(_) | Self::MalformedBody => StatusCode::BAD_REQUEST,
+            Self::Validation(_) | Self::MalformedBody | Self::InvalidToken | Self::TokenExpired => {
+                StatusCode::BAD_REQUEST
+            }
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
@@ -79,6 +85,8 @@ impl AppError {
             Self::InvalidClient => Some(("invalid-client", "Invalid client")),
             Self::InvalidOrigin => Some(("invalid-origin", "Invalid origin")),
             Self::Validation(_) => Some(("validation-failed", "Validation failed")),
+            Self::InvalidToken => Some(("invalid-token", "Invalid token")),
+            Self::TokenExpired => Some(("token-expired", "Token expired")),
             Self::RateLimited { .. } => Some(("rate-limited", "Too many requests")),
             Self::ServiceUnavailable => {
                 Some(("service-unavailable", "Service temporarily unavailable"))

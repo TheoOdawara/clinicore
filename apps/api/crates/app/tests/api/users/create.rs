@@ -3,43 +3,13 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 
-use crate::support::{WEB_ORIGIN, app_on, dispatch, from_peer, post_json, random_ip, state_on};
+use crate::support::{
+    WEB_ORIGIN, app_on, count, counts, dispatch, from_peer, post_json, random_ip, state_on,
+    token_in,
+};
 
 fn ana() -> Value {
     json!({ "name": "Ana Souza", "email": "Ana@Exemplo.com", "password": "Clinica#2026" })
-}
-
-async fn count(pool: &PgPool, table: &str) -> i64 {
-    let sql = match table {
-        "users" => "SELECT count(*) FROM users",
-        "accounts" => "SELECT count(*) FROM accounts",
-        "verifications" => "SELECT count(*) FROM verifications",
-        "email_dispatches" => "SELECT count(*) FROM email_dispatches",
-        "email_outbox" => "SELECT count(*) FROM email_outbox",
-        _ => panic!("{table} is not an authentication table"),
-    };
-    sqlx::query_scalar(sql)
-        .fetch_one(pool)
-        .await
-        .expect("the table is readable")
-}
-
-async fn counts(pool: &PgPool) -> [i64; 5] {
-    [
-        count(pool, "users").await,
-        count(pool, "accounts").await,
-        count(pool, "verifications").await,
-        count(pool, "email_dispatches").await,
-        count(pool, "email_outbox").await,
-    ]
-}
-
-fn token_in(text: &str) -> String {
-    let prefix = format!("{WEB_ORIGIN}/verify-email?token=");
-    text.lines()
-        .find_map(|line| line.strip_prefix(&prefix))
-        .expect("the text carries the link on its own line")
-        .to_owned()
 }
 
 #[sqlx::test(migrations = "../../migrations")]

@@ -27,6 +27,7 @@ pub fn router(state: AppState) -> Router {
     let (routes, openapi) = OpenApiRouter::with_openapi(http::openapi::ApiDoc::openapi())
         .merge(health::routes())
         .merge(users::routes())
+        .merge(email_verifications::routes())
         .split_for_parts();
     let routes = match state.config.app_env {
         AppEnv::Production => routes,

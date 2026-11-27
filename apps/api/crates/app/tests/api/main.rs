@@ -1,5 +1,6 @@
 mod architecture;
 mod boot;
+mod email_verifications;
 mod errors;
 mod health;
 mod http;

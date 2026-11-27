@@ -20,7 +20,7 @@ pub struct SignUpRequest {
 impl Validate for SignUpRequest {
     fn validate(fields: &mut Fields) -> Option<Self> {
         let name = fields.field("name", parse_name);
-        let email = fields.field("email", parse_email);
+        let email = fields.field("email", Email::parse_field);
         let password = fields.field("password", parse_password);
         Some(Self {
             name: name?,
@@ -28,10 +28,6 @@ impl Validate for SignUpRequest {
             password: password?,
         })
     }
-}
-
-pub fn parse_email(raw: String) -> Result<Email, &'static str> {
-    Email::parse(&raw).ok_or("email")
 }
 
 fn parse_name(raw: String) -> Result<String, &'static str> {

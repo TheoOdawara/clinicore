@@ -5,7 +5,7 @@ use axum::http::StatusCode;
 
 use crate::AppState;
 use crate::http::error::{AppError, Problem};
-use crate::http::rate_limit::{Limited, Policy, Rule};
+use crate::http::rate_limit::{Limited, Policy, Rule, Scope};
 use crate::http::validation::ValidJson;
 use crate::users::requests::SignUpRequest;
 use crate::users::service;
@@ -15,6 +15,7 @@ pub struct SignUpLimit;
 impl Policy for SignUpLimit {
     const RULES: &'static [Rule] = &[Rule {
         name: "sign-up",
+        scope: Scope::Ip,
         window: Duration::from_secs(60),
         max: 3,
     }];

@@ -154,3 +154,94 @@ async fn two_ipv6_addresses_of_one_64_share_a_counter(pool: PgPool) {
     }
     assert_limited(&sign_up_from(&app, address(99), 3, &[]).await);
 }
+
+async fn confirm_from(app: &axum::Router, peer: IpAddr) -> Answer {
+    let body = json!({ "token": "a".repeat(43) });
+    dispatch(
+        app.clone(),
+        from_peer(
+            json_request("/email-verifications/confirmation", &body, &[]),
+            peer,
+        ),
+    )
+    .await
+}
+
+async fn fill_network(state: &clinicore_app::AppState, network: &str) {
+    let mut redis = state.redis.clone();
+    redis::cmd("SET")
+        .arg(format!("rate:email-confirmation:network:{network}"))
+        .arg(300)
+        .arg("EX")
+        .arg(60)
+        .exec_async(&mut redis)
+        .await
+        .expect("redis answers");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_fourth_link_request_from_one_ip_in_a_minute_is_refused(pool: PgPool) {
+    let app = app_on(pool);
+    let peer = random_ip();
+    let request = |index: usize| {
+        let body = json!({ "email": format!("pessoa{index}@exemplo.com") });
+        from_peer(json_request("/email-verifications", &body, &[]), peer)
+    };
+
+    for index in 0..3 {
+        let answer = dispatch(app.clone(), request(index)).await;
+        assert_eq!(answer.status, StatusCode::ACCEPTED);
+    }
+    assert_limited(&dispatch(app, request(3)).await);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_eleventh_confirmation_from_one_ip_in_a_minute_is_refused(pool: PgPool) {
+    let app = app_on(pool);
+    let peer = random_ip();
+
+    for _ in 0..10 {
+        assert_eq!(
+            confirm_from(&app, peer).await.status,
+            StatusCode::BAD_REQUEST
+        );
+    }
+    assert_limited(&confirm_from(&app, peer).await);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_full_ipv4_24_refuses_the_confirmation_of_every_address_in_it(pool: PgPool) {
+    let state = state_on(pool, &[]);
+    let [first, second, third]: [u8; 3] = rand::random();
+    fill_network(&state, &format!("{first}.{second}.{third}.0/24")).await;
+    let app = router(state);
+
+    let inside = IpAddr::from([first, second, third, 77]);
+    let outside = IpAddr::from([first, second, third.wrapping_add(1), 77]);
+
+    assert_limited(&confirm_from(&app, inside).await);
+    assert_eq!(
+        confirm_from(&app, outside).await.status,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_full_ipv6_48_refuses_the_confirmation_of_every_address_in_it(pool: PgPool) {
+    let state = state_on(pool, &[]);
+    let network: [u16; 3] = rand::random();
+    let address = |third: u16, host: u16| -> IpAddr {
+        IpAddr::from([network[0], network[1], third, 0xbbbb, 0, 0, 0, host])
+    };
+    let range = std::net::Ipv6Addr::from([network[0], network[1], network[2], 0, 0, 0, 0, 0]);
+    fill_network(&state, &format!("{range}/48")).await;
+    let app = router(state);
+
+    assert_limited(&confirm_from(&app, address(network[2], 1)).await);
+    assert_eq!(
+        confirm_from(&app, address(network[2].wrapping_add(1), 1))
+            .await
+            .status,
+        StatusCode::BAD_REQUEST
+    );
+}

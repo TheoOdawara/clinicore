@@ -19,6 +19,10 @@ impl Email {
         Some(Self(address))
     }
 
+    pub fn parse_field(raw: String) -> Result<Self, &'static str> {
+        Self::parse(&raw).ok_or("email")
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

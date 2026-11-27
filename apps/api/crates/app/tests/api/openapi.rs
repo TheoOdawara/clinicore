@@ -12,6 +12,16 @@ async fn the_document_lists_the_routes_and_their_schemas_outside_production() {
         let document = answer.json();
         assert!(document["paths"]["/health"]["get"].is_object());
         assert!(document["paths"]["/users"]["post"].is_object());
+        assert!(document["paths"]["/email-verifications"]["post"].is_object());
+        assert!(document["paths"]["/email-verifications/confirmation"]["post"].is_object());
+        assert_eq!(
+            document["components"]["schemas"]["EmailVerificationRequest"]["required"],
+            serde_json::json!(["email"])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["EmailVerificationConfirmationRequest"]["required"],
+            serde_json::json!(["token"])
+        );
         assert_eq!(
             document["components"]["schemas"]["SignUpRequest"]["required"],
             serde_json::json!(["name", "email", "password"])

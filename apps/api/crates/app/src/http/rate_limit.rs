@@ -9,8 +9,14 @@ use crate::AppState;
 use crate::http::client_ip::ClientIp;
 use crate::http::error::AppError;
 
+pub enum Scope {
+    Ip,
+    Network,
+}
+
 pub struct Rule {
     pub name: &'static str,
+    pub scope: Scope,
     pub window: Duration,
     pub max: u64,
 }
@@ -30,7 +36,11 @@ impl<P: Policy> FromRequestParts<AppState> for Limited<P> {
     ) -> Result<Self, Self::Rejection> {
         let Ok(client_ip) = ClientIp::from_request_parts(parts, state).await;
         for rule in P::RULES {
-            let key = format!("rate:{}:ip:{}", rule.name, client_ip.key());
+            let (scope, value) = match rule.scope {
+                Scope::Ip => ("ip", client_ip.key()),
+                Scope::Network => ("network", client_ip.network_key()),
+            };
+            let key = format!("rate:{}:{scope}:{value}", rule.name);
             hit(&state.redis, &key, rule.window, rule.max).await?;
         }
         Ok(Self(PhantomData))
