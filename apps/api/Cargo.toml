@@ -14,7 +14,10 @@ clinicore-core = { path = "crates/core" }
 argon2 = "=0.6.0"
 askama = { version = "=0.16.1", default-features = false, features = ["derive", "std"] }
 base64 = "=0.23.1"
+croner = { version = "=5.0.1", default-features = false, features = ["std", "jiff"] }
 email_address = "=0.2.10"
+jiff = { version = "=1.0.3", default-features = false, features = ["std", "tz-system", "tzdb-bundle-always"] }
+lettre = { version = "=0.11.24", default-features = false, features = ["builder", "smtp-transport", "pool", "tokio1", "tokio1-rustls-tls"] }
 rand = "=0.10.4"
 sha2 = "=0.11.1"
 unicode-normalization = "=0.1.26"

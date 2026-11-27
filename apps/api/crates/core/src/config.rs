@@ -40,6 +40,7 @@ pub struct WorkerConfig {
     pub log_level: LevelFilter,
     pub database_url: String,
     pub mail_from: String,
+    pub mail_redirect_to: Option<String>,
     pub smtp_host: String,
     pub smtp_port: u16,
     pub smtp_tls: SmtpTls,
@@ -72,6 +73,7 @@ const DATABASE_URL: &str = "DATABASE_URL";
 const JWT_SECRET: &str = "JWT_SECRET";
 const LOG_LEVEL: &str = "LOG_LEVEL";
 const MAIL_FROM: &str = "MAIL_FROM";
+const MAIL_REDIRECT_TO: &str = "MAIL_REDIRECT_TO";
 const PORT: &str = "PORT";
 const REDIS_URL: &str = "REDIS_URL";
 const SMTP_HOST: &str = "SMTP_HOST";
@@ -238,6 +240,10 @@ impl ApiConfig {
 }
 
 impl WorkerConfig {
+    pub fn from_env() -> Result<Self, InvalidEnvironment> {
+        Self::from_source(|name| std::env::var(name).ok())
+    }
+
     pub fn from_source(read: impl Fn(&str) -> Option<String>) -> Result<Self, InvalidEnvironment> {
         let mut reader = Reader::new(read);
         let app_env = reader.app_env();
@@ -247,6 +253,15 @@ impl WorkerConfig {
             MAIL_FROM,
             "expected a mailbox (Name <address@domain>)",
             |value| is_mailbox(&value).then_some(value),
+        );
+        let mail_redirect_to = reader.field(
+            MAIL_REDIRECT_TO,
+            "expected off, or an address outside production",
+            |value| match value.as_str() {
+                "off" => Some(None),
+                _ if app_env != Some(AppEnv::Production) && is_address(&value) => Some(Some(value)),
+                _ => None,
+            },
         );
         let smtp_host = reader.field(SMTP_HOST, "expected a hostname", |value| {
             is_hostname(&value).then_some(value)
@@ -271,6 +286,7 @@ impl WorkerConfig {
                 log_level: log_level?,
                 database_url: database_url?,
                 mail_from: mail_from?,
+                mail_redirect_to: mail_redirect_to?,
                 smtp_host: smtp_host?,
                 smtp_port: smtp_port?,
                 smtp_tls: smtp_tls?,
@@ -323,13 +339,14 @@ fn is_mailbox(value: &str) -> bool {
     else {
         return false;
     };
-    let Some((local, domain)) = address.rsplit_once('@') else {
+    !name.trim().is_empty() && is_address(address)
+}
+
+fn is_address(value: &str) -> bool {
+    let Some((local, domain)) = value.rsplit_once('@') else {
         return false;
     };
-    !name.trim().is_empty()
-        && !local.is_empty()
-        && !local.contains(char::is_whitespace)
-        && is_hostname(domain)
+    !local.is_empty() && !local.contains(char::is_whitespace) && is_hostname(domain)
 }
 
 fn parse_client_ip_source(value: &str) -> Option<ClientIpSource> {
@@ -381,6 +398,7 @@ mod tests {
                 "postgresql://clinicore:secret-value@localhost:5432/clinicore",
             ),
             (MAIL_FROM, "Clinicore <nao-responda@clinicore.com.br>"),
+            (MAIL_REDIRECT_TO, "off"),
             (SMTP_HOST, "localhost"),
             (SMTP_PORT, "1025"),
             (SMTP_TLS, "none"),
@@ -580,6 +598,7 @@ mod tests {
             config.mail_from,
             "Clinicore <nao-responda@clinicore.com.br>"
         );
+        assert_eq!(config.mail_redirect_to, None);
         assert_eq!(config.smtp_host, "localhost");
         assert_eq!(config.smtp_port, 1025);
         assert_eq!(config.smtp_tls, SmtpTls::None);
@@ -625,6 +644,7 @@ mod tests {
              DATABASE_URL: expected a PostgreSQL connection string (postgresql://…)\n  \
              LOG_LEVEL: expected one of error, warn, info, debug, trace, off\n  \
              MAIL_FROM: expected a mailbox (Name <address@domain>)\n  \
+             MAIL_REDIRECT_TO: expected off, or an address outside production\n  \
              SMTP_HOST: expected a hostname\n  \
              SMTP_PASSWORD: expected a non-empty string\n  \
              SMTP_PORT: expected an integer between 1 and 65535\n  \
@@ -642,6 +662,11 @@ mod tests {
             (MAIL_FROM, "Clinicore <secret value@clinicore.com.br>"),
             (MAIL_FROM, "Clinicore <secret-value@-bad.com>"),
             (MAIL_FROM, "Clinicore <@clinicore.com.br>"),
+            (MAIL_REDIRECT_TO, "secret-value"),
+            (
+                MAIL_REDIRECT_TO,
+                "Clinicore <secret-value@clinicore.com.br>",
+            ),
             (SMTP_HOST, "secret-value..com"),
             (SMTP_HOST, ""),
             (SMTP_PORT, "0"),
@@ -655,5 +680,30 @@ mod tests {
 
             assert_only_rejected(&message, name);
         }
+    }
+
+    #[test]
+    fn the_mail_redirect_is_an_address_outside_production_or_off() {
+        let mut source = worker();
+        source.insert(MAIL_REDIRECT_TO, "dev@exemplo.com");
+        assert_eq!(
+            load_worker(&source).map(|config| config.mail_redirect_to),
+            Ok(Some("dev@exemplo.com".to_owned()))
+        );
+
+        source.insert(APP_ENV, "production");
+        source.insert(SMTP_TLS, "tls");
+        let message = rejected_message(load_worker(&source).err());
+        assert_eq!(
+            message,
+            "Invalid environment:\n  \
+             MAIL_REDIRECT_TO: expected off, or an address outside production"
+        );
+
+        source.insert(MAIL_REDIRECT_TO, "off");
+        assert_eq!(
+            load_worker(&source).map(|config| config.mail_redirect_to),
+            Ok(None)
+        );
     }
 }

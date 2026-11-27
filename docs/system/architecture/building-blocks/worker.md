@@ -45,10 +45,11 @@ instância precise ver, purgar no boot, conectar no SMTP antes do primeiro envio
 
 ## Para mudar com segurança
 
-Rodar: `infisical run --path=/api -- cargo run -p clinicore-worker`. Em dev ele envia para o Mailpit do
-`apps/api/compose.yaml`, com `SMTP_TLS=none`, e nenhum e-mail sai da máquina; a caixa fica na porta
-`MAILPIT_UI_PORT`. Os testes ficam em `crates/worker/tests/worker/`,
-com as mesmas regras de teste da API, descritas no
+Rodar: `infisical run --path=/api -- cargo run -p clinicore-worker`. Em dev ele envia pelo SMTP do
+ambiente, e o `MAIL_REDIRECT_TO` troca o destinatário de todo e-mail por um endereço só, guardado no
+Infisical; nenhum e-mail chega ao endereço da conta. Em `production` essa variável só aceita `off`. Os
+testes ficam em `crates/worker/tests/worker/`, com um SMTP falso que grava as mensagens, e seguem as
+mesmas regras de teste da API, descritas no
 [`apps/api/AGENTS.md`](https://github.com/TheoOdawara/clinicore/blob/staging/apps/api/AGENTS.md). O
 horário, o fuso e a tabela de backoff são o comportamento: mudar qualquer um muda o que a spec 007
 decidiu.

@@ -6,7 +6,7 @@ de o app fazer qualquer coisa. Nenhuma tem valor padrão.
 | App | De onde vem | Onde é lida | Se falta |
 | --- | --- | --- | --- |
 | `apps/api` | variáveis do processo, injetadas pelo `infisical run` em dev e pelo orquestrador fora dele | `crates/core/src/config.rs` | escreve `Invalid environment:` com uma linha por variável e sai com código 1, antes do bind |
-| worker | as mesmas, pela mesma pasta `/api` do Infisical, mas só as nove que ele usa: `APP_ENV`, `LOG_LEVEL`, `DATABASE_URL`, `MAIL_FROM` e as cinco `SMTP_*`, que a API não lê | `crates/core/src/config.rs`, no `WorkerConfig` | o mesmo da API, antes de abrir conexão |
+| worker | as mesmas, pela mesma pasta `/api` do Infisical, mas só as dez que ele usa: `APP_ENV`, `LOG_LEVEL`, `DATABASE_URL`, `MAIL_FROM`, `MAIL_REDIRECT_TO` e as cinco `SMTP_*`, que a API não lê | `crates/core/src/config.rs`, no `WorkerConfig` | o mesmo da API, antes de abrir conexão |
 | `apps/web` | valores do build, pelo `--define` do Angular | `src/app/core/config/app-config.ts` | a validação do Zod falha no boot |
 | `apps/android` | `config/<ambiente>.properties`, validado pelo Gradle e posto no `BuildConfig` | `app/.../AppConfig.kt` | o build falha com a chave vazia |
 | `apps/ios` | `Config/<configuração>.xcconfig`, pelo `Info.plist` | `Clinicore/AppConfig.swift` | o app não sobe e diz a chave que falta |
