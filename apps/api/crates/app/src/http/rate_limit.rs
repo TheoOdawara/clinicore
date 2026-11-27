@@ -78,3 +78,42 @@ pub async fn hit(
     }
     Ok(())
 }
+
+pub async fn refund(
+    redis: &ConnectionManager,
+    key: &str,
+    window: Duration,
+) -> Result<(), AppError> {
+    let mut connection = redis.clone();
+    redis::pipe()
+        .atomic()
+        .cmd("SET")
+        .arg(key)
+        .arg(0)
+        .arg("EX")
+        .arg(window.as_secs())
+        .arg("NX")
+        .ignore()
+        .decr(key, 1)
+        .ignore()
+        .query_async::<()>(&mut connection)
+        .await
+        .map_err(|error| {
+            tracing::error!(%error, "could not refund the request to its limit");
+            AppError::ServiceUnavailable
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_refund_to_an_unreachable_redis_is_a_service_unavailable() {
+        let redis = clinicore_core::redis::connect("redis://127.0.0.1:1").expect("the url parses");
+
+        let refunded = refund(&redis, "rate:test:ip:unknown", Duration::from_secs(60)).await;
+
+        assert!(matches!(refunded, Err(AppError::ServiceUnavailable)));
+    }
+}

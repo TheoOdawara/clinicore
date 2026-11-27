@@ -2,6 +2,7 @@ pub mod credentials;
 pub mod email_outbox;
 pub mod email_verifications;
 pub mod http;
+pub mod sessions;
 pub mod users;
 
 mod health;
@@ -28,6 +29,7 @@ pub fn router(state: AppState) -> Router {
         .merge(health::routes())
         .merge(users::routes())
         .merge(email_verifications::routes())
+        .merge(sessions::routes())
         .split_for_parts();
     let routes = match state.config.app_env {
         AppEnv::Production => routes,

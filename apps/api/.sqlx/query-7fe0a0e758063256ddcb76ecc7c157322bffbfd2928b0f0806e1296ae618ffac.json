@@ -1,0 +1,43 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sessions (user_id, client, refresh_token_hash, expires_at, ip_address, user_agent)\n        VALUES ($1, $2, $3, now() + $4::interval, $5::text::inet, $6)\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "sessions",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "session_client",
+            "kind": {
+              "Enum": [
+                "web",
+                "mobile"
+              ]
+            }
+          }
+        },
+        "Bytea",
+        "Interval",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7fe0a0e758063256ddcb76ecc7c157322bffbfd2928b0f0806e1296ae618ffac"
+}

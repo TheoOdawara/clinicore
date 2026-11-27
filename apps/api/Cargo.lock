@@ -309,6 +309,7 @@ dependencies = [
  "base64 0.23.1",
  "clinicore-core",
  "email_address",
+ "hmac",
  "http-body-util",
  "rand",
  "redis",
@@ -316,6 +317,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sqlx",
+ "subtle",
  "thiserror",
  "tokio",
  "tower",
@@ -2294,6 +2296,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c14b15dffa2f4bd712103e857140aa04a4f2ff6e955c77d7eb8e53ee02a3b64"
 dependencies = [
  "js-sys",
+ "serde_core",
  "wasm-bindgen",
 ]
 

@@ -141,7 +141,7 @@ No app, nenhum `Set-Cookie`, e o corpo ganha os tokens:
 
 Os schemas do OpenAPI são `SignUpRequest`, `EmailVerificationRequest`,
 `EmailVerificationConfirmationRequest`, `SignInRequest`, `RefreshTokensRequest`, `SessionResponse`,
-`UserResponse` e `TokensResponse`.
+`RefreshTokensResponse` (o `{ "tokens": … }` do refresh do app), `UserResponse` e `TokensResponse`.
 
 **Erro**, em toda rota: Problem Details da RFC 9457, em `application/problem+json`, com
 `type` `tag:clinicore.com.br,2026:<slug>`, o `title` fixo da seção Erros e o `status`. A validação traz
